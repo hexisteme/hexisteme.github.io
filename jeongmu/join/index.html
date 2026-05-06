@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>정총무 정산방 초대</title>
+    <meta name="apple-itunes-app" content="app-id=6762071132">
+    <meta name="description" content="정총무 정산방에 초대받았어요. 회식·MT·여행 N빵을 게임으로 정리.">
+    <meta property="og:title" content="정총무 정산방 초대">
+    <meta property="og:description" content="회식·MT·여행 N빵을 게임으로 정리하는 앱, 정총무에서 만나요.">
+    <meta property="og:image" content="https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/512x512.png">
+    <link rel="canonical" href="https://hexisteme.github.io/jeongmu/join/">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body { min-height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", system-ui, sans-serif;
+            background: linear-gradient(160deg, #FFF8E7 0%, #FFE5D0 60%, #FFD3B0 100%);
+            color: #2D2A26;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .card {
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: 0 12px 40px rgba(255, 107, 107, 0.18);
+            padding: 32px 24px;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+        }
+        .icon { font-size: 56px; margin-bottom: 12px; line-height: 1; }
+        .title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            color: #2D2A26;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #8B7B6E;
+            margin-bottom: 24px;
+        }
+        .room {
+            background: linear-gradient(135deg, #FFE5D0 0%, #FFD3B0 100%);
+            border-radius: 16px;
+            padding: 18px 16px;
+            margin-bottom: 22px;
+        }
+        .room-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #C97B5A;
+            margin-bottom: 6px;
+            word-break: keep-all;
+        }
+        .room-meta {
+            font-size: 13px;
+            color: #8B7B6E;
+            font-weight: 500;
+        }
+        .cta {
+            display: block;
+            background: linear-gradient(135deg, #FF6B6B 0%, #FF8C5A 100%);
+            color: #fff;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 12px;
+            transition: transform 0.1s ease;
+        }
+        .cta:active { transform: scale(0.97); }
+        .hint {
+            font-size: 12px;
+            color: #8B7B6E;
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+        .divider {
+            height: 1px;
+            background: #E8DDD0;
+            margin: 18px 0 14px;
+        }
+        .lang-en {
+            font-size: 11px;
+            color: #B8A99A;
+            line-height: 1.5;
+            margin-top: 4px;
+        }
+        .feature-row {
+            display: flex;
+            justify-content: space-around;
+            margin: 16px 0 4px;
+            padding: 0 4px;
+        }
+        .feature {
+            font-size: 11px;
+            color: #8B7B6E;
+            text-align: center;
+            flex: 1;
+        }
+        .feature-emoji {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="icon">💸</div>
+        <h1 class="title">정산방에 초대받았어요</h1>
+        <p class="subtitle">정총무 · 카드 문자만 붙여도 자동 정산</p>
+
+        <div class="room">
+            <div id="room-name" class="room-name">정총무 정산방</div>
+            <div id="room-meta" class="room-meta">멤버·지출 정보 불러오는 중</div>
+        </div>
+
+        <div class="feature-row">
+            <div class="feature"><span class="feature-emoji">🧾</span>카드 SMS<br>자동 인식</div>
+            <div class="feature"><span class="feature-emoji">🎮</span>룰렛·사다리<br>N빵 게임</div>
+            <div class="feature"><span class="feature-emoji">🌐</span>오프라인<br>완전 지원</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <a id="cta" class="cta" href="https://apps.apple.com/kr/app/id6762071132">
+            App Store에서 정총무 받기
+        </a>
+
+        <p class="hint">
+            이미 정총무가 설치되어 있다면<br>
+            메시지로 받은 초대 링크를 <b>다시 한번</b> 눌러주세요.
+        </p>
+        <p class="lang-en">
+            Already installed? Re-tap the invite link in your messages.
+        </p>
+    </main>
+
+    <script>
+        // base64-URL-safe (RFC 4648 §5) → JSON
+        function b64urlDecode(s) {
+            s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+            while (s.length % 4) s += '=';
+            try {
+                // UTF-8 safe — ms 이름에 한글 포함 가능
+                const bin = atob(s);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                return new TextDecoder('utf-8').decode(bytes);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        (function decodeAndRender() {
+            const params = new URLSearchParams(window.location.search);
+            const d = params.get('d');
+            if (!d) return;
+            const text = b64urlDecode(d);
+            if (!text) return;
+            let payload;
+            try { payload = JSON.parse(text); } catch (e) { return; }
+
+            // 정산방 이름
+            if (payload.tn) {
+                const safe = String(payload.tn).slice(0, 60);
+                document.getElementById('room-name').textContent = '‘' + safe + '’';
+            }
+
+            // 멤버 수 + 지출 수 + 기간
+            const memberCount = Array.isArray(payload.ms) ? payload.ms.length : 0;
+            const expenseCount = Array.isArray(payload.es) ? payload.es.length : 0;
+            const parts = [];
+            if (memberCount > 0) parts.push('멤버 ' + memberCount + '명');
+            if (expenseCount > 0) parts.push('지출 ' + expenseCount + '건');
+            if (typeof payload.sd === 'number' && typeof payload.ed === 'number') {
+                const sd = new Date(payload.sd * 1000);
+                const ed = new Date(payload.ed * 1000);
+                const fmt = (d) => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+                if (sd.getTime() === ed.getTime()) {
+                    parts.push(fmt(sd));
+                } else {
+                    parts.push(fmt(sd) + ' ~ ' + fmt(ed));
+                }
+            }
+            if (parts.length > 0) {
+                document.getElementById('room-meta').textContent = parts.join(' · ');
+            }
+        })();
+    </script>
+</body>
+</html>
