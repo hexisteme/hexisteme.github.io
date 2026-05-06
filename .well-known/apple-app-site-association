@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["3JUTK5JBLY.com.hexisteme.secretaryfortrip"],
+        "components": [
+          {
+            "/": "/jeongmu/join",
+            "?": { "d": "?*" },
+            "comment": "정총무 정산방 invite — d 쿼리 파라미터로 base64 페이로드 전달"
+          }
+        ]
+      }
+    ]
+  }
+}
