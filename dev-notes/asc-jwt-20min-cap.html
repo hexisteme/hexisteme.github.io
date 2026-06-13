@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>App Store Connect API JWT 20분(1200초) Hard Cap — dev-notes</title>
+<meta name="description" content="ASC API JWT의 exp는 iat+1200초를 초과할 수 없습니다. 1201초 이상이면 유효한 ES256 서명이어도 401 NOT_AUTHORIZED. 배치 스크립트 작성 시 주의사항 실증.">
+<style>
+body{font:15px/1.75 -apple-system,Pretendard,sans-serif;max-width:760px;margin:0 auto;padding:28px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:24px;line-height:1.3}h2{font-size:18px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:4px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13px}
+pre{background:#f6f8fa;border-radius:6px;padding:14px;overflow-x:auto;font-size:13px}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f6f8fa}
+.note{background:#fff8e1;border-left:3px solid #f0a500;padding:10px 14px;margin:12px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#777}.foot{font-size:13px;color:#777;border-top:1px solid #ddd;margin-top:32px;padding-top:12px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"App Store Connect API JWT 20분(1200초) Hard Cap","datePublished":"2026-06-13","dateModified":"2026-06-13","inLanguage":"ko","author":{"@type":"Person","name":"hexisteme"},"about":"ASC API JWT exp 한도 1200초 실증, 401 오류 원인"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"App Store Connect API에서 401 NOT_AUTHORIZED가 발생하는데 JWT 서명은 맞습니다. 원인이 뭔가요?","acceptedAnswer":{"@type":"Answer","text":"JWT payload의 exp 값이 iat + 1200초(20분)를 초과하면 서명이 유효한 ES256이어도 401이 납니다. Apple ASC API만의 특수 정책으로, DeviceCheck/App Attest 등 다른 Apple JWT와 다릅니다. exp를 iat + 1200 이하로 설정하면 해결됩니다."}},{"@type":"Question","name":"ASC API JWT를 30분으로 설정하면 왜 실패하나요?","acceptedAnswer":{"@type":"Answer","text":"App Store Connect API는 JWT exp - iat ≤ 1200초를 hard cap으로 강제합니다. 1800초(30분)로 설정하면 API 호출 시 즉시 401 NOT_AUTHORIZED — Authentication credentials are missing or invalid 오류가 납니다. 배치 스크립트에서 여러 호출을 묶을 때도 각 호출마다 1200초 이내 exp의 토큰을 사용해야 합니다."}}]}
+</script>
+</head>
+<body>
+<h1>App Store Connect API JWT 20분(1200초) Hard Cap</h1>
+<p class="meta"><a href="../">← hexisteme</a> · 2026-06-13 · iOS 배포 실증 노트</p>
+
+<p>ASC API에서 <code>401 NOT_AUTHORIZED — Authentication credentials are missing or invalid</code>가 발생하는데 JWT 서명(ES256)은 정확한 경우, <strong>JWT의 exp 값이 원인</strong>일 가능성이 높습니다.</p>
+
+<h2>규칙: exp ≤ iat + 1200초</h2>
+<p>Apple ASC API는 <code>exp - iat ≤ 1200</code>초(20분)를 <strong>영구 hard cap</strong>으로 강제합니다.</p>
+
+<table>
+<tr><th>exp 설정값</th><th>결과</th></tr>
+<tr><td>iat + 1200 (정확히 20분)</td><td>✅ 정상</td></tr>
+<tr><td>iat + 1199 (약간 짧게)</td><td>✅ 정상 (권장 — 시계 오차 방지)</td></tr>
+<tr><td>iat + 1201 이상</td><td>❌ 401 NOT_AUTHORIZED (서명 유효해도)</td></tr>
+<tr><td>iat + 1800 (30분)</td><td>❌ 401 (배치 전체 실패)</td></tr>
+</table>
+
+<div class="note">
+<strong>주의</strong>: 이 한도는 ASC API에만 적용됩니다. Apple의 다른 JWT(DeviceCheck, App Attest, Apple Pay)는 다른 정책을 씁니다. ASC API 전용 cap입니다.
+</div>
+
+<h2>올바른 JWT 생성 (Python 예시)</h2>
+<pre><code>import jwt, time
+
+iat = int(time.time())
+payload = {
+    "iss": ISSUER_ID,
+    "iat": iat,
+    "exp": iat + 1180,  # 1200 이하, 약간의 시계 오차 마진
+    "aud": "appstoreconnect-v1"
+}
+token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256",
+                   headers={"kid": KEY_ID})</code></pre>
+
+<h2>배치 스크립트 주의사항</h2>
+<p>스크린샷 업로드 같은 12개+ 연속 API 호출 배치에서는 <strong>각 요청마다 토큰을 재발급</strong>하거나, 배치 시작 시 1180초 토큰을 발급해 전체를 20분 이내에 완료해야 합니다. 일부 호출은 성공하고 일부는 401이 나는 패턴이 이 cap 때문인 경우가 많습니다.</p>
+
+<div class="foot">hexisteme dev-notes — iOS 배포 실증에서 얻은 노트 · <a href="../">목록</a> · CC-BY-NC-4.0</div>
+</body>
+</html>
