@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>App Store Connect 동시 리뷰 제출 한도 완전 정리 — dev-notes</title>
+<meta name="description" content="ASC API 409 오류(CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED, MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED) 원인과 해결. Version 1개 동시 진행 한도 + reviewSubmissions 2 in-flight / 5 total 한도 실증.">
+<style>
+body{font:15px/1.75 -apple-system,Pretendard,sans-serif;max-width:760px;margin:0 auto;padding:28px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:24px;line-height:1.3}h2{font-size:18px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:4px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13px}
+pre{background:#f6f8fa;border-radius:6px;padding:14px;overflow-x:auto;font-size:13px}
+.err{color:#d73a49;font-weight:600}.ok{color:#22863a;font-weight:600}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f6f8fa}
+.note{background:#fff8e1;border-left:3px solid #f0a500;padding:10px 14px;margin:12px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#777}.foot{font-size:13px;color:#777;border-top:1px solid #ddd;margin-top:32px;padding-top:12px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"App Store Connect 동시 리뷰 제출 한도 완전 정리","datePublished":"2026-06-13","dateModified":"2026-06-13","inLanguage":"ko","author":{"@type":"Person","name":"hexisteme"},"about":"App Store Connect API reviewSubmissions 한도, 409 오류 해결"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"App Store Connect에서 409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED 오류가 발생하는 이유는?","acceptedAnswer":{"@type":"Answer","text":"ASC는 앱 하나에 reviewSubmissions를 최대 5개까지만 만들 수 있습니다(READY_FOR_REVIEW + WAITING_FOR_REVIEW + IN_REVIEW 합계). 이 한도를 초과하면 POST /v1/reviewSubmissions 호출 시 409 오류가 납니다. READY_FOR_REVIEW 상태의 orphan submission을 정리하거나 7일 자동 만료를 기다려야 합니다."}},{"@type":"Question","name":"ASC API 409 MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED는 뭔가요?","acceptedAnswer":{"@type":"Answer","text":"WAITING_FOR_REVIEW + IN_REVIEW 상태의 reviewSubmissions가 동시에 2개를 초과하면 발생합니다. 기존 submission이 완료(APPROVED/REJECTED)될 때까지 새로운 submit(PATCH submitted=true)은 막힙니다."}},{"@type":"Question","name":"READY_FOR_REVIEW orphan submission을 삭제하는 방법이 있나요?","acceptedAnswer":{"@type":"Answer","text":"DELETE 요청은 403 거부, PATCH canceled=true도 409 거부됩니다. ASC 웹 UI에서 수동 취소하거나 7일 자동 만료를 기다리는 것이 유일한 방법입니다(2026년 기준 실증)."}},{"@type":"Question","name":"CPP(Custom Product Page)와 PPO를 같은 reviewSubmission에 묶을 수 있나요?","acceptedAnswer":{"@type":"Answer","text":"가능합니다. 하나의 reviewSubmission에 appStoreVersion + appCustomProductPageVersion + appStoreVersionExperiment + appEvent를 함께 추가할 수 있습니다. 5 total 한도 소진을 줄이는 데 유리합니다."}}]}
+</script>
+</head>
+<body>
+<h1>App Store Connect 동시 리뷰 제출 한도 완전 정리</h1>
+<p class="meta"><a href="../">← hexisteme</a> · 2026-06-13 · iOS 배포 실증 노트</p>
+
+<p>ASC에서 <code class="err">409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code> 또는 <code class="err">409 MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED</code> 오류를 만났다면, ASC에는 두 가지 독립적인 한도가 존재합니다.</p>
+
+<h2>한도 A — App Version 동시 진행 1개</h2>
+<p><code>PREPARE_FOR_SUBMISSION</code> / <code>WAITING_FOR_REVIEW</code> / <code>IN_REVIEW</code> 중 어느 상태든 <strong>version은 동시에 1개만</strong> 허용됩니다.</p>
+<pre><code># 이미 in-flight version이 있는 상태에서 새 version 생성 시:
+POST /v1/appStoreVersions
+→ 409 STATE_NOT_SUITABLE
+   "You cannot create a new version of the App in the current state"</code></pre>
+<p>해결: 기존 version을 심사 완료하거나 개발자 취소(<code>PATCH developerRejected=true</code>) 후 신규 생성.</p>
+
+<h2>한도 B — reviewSubmissions 2 in-flight / 5 total</h2>
+<table>
+<tr><th>한도</th><th>대상 상태</th><th>초과 시 오류</th></tr>
+<tr><td>in-flight 최대 2개</td><td>WAITING_FOR_REVIEW + IN_REVIEW 합계</td><td><code>MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED</code></td></tr>
+<tr><td>total 최대 5개</td><td>위 2개 + READY_FOR_REVIEW orphan 합계</td><td><code>CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code></td></tr>
+</table>
+
+<div class="note">
+<strong>함정</strong>: READY_FOR_REVIEW orphan submission은 <code>DELETE</code> 시 <strong>403 거부</strong>, <code>PATCH canceled=true</code>도 <strong>409 거부</strong>됩니다. ASC 웹 UI 수동 취소 또는 7일 자동 만료 대기 외에 방법이 없습니다.
+</div>
+
+<h2>reviewSubmission item 타입 (한 submission에 묶을 수 있는 것들)</h2>
+<ul>
+<li><code>appStoreVersion</code> — 앱 버전 업데이트</li>
+<li><code>appCustomProductPageVersion</code> — CPP 변형</li>
+<li><code>appStoreVersionExperiment</code> — PPO A/B 실험</li>
+<li><code>appEvent</code> — 인앱 이벤트</li>
+</ul>
+<p>CPP 4개 + PPO 1개를 <strong>하나의 submission에 묶으면</strong> 5 total 한도 소진을 줄일 수 있습니다.</p>
+
+<h2>빠른 cadence 앱의 실전 대처법</h2>
+<p>30일에 7개 버전을 출시하는 빠른 cadence에서는 항상 이 한도에 걸립니다. 실전 체크리스트:</p>
+<ol>
+<li>배포 전 <code>GET /v1/apps/{id}/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION,WAITING_FOR_REVIEW,IN_REVIEW</code>로 in-flight 확인</li>
+<li>orphan <code>GET /v1/reviewSubmissions?filter[state]=READY_FOR_REVIEW</code>로 잔여 5 total 슬롯 확인</li>
+<li>orphan 있으면 웹 UI 취소 먼저, 없으면 바로 진행</li>
+</ol>
+
+<div class="foot">hexisteme dev-notes — iOS 배포 실증에서 얻은 노트 · <a href="../">목록</a> · CC-BY-NC-4.0</div>
+</body>
+</html>
