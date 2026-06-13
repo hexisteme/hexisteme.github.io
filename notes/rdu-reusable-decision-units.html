@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RDU: Reusable Decision Units for Consistent AI Agents — hexisteme notes</title>
+<meta name="description" content="How to make AI agents give consistent decisions across sessions using Reusable Decision Units (RDU) — versioned, domain-agnostic rules stored as files. A pattern for eliminating drift in long-running Claude Code deployments.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"RDU: Reusable Decision Units for Consistent AI Agents","datePublished":"2026-06-13","dateModified":"2026-06-13","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Reusable Decision Units pattern for AI agent consistency, Claude Code, multi-agent systems","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do you make AI agents give consistent decisions across sessions?","acceptedAnswer":{"@type":"Answer","text":"Encode decisions as Reusable Decision Units (RDUs) — versioned markdown files with frontmatter (id, domain, version, trigger), a trigger section describing when to apply, a situation section explaining the context, and a judgment section with the committed decision. Store them in a stable location the agent can access at session start. When the trigger condition matches, the rule fires automatically, not from memory."}},{"@type":"Question","name":"What is a Reusable Decision Unit (RDU)?","acceptedAnswer":{"@type":"Answer","text":"An RDU is a domain-agnostic, versioned rule file that encodes a single committed judgment. It has: (1) a specific trigger — a grep-able token or condition, (2) a situation description — why this judgment was needed, (3) a judgment — the committed decision (no 'it depends'), (4) an action — what to do when triggered, (5) evolution metadata — version, created date, source. It differs from documentation because it fires automatically on trigger, not on reading."}},{"@type":"Question","name":"How does RDU differ from just writing prompts or CLAUDE.md rules?","acceptedAnswer":{"@type":"Answer","text":"CLAUDE.md rules are global and always-loaded, making them expensive. RDU files are trigger-specific — only the relevant rules fire. Each RDU is versioned (v1, v2...) with explicit evolution conditions, preventing silent drift. RDUs also have explicit falsification conditions: every judgment states under what circumstances it should be superseded."}},{"@type":"Question","name":"Can RDUs work across different domains like iOS, trading, and AI?","acceptedAnswer":{"@type":"Answer","text":"Yes. The pattern is domain-agnostic. Our 140+ RDU library spans iOS deployment (ASC API limits, fastlane patterns), trading (no LLM probability production, walkforward validation), AI agent design (council patterns, hook architectures), real estate analysis, and game development. The trigger-judgment structure works identically across all domains."}}]}
+</script>
+</head>
+<body>
+
+<h1>RDU: Reusable Decision Units for Consistent AI Agents</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 13, 2026 · 8 min read</p>
+
+<p>If you use AI agents daily, you've hit this: the agent gives a correct, well-reasoned answer on Monday. On Friday, in a fresh session, it gives a different answer to the same question. Not wrong, just <em>different</em> — shaped by whatever context happened to come up first.</p>
+
+<p>This is drift. And it's not fixable with better prompts or more examples in CLAUDE.md. Those approaches scale poorly and don't version. Here's what does work: <strong>Reusable Decision Units (RDUs)</strong>.</p>
+
+<h2>The Problem with "Just Write It Down"</h2>
+
+<p>The naive fix is to document decisions. Write a CLAUDE.md or AGENTS.md entry: "When X happens, do Y." Two problems:</p>
+
+<ol>
+<li><strong>Documentation requires reading.</strong> Rules buried in a long markdown file compete for attention. They get read once, then drift as the file grows.</li>
+<li><strong>No version control on the judgment itself.</strong> If you discover a better approach, you overwrite the old rule silently. There's no history of <em>why</em> the judgment changed.</li>
+</ol>
+
+<p>The fix is to treat decisions like code: versioned, trigger-driven, with explicit evolution conditions.</p>
+
+<h2>What an RDU Looks Like</h2>
+
+<p>Each RDU is a markdown file with YAML frontmatter:</p>
+
+<pre><code>---
+id: RDU-047
+title: App Store Connect in-flight limits — 1 version / 2+5 reviewSubmissions
+status: active
+domain: [ios, deploy, app-store-connect]
+version: 3
+created: 2026-04-28
+last_applied: 2026-05-10
+sources: ["ASC API docs", "direct curl validation 2026-05-10"]
+---
+
+## Trigger
+- `app_versions_create` returns 409 STATE_NOT_SUITABLE
+- User wants to ship CPP + PPO + new version simultaneously
+
+## Situation
+ASC enforces two independent concurrency limits:
+- **Version**: only 1 in-flight (PREPARE/WAITING/IN_REVIEW) per platform
+- **reviewSubmissions**: max 2 in-flight, max 5 total
+
+READY_FOR_REVIEW orphans can't be deleted via API (403) or canceled (409).
+They auto-expire after 7 days or require manual ASC web UI action.
+
+## Judgment
+**Check both limits before any submission attempt.**
+Bundle CPP + PPO + appEvent into one reviewSubmission to minimize slot consumption.
+Never assume a clean slate — always query current state first.
+
+## Action
+```bash
+# Check in-flight versions
+GET /v1/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION,WAITING_FOR_REVIEW,IN_REVIEW
+
+# Check reviewSubmission slots
+GET /v1/reviewSubmissions?filter[state]=READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW
+```</code></pre>
+
+<p>The key structural elements:</p>
+
+<table>
+<tr><th>Section</th><th>Purpose</th><th>Anti-pattern it prevents</th></tr>
+<tr><td><code>Trigger</code></td><td>Grep-able condition that fires the rule</td><td>Rules that require the agent to "remember" to check</td></tr>
+<tr><td><code>Situation</code></td><td>Why this judgment was needed</td><td>Rules that become obsolete without anyone noticing</td></tr>
+<tr><td><code>Judgment</code></td><td>Committed decision, no hedging</td><td>"It depends" answers that push the decision back to the user</td></tr>
+<tr><td><code>version: N</code></td><td>Explicit evolution tracking</td><td>Silent rewrites that erase why a decision was made</td></tr>
+<tr><td><code>sources</code></td><td>Provenance of the judgment</td><td>Rules derived from hallucinated "facts"</td></tr>
+</table>
+
+<h2>The Four Core Principles</h2>
+
+<h3>1. No Absolutes</h3>
+<p>Every RDU is the best judgment <em>at the time of writing</em>. The meta-rule (RDU-000) states: <em>"절대란 절대로 없다"</em> — there are absolutely no absolutes. Every rule carries implicit evolution conditions: if a better approach is found, propose a version bump or supersession. Never silent-rewrite.</p>
+
+<h3>2. Trigger Specificity</h3>
+<p>A trigger must be a grep-able token, not a vague description. "When working on iOS" is not a trigger. "When <code>app_versions_create</code> returns 409" is. If the trigger can't be matched by a regex, the rule won't fire reliably.</p>
+
+<h3>3. Proactive Registration</h3>
+<p>When the agent notices it's re-deriving a judgment it's made before — or the user signals "this is useful, save it" — the agent should propose an RDU draft immediately, not wait. The pattern: <em>propose → user approves → write file.</em> No silent creation.</p>
+
+<h3>4. Domain-Agnostic</h3>
+<p>The trigger-situation-judgment structure works across all domains. Our library of 140+ RDUs spans:</p>
+<ul>
+<li>iOS deployment — ASC API limits, fastlane patterns, Swift 6 concurrency</li>
+<li>Trading — no LLM probability production (RDU-021), walkforward validation required (RDU-022)</li>
+<li>AI agent design — council orchestration patterns, stop hook architectures</li>
+<li>Game development — Godot platformer feel numbers (coyote time 100ms, jump buffer 150ms)</li>
+<li>Real estate — LTV computation, loan headroom calculation</li>
+</ul>
+
+<h2>How It Works in Practice</h2>
+
+<p>At session start, the agent loads <code>~/.claude/skills/rdu/index.md</code> — a single-line-per-rule index. When a trigger condition appears in the conversation, the agent reads the full RDU file. The index stays short; the full rules only load when relevant.</p>
+
+<p>For evolution: when a newer approach is discovered, the agent proposes a diff:</p>
+
+<pre><code># RDU evolution example
+- version: 2 → version: 3
+- Judgment updated: fastlane now works in READY_FOR_SALE state (ASC MCP doesn't)
+- History: v2 assumed ASC MCP parity — incorrect for Editable Properties
+- Source added: direct fastlane validation 2026-05-10</code></pre>
+
+<div class="note">
+<strong>Key insight</strong>: The value isn't in having 140 rules. It's in the <em>trigger mechanism</em>. A rule that fires automatically is worth 10× a rule that requires the agent to remember to check.
+</div>
+
+<h2>What RDUs Don't Solve</h2>
+
+<div class="warn">
+RDUs encode <em>repeatable judgments</em>. They don't handle novel situations, value questions (user preferences, risk appetite), or decisions that genuinely depend on runtime context. For those, the agent should ask — but RDUs reduce the surface area of what actually needs asking.
+</div>
+
+<h2>Getting Started</h2>
+
+<p>Minimal viable setup: a single directory (<code>~/.claude/skills/rdu/rules/</code>), an index file, and a template. When you catch yourself re-explaining the same judgment twice — or when you fix a bug caused by forgetting a previous decision — that's your signal to write an RDU.</p>
+
+<p>The template we use:</p>
+
+<pre><code>---
+id: RDU-XXX
+title: [one-line description]
+status: active
+domain: [list of domains]
+version: 1
+created: YYYY-MM-DD
+last_applied: YYYY-MM-DD
+sources: ["where did this judgment come from"]
+---
+
+## Trigger
+[Specific, grep-able condition]
+
+## Situation
+[Why was this judgment needed? What was the failure mode without it?]
+
+## Judgment
+**[Committed decision — no hedging, no "it depends" without explicit conditions]**
+
+## Action
+[Concrete steps when trigger fires]</code></pre>
+
+<p><a href="falsifier-driven-ai.html">→ Next: Falsifier-Driven AI Decisions</a> · <a href="stop-hook-gates.html">→ Stop Hooks as Behavioral Gates</a></p>
+
+<div class="foot">hexisteme notes — engineering patterns from building AI agent systems · <a href="../">home</a> · CC-BY 4.0</div>
+</body>
+</html>
