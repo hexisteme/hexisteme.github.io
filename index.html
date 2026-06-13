@@ -1,15 +1,42 @@
-<!DOCTYPE html><html lang=ko><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="naver-site-verification" content="542205a40ef682174bc6ca3e61806ca5bfb075e4" />
 <title>hexisteme — 결정론 데이터 프로젝트</title>
-<meta name=description content="서울 부동산 데이터 스냅샷(일일 자동발행)과 결정론 의사결정 파이프라인 코드.">
-<style>body{font:16px/1.7 -apple-system,Pretendard,sans-serif;max-width:680px;margin:0 auto;padding:40px 24px;color:#1a1a1a}a{color:#0969da}li{margin:8px 0}.d{font-size:13px;color:#666;margin-top:30px}</style>
-</head><body>
+<meta name="description" content="서울 부동산 구조점수·실거래 데이터(일일 자동발행), 맛집 노이즈 필터·무광고 큐레이션(맛플), iOS/Godot 개발 실증 노트.">
+<style>
+body{font:16px/1.7 -apple-system,Pretendard,sans-serif;max-width:680px;margin:0 auto;padding:40px 24px;color:#1a1a1a}
+a{color:#0969da}li{margin:8px 0}
+h2{font-size:17px;margin-top:28px;border-bottom:1px solid #eee;padding-bottom:4px}
+.d{font-size:13px;color:#666;margin-top:30px}
+</style>
+</head>
+<body>
 <h1>hexisteme</h1>
-<p>결정론(LLM 재계산 0) 데이터 프로젝트 허브.</p>
+<p>결정론(LLM 재계산 0) 데이터 프로젝트 + 실증 노트 허브.</p>
+
+<h2>부동산 데이터</h2>
 <ul>
 <li><a href="/seoul-re-snapshot/">서울 부동산 데이터 스냅샷</a> — 자체 10축 구조점수 + 국토부 실거래 band, 일일 자동발행 (<a href="/seoul-re-snapshot/methodology.html">방법론</a>)</li>
-<li><a href="https://github.com/hexisteme/agent-realestate">agent-realestate</a> — 생성 파이프라인 코드 (MIT, 의존성 제로, 30초 데모)</li>
+<li><a href="https://github.com/hexisteme/agent-realestate">agent-realestate</a> — 생성 파이프라인 코드 (MIT, 의존성 제로)</li>
 </ul>
-<p class=d>개인 연구·정보 공유 — 투자자문 아님. 콘텐츠 CC-BY-NC-4.0 · 코드 MIT.</p>
-</body></html>
+
+<h2>맛집·음식점</h2>
+<ul>
+<li><a href="/matple/">맛플 (Matple)</a> — 광고·협찬 안 받은 first-party 솔직 후기로 데이트·특별한 날 실패 없는 한 끼</li>
+<li><a href="/matple/noise-filter.html">협찬 리뷰·평점 조작 걸러내는 방법</a> — 공정위 표준문구 탐지 + 망고플레이트 7년 부검</li>
+<li><a href="/matple/methodology.html">맛플 방법론</a> — 신호공개·방문 증명·반증조건</li>
+</ul>
+
+<h2>iOS / Godot 개발 실증 노트</h2>
+<ul>
+<li><a href="/dev-notes/asc-in-flight-limits.html">App Store Connect 동시 리뷰 제출 한도</a> — 409 오류 원인과 해결</li>
+<li><a href="/dev-notes/asc-jwt-20min-cap.html">ASC API JWT 20분(1200초) Hard Cap</a> — 401 NOT_AUTHORIZED 원인</li>
+<li><a href="/dev-notes/godot-platformer-feel-numbers.html">Godot 4 플랫포머 feel 5요소 수치 기준</a> — coyote time·jump buffer·비대칭 중력</li>
+</ul>
+
+<p class="d">개인 연구·정보 공유 — 투자자문 아님. 콘텐츠 CC-BY-NC-4.0 · 코드 MIT.</p>
+</body>
+</html>
