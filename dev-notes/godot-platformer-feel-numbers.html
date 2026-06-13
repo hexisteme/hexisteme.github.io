@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Godot 4 플랫포머 게임 feel 5요소 수치 기준 — dev-notes</title>
+<meta name="description" content="Coyote time 100ms, Jump buffer 150ms, 변수 점프 vy×0.45, 중력 비율 1.8×, 화면 흔들림. Mario/Celeste 수준 조작감을 Godot 4 GDScript로 구현하는 실증 수치.">
+<style>
+body{font:15px/1.75 -apple-system,Pretendard,sans-serif;max-width:760px;margin:0 auto;padding:28px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:24px;line-height:1.3}h2{font-size:18px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:4px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13px}
+pre{background:#f6f8fa;border-radius:6px;padding:14px;overflow-x:auto;font-size:13px}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f6f8fa}
+.meta{font-size:13px;color:#777}.foot{font-size:13px;color:#777;border-top:1px solid #ddd;margin-top:32px;padding-top:12px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Godot 4 플랫포머 게임 feel 5요소 수치 기준","datePublished":"2026-06-13","dateModified":"2026-06-13","inLanguage":"ko","author":{"@type":"Person","name":"hexisteme"},"about":"Coyote time, Jump buffer, Variable jump, 비대칭 중력, Screen shake 수치 기준 Godot 4 GDScript"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Godot 4에서 coyote time은 몇 ms로 설정하나요?","acceptedAnswer":{"@type":"Answer","text":"100ms(0.1초)가 업계 표준입니다. 플랫폼 엣지에서 떨어진 직후 100ms 이내에 점프 입력을 받으면 정상 점프로 처리합니다. GDScript에서는 var coyote_timer: float = 0.0으로 선언하고 _physics_process에서 coyote_timer -= delta로 감소시킵니다."}},{"@type":"Question","name":"Jump buffer를 Godot 4에서 구현하는 방법은?","acceptedAnswer":{"@type":"Answer","text":"jump_buffer_timer: float 변수를 두고, 점프 입력 시 jump_buffer_timer = 0.15(150ms)로 설정, 매 프레임 delta만큼 감소, 착지 순간 jump_buffer_timer > 0이면 즉시 점프합니다. 이렇게 하면 착지 직전에 누른 점프 입력이 착지 후 자동 발동됩니다."}},{"@type":"Question","name":"Godot 플랫포머에서 점프가 마리오처럼 안 느껴지는 이유는?","acceptedAnswer":{"@type":"Answer","text":"가장 많이 빠지는 요소는 비대칭 중력입니다. 상승 중력과 하강 중력을 다르게 설정해야 합니다(하강 시 1.5~2.0배). 또한 variable jump(점프 키 release 시 vy를 0.45배로 줄이기), coyote time(100ms), jump buffer(150ms)도 함께 있어야 Mario 수준의 feel이 납니다."}}]}
+</script>
+</head>
+<body>
+<h1>Godot 4 플랫포머 게임 feel 5요소 수치 기준</h1>
+<p class="meta"><a href="../">← hexisteme</a> · 2026-06-13 · Godot 4 게임개발 실증 노트</p>
+
+<p>플랫포머의 "손에 감기는 조작감"은 5가지 역학의 조합입니다. 하나라도 빠지면 사용자는 "어색하다"고 느끼지만 무엇이 문제인지는 짚지 못합니다. Mario(1985)~Celeste(2018)까지 업계 표준으로 정착된 수치를 Godot 4 GDScript로 정리합니다.</p>
+
+<h2>5요소 수치 기준표</h2>
+<table>
+<tr><th>#</th><th>요소</th><th>수치 기본값</th><th>효과</th></tr>
+<tr><td>1</td><td><strong>Coyote time</strong></td><td>100ms (0.1s)</td><td>플랫폼 엣지에서 떨어진 직후 이 시간 안에 점프 → 정상 점프</td></tr>
+<tr><td>2</td><td><strong>Jump buffer</strong></td><td>150ms (0.15s)</td><td>착지 직전 점프 입력 → 착지 순간 자동 발동</td></tr>
+<tr><td>3</td><td><strong>Variable jump height</strong></td><td>release 시 vy × 0.45</td><td>짧게 탭 = 낮은 점프, 홀드 = 높은 점프</td></tr>
+<tr><td>4</td><td><strong>비대칭 중력</strong></td><td>하강 시 상승 중력 × 1.8</td><td>묵직한 착지감, apex에서 hang time</td></tr>
+<tr><td>5</td><td><strong>Screen shake on impact</strong></td><td>0.15s, intensity 6~12</td><td>피격·착지 임팩트 시 카메라 흔들림</td></tr>
+</table>
+
+<h2>GDScript 구현 (CharacterBody2D 기반)</h2>
+<pre><code>extends CharacterBody2D
+
+const SPEED := 200.0
+const JUMP_VELOCITY := -400.0
+const GRAVITY_UP := 900.0     # 상승 중력
+const GRAVITY_DOWN := 1620.0  # 하강 중력 (상승 × 1.8)
+
+const COYOTE_TIME := 0.10     # 100ms
+const JUMP_BUFFER := 0.15     # 150ms
+const VARIABLE_JUMP_MULT := 0.45
+
+var coyote_timer := 0.0
+var jump_buffer_timer := 0.0
+var was_on_floor := false
+
+func _physics_process(delta: float) -> void:
+    # 중력 (비대칭)
+    var grav = GRAVITY_UP if velocity.y < 0 else GRAVITY_DOWN
+    if not is_on_floor():
+        velocity.y += grav * delta
+
+    # Coyote time 갱신
+    if is_on_floor():
+        coyote_timer = COYOTE_TIME
+    else:
+        coyote_timer = maxf(0.0, coyote_timer - delta)
+
+    # Jump buffer 갱신
+    jump_buffer_timer = maxf(0.0, jump_buffer_timer - delta)
+    if Input.is_action_just_pressed("jump"):
+        jump_buffer_timer = JUMP_BUFFER
+
+    # 점프 발동 (coyote + buffer 조합)
+    if jump_buffer_timer > 0.0 and coyote_timer > 0.0:
+        velocity.y = JUMP_VELOCITY
+        jump_buffer_timer = 0.0
+        coyote_timer = 0.0
+
+    # Variable jump (키 놓으면 상승 속도 축약)
+    if Input.is_action_just_released("jump") and velocity.y < 0:
+        velocity.y *= VARIABLE_JUMP_MULT
+
+    # 수평 이동
+    var dir := Input.get_axis("move_left", "move_right")
+    velocity.x = dir * SPEED
+
+    move_and_slide()</code></pre>
+
+<h2>Screen shake (Camera2D 기반)</h2>
+<pre><code>extends Camera2D
+
+var shake_intensity := 0.0
+var shake_duration := 0.0
+
+func shake(intensity: float, duration: float) -> void:
+    shake_intensity = intensity
+    shake_duration = duration
+
+func _process(delta: float) -> void:
+    if shake_duration > 0.0:
+        shake_duration -= delta
+        offset = Vector2(
+            randf_range(-shake_intensity, shake_intensity),
+            randf_range(-shake_intensity, shake_intensity)
+        )
+    else:
+        offset = Vector2.ZERO</code></pre>
+
+<p>착지 시 <code>$Camera.shake(8.0, 0.15)</code>, 피격 시 <code>$Camera.shake(12.0, 0.15)</code>로 호출합니다.</p>
+
+<h2>수치 조정 기준</h2>
+<ul>
+<li>Coyote time: 80~120ms 범위. 120ms 이상이면 "공중에서 점프 가능" 으로 느껴짐</li>
+<li>Jump buffer: 100~200ms 범위. 200ms 이상이면 너무 예민</li>
+<li>Variable jump 계수: 0.40~0.50. 낮을수록 탭 점프가 짧아짐</li>
+<li>비대칭 중력 비율: 1.5~2.0. Celeste는 약 2.0, Mario는 약 1.8</li>
+</ul>
+
+<div class="foot">hexisteme dev-notes — Godot 4 게임개발 실증 노트 · <a href="../">목록</a> · CC-BY-NC-4.0</div>
+</body>
+</html>
