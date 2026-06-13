@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Code Stop Hooks as Behavioral Gates — hexisteme notes</title>
+<meta name="description" content="How to use Claude Code stop hooks to enforce behavioral constraints without relying on prompt instructions. Covers AND-gate design, the nag-once pattern, and two production examples: decision-ownership enforcement and sycophancy prevention.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Claude Code Stop Hooks as Behavioral Gates","datePublished":"2026-06-13","dateModified":"2026-06-13","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Claude Code stop hooks, behavioral gates, AND-gate pattern, sycophancy prevention, decision ownership enforcement","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do Claude Code stop hooks work?","acceptedAnswer":{"@type":"Answer","text":"Claude Code stop hooks are shell scripts that run after Claude generates a response, before it's shown to the user. They receive the response text via stdin (as JSON), can inspect it, and either allow it (exit 0) or block it (exit 2 with a message). When blocked, Claude sees the hook's message and must revise. Stop hooks are configured in settings.json under the 'hooks' key with 'Stop' event type."}},{"@type":"Question","name":"What is the AND-gate pattern for Claude Code hooks?","acceptedAnswer":{"@type":"Answer","text":"A naive hook that triggers on a regex match alone has a high false-positive rate — it blocks valid responses that happen to contain matching text. The AND-gate pattern requires two conditions to both be true: (1) the response matches a behavioral anti-pattern regex, AND (2) the session transcript shows prior data-collection tool calls. This ensures the hook only fires when Claude is actually deferring after doing analysis — not when it's asking a legitimate clarifying question."}},{"@type":"Question","name":"How do you prevent Claude from flip-flopping when challenged?","acceptedAnswer":{"@type":"Answer","text":"A stop hook that detects sycophantic capitulation: when the user's last message contains a challenge (disagreement markers), AND Claude's response contains capitulation markers (sudden reversal language) WITHOUT verification markers (new evidence, source citations, calculation results), the hook blocks the response and requires Claude to either maintain the position with grounds, or change it with explicit evidence. Measured baseline: 98% position reversal rate when challenged (Anthropic 2310.13548)."}},{"@type":"Question","name":"What is the nag-once pattern in Claude Code hooks?","acceptedAnswer":{"@type":"Answer","text":"Instead of blocking every matching response indefinitely, nag-once blocks the first occurrence (writes a shasum of the violation to a temp file), then allows subsequent identical violations. This prevents the agent from getting stuck in a correction loop while still surfacing the issue once. The shasum check: if the hash of the problematic response already exists in /tmp/.hook_nag_*, allow it through."}}]}
+</script>
+</head>
+<body>
+
+<h1>Claude Code Stop Hooks as Behavioral Gates</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 13, 2026 · 9 min read</p>
+
+<p>Prompt instructions are soft constraints. They shape behavior probabilistically. When RLHF-trained patterns conflict with your instructions — deference to the user, hedged language, option-listing instead of committing — the RLHF training usually wins, especially under pressure.</p>
+
+<p>Claude Code's stop hooks are hard constraints. They run after the response is generated, before the user sees it, and can force a revision. Used well, they enforce behaviors that prompts can't reliably maintain.</p>
+
+<h2>How Stop Hooks Work</h2>
+
+<p>A stop hook is a shell script registered in <code>settings.json</code>:</p>
+
+<pre><code>// ~/.claude/settings.json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "~/.claude/hooks/stop_combined.sh"
+        }]
+      }
+    ]
+  }
+}</code></pre>
+
+<p>The hook script receives the full session context as JSON on stdin. It can:</p>
+<ul>
+<li>Exit <code>0</code> — allow the response through</li>
+<li>Exit <code>2</code> — block and inject a correction message Claude must address</li>
+</ul>
+
+<p>The correction message appears as feedback, and Claude generates a new response. The user sees only the final, corrected response — the hook intervention is invisible.</p>
+
+<h2>The AND-Gate Pattern</h2>
+
+<p>A hook that fires on a regex match alone has a fundamental problem: false positives. A rule like "block responses that ask the user to decide" will also block legitimate clarifying questions ("what's your timeline for this?").</p>
+
+<p>The AND-gate pattern requires two independent conditions:</p>
+
+<pre><code>CONDITION_1: Response text matches behavioral anti-pattern regex
+     AND
+CONDITION_2: Session transcript shows prior data-collection tool calls
+
+# Only fire if BOTH are true
+if [[ $RESPONSE_MATCHES == "1" && $HAD_TOOL_CALLS == "1" ]]; then
+    block_with_message
+fi</code></pre>
+
+<p>The tool-call evidence gate is key. If Claude is asking a clarifying question <em>without</em> having done analysis, it's a legitimate question. If it's deferring to the user <em>after</em> running web searches and reading files, it's offloading work it should be completing.</p>
+
+<h2>Production Example 1: Decision Ownership Enforcement</h2>
+
+<p>The problem: RLHF trains models to defer judgment back to the user. "Which approach would you prefer?" after analyzing two options. "It depends on your priorities" after having all the information needed to recommend one. This isn't politeness — it's transferring cognitive labor.</p>
+
+<p>The hook <code>stop_decision_ownership_check.sh</code>:</p>
+
+<pre><code>#!/bin/bash
+# Read session JSON from stdin
+SESSION=$(cat)
+
+# Extract last response text
+RESPONSE=$(echo "$SESSION" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+msgs = d.get('messages', [])
+# find last assistant message
+for m in reversed(msgs):
+    if m.get('role') == 'assistant':
+        content = m.get('content', '')
+        if isinstance(content, list):
+            print(' '.join(b.get('text','') for b in content if b.get('type')=='text'))
+        else:
+            print(content)
+        break
+")
+
+# Check for deference patterns
+DEFER_REGEX='(어느.*(좋아|나을|선택)|당신이.*(정하|결정)|뭐가.*좋을|what.*prefer|which.*would you|up to you|your call|depends on your)'
+if ! echo "$RESPONSE" | grep -qiE "$DEFER_REGEX"; then
+    exit 0  # No match, allow
+fi
+
+# Check for prior tool evidence (AND gate)
+TOOL_CALLS=$(echo "$SESSION" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+count = sum(1 for m in d.get('messages',[])
+            for b in (m.get('content',[]) if isinstance(m.get('content'),[]) else [])
+            if isinstance(b,dict) and b.get('type') in ('tool_use','tool_result'))
+print(count)
+" 2>/dev/null || echo "0")
+
+if [[ "$TOOL_CALLS" -lt 2 ]]; then
+    exit 0  # No tool evidence, likely a legitimate question
+fi
+
+# Nag-once: compute hash, check if already nag'd
+HASH=$(echo "$RESPONSE" | sha256sum | cut -c1-16)
+NAG_FILE="/tmp/.hook_nag_ownership_$HASH"
+if [[ -f "$NAG_FILE" ]]; then
+    exit 0  # Already nag'd this exact response
+fi
+touch "$NAG_FILE"
+
+echo "DECISION_OWNERSHIP: You collected data then deferred the decision back. Commit to a single recommendation with one-line rationale and one falsifiable condition under which you'd be wrong." &gt;&amp;2
+exit 2</code></pre>
+
+<h2>Production Example 2: Sycophancy Prevention (Challenge-Reverify Gate)</h2>
+
+<p>The problem: when challenged, Claude reverses positions at a 98% rate (Anthropic internal evaluation, 2310.13548). Not because the challenge provided new evidence — but because RLHF rewarded agreement. The capitulation is invisible in the output (Claude doesn't say "you're right, I was wrong") — it just quietly shifts.</p>
+
+<p>The hook <code>stop_challenge_reverify.sh</code> detects the pattern:</p>
+
+<pre><code># Gate: (challenge in user message) AND (capitulation in response) AND (no verification evidence)
+
+CHALLENGE_REGEX='(아닌데|그건 아니|틀렸|잘못|다시 생각|actually|that'\''s wrong|not quite|disagree|incorrect)'
+CAPITULATE_REGEX='(맞네요|맞습니다|수정|맞는 말씀|사실|좋은 지적|you'\''re right|good point|I was wrong|actually yes|I misread)'
+VERIFY_REGEX='(검증|계산|확인|출처|논문|측정|verified|calculated|source|measured|according to)'
+
+if echo "$USER_MSG" | grep -qiE "$CHALLENGE_REGEX"; then
+    if echo "$RESPONSE" | grep -qiE "$CAPITULATE_REGEX"; then
+        if ! echo "$RESPONSE" | grep -qiE "$VERIFY_REGEX"; then
+            # All three conditions met: challenge + capitulation + no verification
+            echo "CHALLENGE_REVERIFY: Position changed without new evidence. Choose:
+HOLD — restate original position with grounds
+CHANGE — cite specific new evidence or calculation that overrides original" &gt;&amp;2
+            exit 2
+        fi
+    fi
+fi</code></pre>
+
+<p>The intentional false-negative: this hook can't catch silent capitulation (changing tone without explicit reversal language). That's acceptable — the priority is minimizing false positives on legitimate corrections.</p>
+
+<h2>The Nag-Once Pattern</h2>
+
+<p>Blocking indefinitely creates a loop: Claude keeps generating blocked responses, the user gets no output. The nag-once pattern breaks the loop:</p>
+
+<ol>
+<li>First violation: compute sha256 of the response, write to <code>/tmp/.hook_nag_{hash}</code>, block with message</li>
+<li>Second attempt with same response: hash file exists, exit 0 (allow through)</li>
+<li>Different response: new hash, new nag file, block again if still violating</li>
+</ol>
+
+<p>This surfaces the issue once and lets the conversation continue. The user can choose to push back on the hook's correction; that's fine.</p>
+
+<h2>What Hooks Can't Do</h2>
+
+<div class="warn">
+Hooks operate on the final response text. They can't see the model's reasoning before output, can't inject into the middle of a generation, and can't prevent the model from starting down a problematic path — only from completing it. For deeper behavioral constraints, the work happens at system prompt and RDU level; hooks are the last line of enforcement.
+</div>
+
+<h2>Combining Hooks</h2>
+
+<p>Run multiple gates in a single <code>stop_combined.sh</code> that calls each gate in sequence. Return on first block — don't let multiple hooks pile correction messages. Ordering matters: run the highest-priority gates first.</p>
+
+<pre><code>#!/bin/bash
+# stop_combined.sh — ordered gate sequence
+SESSION=$(cat)
+
+# Gate 1: Decision ownership (highest priority)
+RESULT=$(echo "$SESSION" | ~/.claude/hooks/stop_decision_ownership_check.sh 2>&amp;1)
+if [[ $? -eq 2 ]]; then echo "$RESULT" &gt;&amp;2; exit 2; fi
+
+# Gate 2: Sycophancy / challenge reverify
+RESULT=$(echo "$SESSION" | ~/.claude/hooks/stop_challenge_reverify.sh 2>&amp;1)
+if [[ $? -eq 2 ]]; then echo "$RESULT" &gt;&amp;2; exit 2; fi
+
+exit 0</code></pre>
+
+<p><a href="rdu-reusable-decision-units.html">← RDU: Reusable Decision Units</a> · <a href="falsifier-driven-ai.html">← Falsifier-Driven AI Decisions</a></p>
+
+<div class="foot">hexisteme notes — engineering patterns from building AI agent systems · <a href="../">home</a> · CC-BY 4.0</div>
+</body>
+</html>
