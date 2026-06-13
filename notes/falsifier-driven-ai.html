@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Falsifier-Driven AI Decisions: No Claim Without Falsification Conditions — hexisteme notes</title>
+<meta name="description" content="How to prevent LLM agents from generating hallucinated probabilities and unsupported causal claims — by requiring falsification conditions before any decision is accepted. Includes real metrics: council_repeat_rate 0.44, empty_consensus_rate 0.354, Brier score tracking.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff0f0;border-left:3px solid #d73a49;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Falsifier-Driven AI Decisions: No Claim Without Falsification Conditions","datePublished":"2026-06-13","dateModified":"2026-06-13","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Falsifier-driven AI decision making, LLM hallucination prevention, multi-agent verification, Brier score","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do you prevent LLM agents from generating fake probabilities?","acceptedAnswer":{"@type":"Answer","text":"Encode a hard rule: LLMs cannot produce numerical probabilities. Instead, they must produce conditional scenario branches (if X then Y, if A then B) with explicit falsification conditions. Any claim that includes a percentage without a calibrated statistical source is automatically blocked. This is implemented as RDU-021 in our system: 'LLMs do not generate financial probability numbers. If a probability is needed, a statistical model generates it and Brier score validation is required before exposure.'"}},{"@type":"Question","name":"What is a falsification condition in AI agent design?","acceptedAnswer":{"@type":"Answer","text":"A falsification condition is a concrete, observable event or threshold that, if reached, would invalidate the current decision. For example: 'This technology adoption decision is falsified if the library has no releases for 6 months OR if a critical security CVE is published with no patch within 30 days.' Without falsification conditions, AI decisions are unfalsifiable claims dressed as analysis."}},{"@type":"Question","name":"What is the empty_consensus problem in multi-agent AI systems?","acceptedAnswer":{"@type":"Answer","text":"Empty consensus happens when multiple AI agents agree on a claim that isn't verifiable. Our measured empty_consensus_rate was 0.354 — 35% of multi-agent council responses had low auto-verifiability (<0.20) despite apparent consensus. The fix is not model diversity but verification bridges: routing council conclusions through formal verification engines (sympy, wolfram, lean) before accepting them as load-bearing decisions."}},{"@type":"Question","name":"How do you track whether AI agent decisions are calibrated?","acceptedAnswer":{"@type":"Answer","text":"Brier score tracking: record every probabilistic claim the system makes (even when forced through scenario branches), then measure actual outcomes. Our finance-journal ledger stores EntryThesis records with falsifier conditions, tracks which falsifiers triggered, and computes rolling Brier scores. An agent that can't be measured by Brier score is producing narrative, not prediction."}}]}
+</script>
+</head>
+<body>
+
+<h1>Falsifier-Driven AI Decisions: No Claim Without Falsification Conditions</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 13, 2026 · 10 min read</p>
+
+<p>LLMs generate confident-sounding probabilities. "There's a 70% chance this stock moves up." "This approach will probably work." These numbers feel like analysis. They're not — they're language modeling. The model has learned that confident numeric claims sound authoritative; RLHF has rewarded that pattern.</p>
+
+<p>The fix isn't better prompting. It's a structural constraint: <strong>no claim is accepted without explicit falsification conditions</strong>.</p>
+
+<h2>The Core Principle</h2>
+
+<p>Karl Popper's falsifiability criterion, applied to AI agent outputs: a claim that cannot be falsified is not a prediction — it's a narrative. For AI agents making consequential decisions, this means every accepted claim must answer:</p>
+
+<blockquote><em>Under what observable conditions would this claim be false?</em></blockquote>
+
+<p>Without that answer, the claim cannot be acted on. It can be noted, logged as uncertain, or escalated — but not used as the basis for a decision.</p>
+
+<h2>Three Concrete Rules (RDU-021, 022, 023)</h2>
+
+<h3>Rule 1: No LLM Probability Production (RDU-021)</h3>
+<p>The agent cannot produce numerical probabilities in any consequential domain (finance, deployment decisions, technology adoption). When a probability is needed:</p>
+<ul>
+<li>A statistical model produces it — not the language model</li>
+<li>Brier score validation is required before exposure</li>
+<li>The LLM's role is to <em>interpret</em> the number, not generate it</li>
+</ul>
+
+<pre><code># ❌ Blocked output
+"BTC has a 70% chance of moving up in the next 2 weeks."
+
+# ✅ Required format instead
+Scenario A (upward): requires X AND Y to materialize.
+  Leading indicators currently showing: [observable signals]
+Scenario B (sideways): ...
+Scenario C (downward): ...
+Note: this system does not produce probabilities.</code></pre>
+
+<h3>Rule 2: Walkforward Validation Required (RDU-022)</h3>
+<p>Any quantitative strategy or model must pass walkforward validation before deployment — training and validation windows separated, evaluated on truly out-of-sample future data. In-sample backtests are not evidence.</p>
+
+<h3>Rule 3: Correlation ≠ Causation Enforcement (RDU-023)</h3>
+<p>Co-occurring events cannot be labeled as causal without explicit causal identification. The agent must label observations as:</p>
+
+<table>
+<tr><th>Label</th><th>Meaning</th><th>Action allowed</th></tr>
+<tr><td><code>FACT</code></td><td>Directly observed, source cited</td><td>Use in decisions</td></tr>
+<tr><td><code>INFERENCE</code></td><td>Derived from facts, assumption stated</td><td>Use with explicit caveat</td></tr>
+<tr><td><code>UNIDENTIFIED</code></td><td>Correlation only, causal mechanism unknown</td><td>Log, do not act</td></tr>
+<tr><td><code>SPURIOUS</code></td><td>Co-occurrence, no causal mechanism</td><td>Discard</td></tr>
+</table>
+
+<h2>The Falsifier Protocol: Applied Beyond Finance</h2>
+
+<p>The same structure works across all decision domains. A falsifier has three required slots:</p>
+
+<pre><code>falsifier:
+  condition: [observable event that invalidates the thesis]
+  threshold: [measurable value, not vague]
+  evaluation_date: [concrete date to check]
+
+# Example: technology adoption decision
+falsifier:
+  condition: >
+    Library has no releases for 6 months, OR
+    Critical CVE published with no patch in 30 days, OR
+    Primary maintainer announces deprecation
+  threshold: any of the above
+  evaluation_date: 2026-09-13</code></pre>
+
+<p>A thesis without a falsifier is not a thesis — it's an opinion. We enforce this at the pre-decision gate: any load-bearing decision (deployment, investment, architecture change) that lacks explicit falsifier conditions is blocked.</p>
+
+<h2>The Empty Consensus Problem</h2>
+
+<p>Multi-agent systems introduce a specific failure mode: <strong>empty consensus</strong>. Multiple agents agree on a claim — but the claim isn't actually verifiable.</p>
+
+<p>Our measured metrics from a 8-persona wisdom council system:</p>
+
+<table>
+<tr><th>Metric</th><th>Observed value</th><th>Threshold</th><th>Status</th></tr>
+<tr><td><code>empty_consensus_rate</code></td><td>0.354</td><td>&lt; 0.30</td><td>⚠️ Over threshold</td></tr>
+<tr><td><code>council_repeat_rate</code></td><td>0.44–0.48</td><td>&lt; 0.10</td><td>🔴 4.4× threshold</td></tr>
+<tr><td><code>outcome_report_rate</code></td><td>0.036</td><td>&gt; 0.70</td><td>🔴 Under threshold</td></tr>
+</table>
+
+<p>The insight from these numbers: <strong>model diversity doesn't fix empty consensus</strong>. Adding more diverse models to a council doesn't reduce the rate at which they agree on unverifiable claims. The fix is verification — routing council conclusions through formal engines.</p>
+
+<h2>Verification Bridges</h2>
+
+<p>For any council conclusion that is load-bearing (consequential decision, money, deployment) and contains mathematical or logical claims, we route through a verification bridge before accepting the conclusion:</p>
+
+<ul>
+<li><strong>Arithmetic claims</strong> → sympy-mcp or wolfram-alpha</li>
+<li><strong>Formal logic claims</strong> → lean-lsp</li>
+<li><strong>Empirical claims</strong> → cross-reference with primary sources, not web search summaries</li>
+</ul>
+
+<p>The verification result feeds back via <code>report_outcome</code> — closing the loop and improving future council calibration. Without this feedback, the <code>outcome_report_rate</code> stays near zero (measured: 0.036), meaning the council never learns from its errors.</p>
+
+<div class="warn">
+<strong>The real bottleneck isn't model quality — it's verifiability.</strong> A unanimous council conclusion that can't be verified is worth less than a single verified calculation. Most of our empty_consensus cases were claims that <em>sounded</em> like analysis but couldn't be checked against any ground truth.
+</div>
+
+<h2>Practical Implementation</h2>
+
+<p>The minimal implementation:</p>
+
+<ol>
+<li>Add a gate before any decision is accepted: does it have a falsifier condition?</li>
+<li>Block LLM probability production at the system prompt level — not with instructions, but with a stop hook that intercepts outputs containing unsourced percentages</li>
+<li>Build a ledger: store every load-bearing decision with its falsifier, evaluation date, and outcome</li>
+<li>Close the loop: when evaluation dates arrive, check falsifiers and update the ledger</li>
+</ol>
+
+<p>The ledger is the most important part. Without it, falsifiers are just good intentions — stated conditions that never get checked.</p>
+
+<p><a href="rdu-reusable-decision-units.html">← RDU: Reusable Decision Units</a> · <a href="stop-hook-gates.html">→ Stop Hooks as Behavioral Gates</a></p>
+
+<div class="foot">hexisteme notes — engineering patterns from building AI agent systems · <a href="../">home</a> · CC-BY 4.0</div>
+</body>
+</html>
