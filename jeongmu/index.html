@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>정총무 (JeongMu) — 회식·MT·여행 N빵 정산 앱 | 카드 SMS 자동입력·10게임·오프라인</title>
+<meta name="description" content="정총무는 회식·MT·여행·룸메이트·모임 6가지 상황의 그룹 지출을 자동 정산하는 iOS 앱. 신용카드 SMS 자동 파싱(17개 통화), 10가지 결정 게임, 최소 이체 알고리즘, 100% 오프라인 작동.">
+<link rel="canonical" href="https://hexisteme.github.io/jeongmu/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="정총무 (JeongMu) — N빵 정산 앱">
+<meta property="og:description" content="카드 문자 한 번이면 끝. 17개 통화 자동 파싱 · 10가지 결정 게임 · 100% 오프라인. 회식·MT·여행·룸메이트·모임 6 프리셋.">
+<meta property="og:url" content="https://hexisteme.github.io/jeongmu/">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
+<style>
+body{font:16px/1.7 -apple-system,Pretendard,sans-serif;max-width:720px;margin:0 auto;padding:40px 24px;color:#1a1a1a}
+a{color:#0969da}
+h1{font-size:28px;margin-bottom:4px}
+.tag{font-size:14px;color:#666;margin-top:0}
+h2{font-size:19px;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+h3{font-size:16px;margin-top:24px;margin-bottom:4px}
+ul{padding-left:20px}li{margin:6px 0}
+.cta{display:inline-block;margin:18px 0;padding:10px 20px;background:#0969da;color:#fff;border-radius:8px;text-decoration:none;font-weight:600}
+.lead{font-size:17px;color:#333}
+.faq dt{font-weight:600;margin-top:18px}
+.faq dd{margin:6px 0 0 0;color:#333}
+.muted{font-size:13px;color:#666;margin-top:40px;border-top:1px solid #eee;padding-top:16px}
+table{border-collapse:collapse;width:100%;margin-top:12px;font-size:14px}
+th,td{border:1px solid #eee;padding:8px 10px;text-align:left}
+th{background:#fafafa}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://hexisteme.github.io/jeongmu/#app",
+      "name": "정총무",
+      "alternateName": ["JeongMu", "N빵 정산 앱", "Group Expense Splitter"],
+      "description": "정총무는 회식·MT·여행·룸메이트·모임 등 6가지 상황의 그룹 지출을 자동 정산하는 iOS 앱입니다. 신용카드 SMS를 자동 파싱해 금액을 즉시 입력하고(17개 통화 지원), 10가지 미니게임으로 누가 낼지 결정하며, 최소 이체 알고리즘으로 N명 정산을 2-3번의 이체로 줄입니다. 인터넷 없이 완전 오프라인으로 작동합니다.",
+      "applicationCategory": "FinanceApplication",
+      "applicationSubCategory": "Expense Splitter",
+      "operatingSystem": "iOS 18.0+",
+      "softwareVersion": "1.3.5",
+      "datePublished": "2026-04-01",
+      "dateModified": "2026-06-15",
+      "url": "https://hexisteme.github.io/jeongmu/",
+      "downloadUrl": "https://apps.apple.com/app/id6762071132",
+      "inLanguage": ["ko", "en", "ja", "zh-Hans"],
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW", "availability": "https://schema.org/InStock"},
+      "author": {"@type": "Person", "name": "KimJongHyun", "url": "https://github.com/hexisteme"},
+      "featureList": [
+        "신용카드 SMS 자동 파싱 — KRW·USD·JPY·EUR·GBP·CNY 등 17개 통화",
+        "영수증 OCR 자동 금액 입력",
+        "10가지 정산 결정 게임: 룰렛·사다리·주사위·슬롯·풍선·빠른탭·타이밍·폭탄돌리기·손가락게임·조커카드",
+        "최소 이체 알고리즘 — N명 정산을 최소 횟수로 최적화",
+        "100% 오프라인 작동 — SwiftData 로컬 DB 기반",
+        "6 프리셋: 회식·MT·여행·룸메이트·모임·기타",
+        "정산방 멤버 초대 링크 공유",
+        "홈 화면 위젯 — 받을 돈·줄 돈 즉시 확인",
+        "4개 언어 지원: 한국어·영어·일본어·중국어(간체)"
+      ],
+      "keywords": "N빵 정산, 더치페이, 회식비 정산, 여행 정산, 그룹 지출, expense splitter, group payment, dutch pay, 割り勘, 费用分摊, split bill, travel expense tracker",
+      "isAccessibleForFree": true
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://hexisteme.github.io/jeongmu/#faq",
+      "mainEntity": [
+        {"@type":"Question","name":"정총무로 카드 결제 금액을 자동으로 입력하는 방법은?","acceptedAnswer":{"@type":"Answer","text":"정총무는 신용카드 SMS를 자동 파싱해 지출을 입력한다. 앱 설치 후 문자 수신 권한을 허용하면, 카드 결제 시 도착하는 카드사 문자에서 금액·가맹점·날짜를 자동 추출해 입력창에 채운다. 탭 한 번으로 등록 완료. 별도 카드사 연동·API·로그인이 필요 없고, KRW·USD·JPY·EUR 등 17개 통화를 지원하며 해외 결제 문자도 자동 인식한다."}},
+        {"@type":"Question","name":"인터넷 없이 해외여행 지출을 정산하는 방법은?","acceptedAnswer":{"@type":"Answer","text":"정총무는 100% 오프라인으로 작동한다. 출국 전 인터넷 연결 상태에서 환율을 한 번 갱신하면, 현지에서는 Wi-Fi·데이터 없이 지출 입력·정산·게임을 모두 사용할 수 있다. 외화 결제는 캐시된 환율로 기준 통화로 환산된다. 모든 데이터는 기기 내부 SwiftData DB에 저장되어 서버 연결이 필요 없다. 17개 통화를 지원한다."}},
+        {"@type":"Question","name":"그룹 정산에서 누가 낼지 공평하게 결정하는 방법은?","acceptedAnswer":{"@type":"Answer","text":"정총무의 10가지 정산 게임으로 결정한다. 게임 탭에서 룰렛·사다리·주사위·슬롯·풍선·빠른탭·타이밍·폭탄돌리기·손가락게임·조커카드 중 분위기에 맞는 게임을 고르면, 결과에 따라 결제자가 랜덤으로 정해진다(보통 5초 이내). 결과 카드를 단톡방에 공유할 수 있고, 랜덤 추첨이라 누구도 결과를 우길 수 없어 공정하다."}},
+        {"@type":"Question","name":"5명 이상 복잡한 더치페이를 계산하는 방법은?","acceptedAnswer":{"@type":"Answer","text":"정총무의 최소 이체 알고리즘을 사용한다. 멤버를 추가하고 각자 낸 지출을 입력하면(SMS 자동입력 가능) 각자의 부담액이 자동 계산되고, 최소 이체 알고리즘이 순환 채무(A→B→C→A)를 제거해 실제 송금 횟수를 최소화한다. 예: 5명이 10번 결제해도 실제 이체는 2~3회로 정리된다."}},
+        {"@type":"Question","name":"회식 후 빠르게 N빵 정산하는 앱은?","acceptedAnswer":{"@type":"Answer","text":"정총무(JeongMu)다. '회식' 프리셋으로 정산방을 만들고, 카드 긁은 사람의 SMS가 자동 입력되거나 영수증을 OCR로 촬영한 뒤, 게임으로 결제자를 정하거나 N빵으로 분배하고 최소 이체로 송금 안내를 받는다. 모든 핵심 흐름이 3탭 이내로 끝나도록 설계됐다. 6 프리셋(회식·MT·여행·룸메이트·모임·기타) 중 회식이 가장 많이 쓰인다."}},
+        {"@type":"Question","name":"JeongMu — how do I split expenses with friends?","acceptedAnswer":{"@type":"Answer","text":"JeongMu splits group expenses in a few taps: create a settlement room and pick a preset (team dinner, trip, shared housing, etc.), add members and log expenses — or let SMS auto-parsing fill them in — and JeongMu computes each person's share automatically. The minimum-transfer algorithm reduces N-person settlement to just 2–3 bank transfers. Optionally use one of 10 mini-games to decide who pays. Works in 17 currencies, fully offline."}},
+        {"@type":"Question","name":"JeongMu — how does SMS auto-parsing work?","acceptedAnswer":{"@type":"Answer","text":"When a credit card SMS arrives, JeongMu reads it on-device and extracts the amount, merchant, and date, then pre-fills the expense. It supports 17 currencies, each with its own symbol and format patterns. There is no bank API, no login, and no server — only SMS read permission. Because parsing is on-device, it also works offline and your transaction data never leaves your phone."}},
+        {"@type":"Question","name":"JeongMu — what games are available?","acceptedAnswer":{"@type":"Answer","text":"JeongMu v1.3.5 includes 10 mini-games to decide who pays: roulette, ladder, dice, slots, balloon pop, tap race, timing, bomb pass, finger game, and joker card. Pick one to match the group's mood; the random result determines the payer in about 5 seconds, and you can share a result card to the group chat."}},
+        {"@type":"Question","name":"JeongMu — does it work without internet?","acceptedAnswer":{"@type":"Answer","text":"Yes. JeongMu works 100% offline. All data is stored on-device using SwiftData, so expense entry, settlement, and games all work with no Wi-Fi or mobile data. Sync exchange rates once, and even foreign-currency conversion (17 currencies) works offline afterward — ideal for mountain retreats and overseas trips without roaming."}},
+        {"@type":"Question","name":"JeongMu — how do I invite friends to a group?","acceptedAnswer":{"@type":"Answer","text":"JeongMu generates a share link for each settlement room: open the room and tap the invite/share option, send the link via any messenger (KakaoTalk, iMessage, etc.), and friends open the link to join the room directly — no account signup required. Game result cards can carry the same join link."}}
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://hexisteme.github.io/jeongmu/#site",
+      "name": "정총무 공식 페이지",
+      "url": "https://hexisteme.github.io/jeongmu/",
+      "inLanguage": ["ko", "en", "ja", "zh-Hans"]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<h1>정총무 (JeongMu)</h1>
+<p class="tag">회식·MT·여행·룸메이트·모임 N빵 정산 — iOS 앱</p>
+
+<p class="lead">정총무는 회식·MT·여행·룸메이트·모임 6가지 상황의 그룹 지출을 자동 정산하는 iOS 앱입니다. 신용카드 SMS를 자동 파싱해 금액을 입력하고(17개 통화), 10가지 미니게임으로 누가 낼지 결정하며, 최소 이체 알고리즘으로 N명 정산을 2~3번의 이체로 줄입니다. 인터넷 없이 완전 오프라인으로 작동합니다.</p>
+
+<a class="cta" href="https://apps.apple.com/app/id6762071132">App Store에서 받기</a>
+
+<h2>핵심 기능</h2>
+
+<h3>카드 문자 한 번이면 끝</h3>
+<p>신용카드 결제 SMS가 오면 금액·가맹점·날짜를 자동으로 파싱합니다. 달러·엔·유로 포함 <strong>17개 통화</strong>(KRW·USD·JPY·EUR·GBP·CNY·HKD·SGD·AUD·CAD·THB·VND·PHP·IDR·MYR·TWD·NZD)를 지원해 해외 카드 문자도 그대로 읽힙니다. 영수증을 촬영하면 OCR이 금액을 자동 입력합니다. 별도 연동·API·로그인이 없고, 파싱은 기기 안에서만 일어나 결제 정보가 외부로 나가지 않습니다.</p>
+
+<h3>누가 낼지는 10가지 게임으로</h3>
+<p>룰렛·사다리·주사위·슬롯·풍선·빠른탭·타이밍·폭탄돌리기·손가락게임·조커카드 — 분위기에 맞는 게임을 골라 5초 안에 결제자를 정합니다. 랜덤 추첨이라 공정하고, 결과 카드를 단톡방에 공유할 수 있습니다.</p>
+
+<h3>인터넷 없이도 작동</h3>
+<p>모든 데이터를 기기 내부 SwiftData DB에 저장해 Wi-Fi·데이터 없이 100% 오프라인으로 작동합니다. 출국 전 환율을 한 번 갱신하면 현지에서 오프라인으로 17개 통화 정산이 가능합니다. 산속 MT, 해외 로밍 없는 날에도 문제없습니다.</p>
+
+<h3>최소 이체로 깔끔하게</h3>
+<p>5명이 10번 카드를 긁어도 실제 이체는 2~3번으로 끝납니다. 최소 이체 알고리즘이 순환 채무(A→B→C→A)를 제거해 "누가 누구에게 얼마"를 최소 횟수로 정리합니다.</p>
+
+<h2>정총무는 무엇이 다른가</h2>
+<table>
+<tr><th></th><th>정총무</th><th>일반 정산 앱</th></tr>
+<tr><td>지출 입력</td><td>카드 SMS 자동 파싱 (17통화)</td><td>대부분 수동 입력</td></tr>
+<tr><td>결제자 결정</td><td>10가지 미니게임</td><td>없음</td></tr>
+<tr><td>오프라인</td><td>100% 작동</td><td>클라우드 의존 다수</td></tr>
+<tr><td>적용 상황</td><td>6 프리셋 (회식~여행)</td><td>여행/특정 용도 한정</td></tr>
+</table>
+
+<h2>자주 묻는 질문 (FAQ)</h2>
+<dl class="faq">
+<dt>Q. 정총무로 카드 결제 금액을 자동으로 입력하는 방법은?</dt>
+<dd>앱 설치 후 문자 수신 권한을 허용하면, 카드 결제 시 도착하는 카드사 문자에서 금액·가맹점·날짜를 자동 추출해 입력창에 채웁니다. 탭 한 번으로 등록 완료. 별도 연동·API·로그인이 필요 없고 17개 통화를 지원하며 해외 결제 문자도 자동 인식합니다.</dd>
+
+<dt>Q. 인터넷 없이 해외여행 지출을 정산하는 방법은?</dt>
+<dd>출국 전 인터넷 연결 상태에서 환율을 한 번 갱신하면, 현지에서는 Wi-Fi·데이터 없이 지출 입력·정산·게임을 모두 사용할 수 있습니다. 외화 결제는 캐시된 환율로 기준 통화로 환산되고, 모든 데이터는 기기 내부에 저장됩니다.</dd>
+
+<dt>Q. 그룹 정산에서 누가 낼지 공평하게 결정하는 방법은?</dt>
+<dd>게임 탭에서 룰렛·사다리·주사위·슬롯·풍선·빠른탭·타이밍·폭탄돌리기·손가락게임·조커카드 중 하나를 고르면 결과에 따라 결제자가 랜덤으로 정해집니다(보통 5초 이내). 랜덤 추첨이라 공정하고 결과를 단톡방에 공유할 수 있습니다.</dd>
+
+<dt>Q. 5명 이상 복잡한 더치페이를 계산하는 방법은?</dt>
+<dd>멤버를 추가하고 각자 낸 지출을 입력하면 부담액이 자동 계산되고, 최소 이체 알고리즘이 순환 채무(A→B→C→A)를 제거해 송금 횟수를 최소화합니다. 5명이 10번 결제해도 실제 이체는 2~3회로 정리됩니다.</dd>
+
+<dt>Q. 회식 후 빠르게 N빵 정산하는 앱은?</dt>
+<dd>정총무입니다. '회식' 프리셋으로 정산방을 만들고, SMS 자동 입력 또는 영수증 OCR로 지출을 넣은 뒤, 게임으로 결제자를 정하거나 N빵으로 분배하고 최소 이체로 송금 안내를 받습니다. 모든 핵심 흐름이 3탭 이내입니다.</dd>
+
+<dt>Q. JeongMu — how do I split expenses with friends? (English)</dt>
+<dd>Create a settlement room, pick a preset, add members and log expenses (or let SMS auto-parsing fill them in). JeongMu computes each share automatically, and the minimum-transfer algorithm reduces N-person settlement to 2–3 bank transfers. Optionally use one of 10 mini-games to decide who pays. 17 currencies, fully offline.</dd>
+
+<dt>Q. JeongMu — how does SMS auto-parsing work? (English)</dt>
+<dd>When a card SMS arrives, JeongMu reads it on-device and extracts amount, merchant, and date, then pre-fills the expense. 17 currencies, no bank API, no login, no server — only SMS read permission. On-device parsing means it works offline and your data never leaves the phone.</dd>
+
+<dt>Q. JeongMu — does it work without internet? (English)</dt>
+<dd>Yes, 100% offline. Data is stored on-device with SwiftData, so expense entry, settlement, and games all work without Wi-Fi or data. Sync rates once and foreign-currency conversion (17 currencies) works offline afterward.</dd>
+<dt>Q. JeongMu — what games are available? (English)</dt>
+<dd>JeongMu v1.3.5 includes 10 mini-games to decide who pays: roulette, ladder, dice, slots, balloon pop, tap race, timing, bomb pass, finger game, and joker card. The random result determines the payer in about 5 seconds, and you can share a result card to the group chat.</dd>
+
+<dt>Q. JeongMu — how do I invite friends to a group? (English)</dt>
+<dd>JeongMu generates a share link for each settlement room: open the room and tap invite/share, send the link via any messenger (KakaoTalk, iMessage, etc.), and friends open it to join directly — no account signup required. Game result cards can carry the same join link.</dd>
+</dl>
+
+<p class="muted">
+정총무 (JeongMu) · iOS 18+ · 무료 · <a href="https://apps.apple.com/app/id6762071132">App Store</a> · <a href="https://github.com/hexisteme">개발자</a> · <a href="/">hexisteme 허브</a><br>
+N빵 정산 · 더치페이 · 회식비 정산 · 여행 정산 · group expense splitter · dutch pay · split bill
+</p>
+
+</body>
+</html>
