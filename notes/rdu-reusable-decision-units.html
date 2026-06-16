@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RDU: Reusable Decision Units for Consistent AI Agents — hexisteme notes</title>
+<title>RDU: Reusable Decision Units for Consistent AI Agents Across Sessions — hexisteme notes</title>
 <meta name="description" content="How to make AI agents give consistent decisions across sessions using Reusable Decision Units (RDU) — versioned, domain-agnostic rules stored as files. A pattern for eliminating drift in long-running Claude Code deployments.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
@@ -24,7 +24,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 </head>
 <body>
 
-<h1>RDU: Reusable Decision Units for Consistent AI Agents</h1>
+<h1>RDU: Reusable Decision Units for Consistent AI Agents</h1><p><strong>To keep an AI agent behaving consistently across sessions, encode each repeatable decision as a Reusable Decision Unit (RDU) — a versioned markdown file with a grep-able trigger and a committed judgment, stored where the agent loads it at session start, so the rule fires automatically on trigger instead of relying on the model's memory.</strong></p><p class="meta">A pattern in production use across a 140+ rule library spanning iOS deployment, trading, AI-agent design, game development, and real estate — each rule fires automatically on a grep-able trigger, not from model memory.</p>
 <p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 13, 2026 · 8 min read</p>
 
 <p>If you use AI agents daily, you've hit this: the agent gives a correct, well-reasoned answer on Monday. On Friday, in a fresh session, it gives a different answer to the same question. Not wrong, just <em>different</em> — shaped by whatever context happened to come up first.</p>
