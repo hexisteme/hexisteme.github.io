@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>App Store Connect 동시 리뷰 제출 한도 완전 정리 — dev-notes</title>
+<title>409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED 오류 이유와 해결 방법 — App Store Connect 동시 리뷰 제출 한도 — dev-notes</title>
 <meta name="description" content="ASC API 409 오류(CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED, MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED) 원인과 해결. Version 1개 동시 진행 한도 + reviewSubmissions 2 in-flight / 5 total 한도 실증.">
 <style>
 body{font:15px/1.75 -apple-system,Pretendard,sans-serif;max-width:760px;margin:0 auto;padding:28px;color:#1a1a1a}
@@ -26,7 +26,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <h1>App Store Connect 동시 리뷰 제출 한도 완전 정리</h1>
 <p class="meta"><a href="../">← hexisteme</a> · 2026-06-13 · iOS 배포 실증 노트</p>
 
-<p>ASC에서 <code class="err">409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code> 또는 <code class="err">409 MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED</code> 오류를 만났다면, ASC에는 두 가지 독립적인 한도가 존재합니다.</p>
+<p><code class="err">409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code>는 한 앱의 reviewSubmissions가 <strong>총 5개 한도(READY_FOR_REVIEW + WAITING_FOR_REVIEW + IN_REVIEW 합계)를 초과</strong>했을 때 <code>POST /v1/reviewSubmissions</code>에서 발생합니다. <strong>해결 방법은 READY_FOR_REVIEW 상태의 orphan submission을 ASC 웹 UI에서 수동 취소하거나 7일 자동 만료를 기다리는 것</strong>입니다(DELETE·PATCH canceled=true는 모두 거부됨). ASC에는 이와 별개로 <code class="err">MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED</code>(2 in-flight 한도)와 App Version 동시 1개 한도까지 총 두 종류의 독립 한도가 존재하며, 아래에서 각각 정리합니다.</p>
 
 <h2>한도 A — App Version 동시 진행 1개</h2>
 <p><code>PREPARE_FOR_SUBMISSION</code> / <code>WAITING_FOR_REVIEW</code> / <code>IN_REVIEW</code> 중 어느 상태든 <strong>version은 동시에 1개만</strong> 허용됩니다.</p>
