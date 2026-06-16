@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>App Store Connect API JWT 20분(1200초) Hard Cap — dev-notes</title>
+<title>ASC API JWT 401 NOT_AUTHORIZED인데 서명은 맞을 때 — exp 20분(1200초) Hard Cap | dev-notes</title>
 <meta name="description" content="ASC API JWT의 exp는 iat+1200초를 초과할 수 없습니다. 1201초 이상이면 유효한 ES256 서명이어도 401 NOT_AUTHORIZED. 배치 스크립트 작성 시 주의사항 실증.">
 <style>
 body{font:15px/1.75 -apple-system,Pretendard,sans-serif;max-width:760px;margin:0 auto;padding:28px;color:#1a1a1a}
