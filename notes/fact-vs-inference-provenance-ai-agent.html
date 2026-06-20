@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How to make an AI research agent label facts vs inferences — a deterministic provenance pipeline — hexisteme notes</title>
+<meta name="description" content="How to stop an AI research or RAG agent from presenting its own inferences as retrieved facts: let the LLM only extract, and let a deterministic non-LLM pipeline score, cross-check, and label every claim FACT or INFERENCE — with a ≥2-independent-source rule and evidence IDs required for any FACT.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"How to make an AI research agent label facts vs inferences — a deterministic provenance pipeline","datePublished":"2026-06-21","dateModified":"2026-06-21","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Provenance labeling for AI agents, FACT vs INFERENCE, deterministic scoring, RAG fact verification, cross-corroboration, reproducible research agents","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I make an AI research agent distinguish facts from its own inferences?","acceptedAnswer":{"@type":"Answer","text":"Split the work so the LLM never decides what is a fact. Let the LLM only extract and summarize text from sources; then a deterministic, non-LLM pipeline scores, cross-checks, and labels each claim. Tag a claim FACT only when an independent rule is satisfied — corroboration by at least two independent sources, or one official API — and downgrade everything else to INFERENCE. Because the labeling is rule-based, not model-based, the agent cannot launder a guess into a fact, and the same query produces the same labels every run."}},{"@type":"Question","name":"How do I stop a RAG agent from presenting inferences as facts?","acceptedAnswer":{"@type":"Answer","text":"Make FACT a status a claim has to earn, enforced in code rather than by the model. Require every FACT to carry evidence IDs (pointers to the specific sources that corroborate it) — a claim object that is constructed as FACT without evidence should raise an error, not silently pass. Any claim that fails the corroboration rule is automatically downgraded to INFERENCE and rendered as such. The user then sees, per claim, whether it is grounded in multiple independent sources or is a single-source or model-derived inference."}},{"@type":"Question","name":"Why should scoring and cross-checking be deterministic instead of done by the LLM?","acceptedAnswer":{"@type":"Answer","text":"Two reasons: reproducibility and trust. If the LLM assigns confidence scores, the same query yields different scores on different runs (score drift), and the agent's research is no longer reproducible. If a deterministic function assigns scores — token matching, source-count thresholds, recency math — the same inputs always produce the same output, and you can unit-test it. It also closes a laundering loophole: an LLM asked to 'rate confidence' can turn a guess into a high number; a rule cannot. Keep the LLM on extraction and summarization, where it is strong, and keep judgment in code."}},{"@type":"Question","name":"What counts as enough corroboration to call something a fact?","acceptedAnswer":{"@type":"Answer","text":"A practical rule: a load-bearing claim is FACT only if it is corroborated by at least two independent sources (different domains, not two pages of the same site), or by a single authoritative/official API (a government dataset, an exchange's own API). One blog citing another blog is not two independent sources. Everything below that bar is labeled INFERENCE. The threshold is a knob, but the principle is fixed: independence and authority decide FACT, and the decision is made by a rule you can inspect, not by the model's vibe."}},{"@type":"Question","name":"How should a research agent handle information it could not find?","acceptedAnswer":{"@type":"Answer","text":"Report gaps loudly. A silent gap — where the agent simply omits what it could not verify — reads as completeness and is the most dangerous failure mode. Instead, emit an explicit list of what was asked but not found or not corroborated, alongside the FACT and INFERENCE claims. The same applies to a failed or rate-limited source: log the failure and the escalation to a fallback source, and never substitute a guess for a missing fetch."}}]}
+</script>
+</head>
+<body>
+
+<h1>How to make an AI research agent label facts vs inferences — a deterministic provenance pipeline</h1><p>To stop an AI research or RAG agent from presenting its own inferences as retrieved facts, <strong>split the work so the LLM never decides what is a fact</strong>: let the LLM only extract and summarize, and let a deterministic, non-LLM pipeline do all scoring, cross-checking, and labeling. Tag a claim <code>FACT</code> only when a rule is satisfied — corroboration by ≥2 independent sources, or one official API — and downgrade everything else to <code>INFERENCE</code>. Because labeling is rule-based, the agent can't launder a guess into a fact, and the same query produces the same labels every run.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 21, 2026 · 8 min read</p>
+
+<p>An AI agent that gathers information has two kinds of output tangled together: things it <em>retrieved</em> and things it <em>concluded</em>. A web page said the market was 1.2 trillion won (retrieved); the agent inferred the market is "growing fast" (concluded). Both come out in the same confident prose. For anything you'll act on, that blend is the problem — you can't tell which sentence is grounded and which is the model filling a gap.</p>
+
+<p>The fix isn't a better prompt ("only state facts you can cite"). Prompts are probabilistic; under pressure the model reverts. The fix is structural: <strong>take the fact/inference decision away from the model entirely</strong> and put it in code.</p>
+
+<h2>The split: LLM extracts, code judges</h2>
+
+<p>Draw a hard line through the pipeline:</p>
+
+<table>
+<tr><th>The LLM does</th><th>Deterministic code does</th></tr>
+<tr><td>Extract claims from a fetched page; summarize a passage</td><td>Score, cross-check, sort, deduplicate, label FACT/INFERENCE, decide freshness</td></tr>
+</table>
+
+<p>The LLM is excellent at reading messy text and pulling out a structured claim. It is unreliable at <em>judging</em> that claim — ask it to "rate confidence 0–1" and it will turn a guess into <code>0.85</code>, and give a different number next run. So nothing downstream of extraction is allowed to be an LLM call. Scores are token matches, source counts, and recency math. Labels are rule outputs. This buys two things at once: <strong>reproducibility</strong> (same query → same labels, which you can unit-test) and <strong>no laundering</strong> (the model can't promote its own inference to a fact, because it never holds the pen on labeling).</p>
+
+<div class="note"><strong>Reproducibility is the tell.</strong> If your research agent gives different confidence on the same question across runs, an LLM is scoring somewhere in the pipeline. Find it and replace it with a function. The goal is: re-run the exact query, get the exact same FACT/INFERENCE split.</div>
+
+<h2>A six-phase pipeline</h2>
+
+<p>Make the stages explicit so each is testable in isolation:</p>
+
+<pre><code>PLAN → HARVEST → NORMALIZE → CORROBORATE → SCORE → RENDER</code></pre>
+
+<ul>
+<li><strong>PLAN</strong> — turn the question into concrete sub-queries and the sources to try.</li>
+<li><strong>HARVEST</strong> — fetch from multiple paths (see below). LLM-free; just collection.</li>
+<li><strong>NORMALIZE</strong> — LLM extracts structured claims from each fetched item. This is the only place the model touches the data.</li>
+<li><strong>CORROBORATE</strong> — group claims; count independent sources per claim.</li>
+<li><strong>SCORE</strong> — assign labels and scores by rule.</li>
+<li><strong>RENDER</strong> — emit FACTs, INFERENCEs, and an explicit gap list.</li>
+</ul>
+
+<h2>The FACT gate: earn the label</h2>
+
+<p>FACT is not a default; it's a status a claim must earn, enforced as a type invariant:</p>
+
+<pre><code># A claim constructed as FACT without evidence is a bug, not a soft warning.
+Claim(provenance=FACT, evidence_ids=[])   # -> raises
+
+# The corroboration rule (the knob is the count; the principle is independence)
+def label(claim):
+    independent = count_independent_sources(claim)   # distinct domains, not pages
+    if independent >= 2 or claim.from_official_api:
+        return FACT          # carries the evidence_ids that corroborated it
+    return INFERENCE         # single-source or model-derived</code></pre>
+
+<p>"Independent" is doing real work: one blog quoting another blog is <em>one</em> source, not two. Two different domains, or a single authoritative API (a government dataset, an exchange's own endpoint), clear the bar. Everything else is rendered as INFERENCE — visible to the reader as exactly that.</p>
+
+<div class="warn"><strong>Watch for order-dependence.</strong> An early version of this scored a cross-corroborated FACT <em>lower</em> than a single-source INFERENCE because the score depended on processing order. That silently breaks reproducibility. Scores must be a pure function of the claim and its evidence, independent of the order claims were processed.</div>
+
+<h2>Multi-path harvest, without redundancy</h2>
+
+<p>Diversity of sources is what makes corroboration meaningful, but firing every source at once is wasteful and noisy. Use escalation, not broadcast: try a primary search, and only escalate to the next path when the first is insufficient.</p>
+
+<table>
+<tr><th>Path</th><th>Order</th></tr>
+<tr><td>Web search</td><td>primary → escalate to a news-grade engine (ad/spam pollution) → escalate to a semantic engine (papers, near-duplicates)</td></tr>
+<tr><td>Official API</td><td>a government/first-party dataset; one official source may stand alone as FACT</td></tr>
+</table>
+
+<p>Never send the same query to three engines simultaneously — read the first result, then decide whether to escalate. And when a source fails or is rate-limited, <strong>log the failure and the escalation</strong>; never substitute a guess for a missing fetch.</p>
+
+<h2>Freshness and gaps are first-class</h2>
+
+<p>Two more rules complete the provenance picture. <strong>Freshness</strong>: every datum carries a confirmation date, and a rule marks it <code>stale</code> when it ages past a threshold — a fact true last quarter is labeled as such, not silently presented as current. <strong>Gaps</strong>: the render step emits an explicit list of what was asked but not found or not corroborated. A silent gap reads as completeness and is the most dangerous output a research agent can produce; surfacing it is what makes the FACT list trustworthy.</p>
+
+<h2>Why this is worth the structure</h2>
+
+<p>The payoff is a research output a reader (or a downstream AI) can trust per-claim: every FACT points at the independent sources that earned it, every INFERENCE is flagged as the agent's own leap, stale data says so, and the gaps are named. The model still does what it's good at — reading and extracting — but it never gets to decide what's true. In an era where AI answers are increasingly cited as sources themselves, the agents worth citing are the ones that label their own confidence honestly, by rule, and reproducibly.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do I make an AI agent distinguish facts from its own inferences?</strong><br>
+Let the LLM only extract/summarize; a deterministic pipeline scores and labels. FACT requires ≥2 independent sources or one official API; everything else is INFERENCE. Rule-based labeling means the model can't promote a guess, and runs are reproducible.</p>
+
+<p><strong>Q. How do I stop a RAG agent presenting inferences as facts?</strong><br>
+Make FACT carry evidence IDs and require them in code — a FACT constructed without evidence should raise. Claims failing the corroboration rule auto-downgrade to INFERENCE.</p>
+
+<p><strong>Q. Why deterministic scoring instead of LLM scoring?</strong><br>
+LLM scores drift (same query, different numbers) and can launder a guess into a high confidence. A function — token match, source count, recency — is reproducible and unit-testable.</p>
+
+<p><strong>Q. How should the agent handle what it couldn't find?</strong><br>
+Report gaps loudly as an explicit list. A silent omission reads as completeness and is the most dangerous failure. Log failed/rate-limited sources and escalations too.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
