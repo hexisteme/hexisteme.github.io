@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aggregating cron and macOS launchd into one read-only dashboard — without migrating either — hexisteme notes</title>
+<meta name="description" content="How to see every cron job and macOS LaunchAgent in one dashboard without migrating them to a new scheduler — by globbing their on-disk state (crontab, plists, log mtimes) instead of importing them. Includes a 25-tool fit-gap matrix and the read-only aggregation pattern.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Aggregating cron and macOS launchd into one read-only dashboard — without migrating either","datePublished":"2026-06-20","dateModified":"2026-06-20","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Unified monitoring of cron jobs and macOS launchd agents without migration, read-only aggregation, scheduled job dashboard, linking jobs to outputs","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I see all my cron jobs and launchd agents in one place without moving them to a new tool?","acceptedAnswer":{"@type":"Answer","text":"Build a read-only aggregator that globs their on-disk state instead of importing them. Parse crontab -l for cron, parse ~/Library/LaunchAgents/*.plist for launchd, and read launchctl print for load state and last exit code. Normalize all of it into one schema and render it. Because you only read existing registrations, the jobs keep running exactly as before — you add a pane of glass on top, with nothing to migrate and nothing to instrument."}},{"@type":"Question","name":"Why do cron monitoring tools require you to migrate or instrument your jobs?","acceptedAnswer":{"@type":"Answer","text":"Most cron monitoring services are heartbeat or dead-man-switch designs: your job has to ping their endpoint (curl a URL) on success, and they alert when the ping is missing. That means editing every crontab line to add the ping, which is a form of migration and instrumentation. It also can't see a job that never started, and it can't link a job to the files it produced. A read-only aggregator avoids all of that by reading state the OS already keeps."}},{"@type":"Question","name":"How do I link a scheduled job to the output files it produces?","acceptedAnswer":{"@type":"Answer","text":"Adopt a per-project output convention — for example, every job writes artifacts under <project>/report/ — and store a glob per job in a small catalog file. The dashboard then lists, per job, the newest files matching that glob (by modification time), plus anything from the plist StandardOutPath. Clicking an artifact opens it. This 'output shelf' is what turns a job list into something you actually act on, because you see what each job produced, not just that it ran."}},{"@type":"Question","name":"How do I detect a scheduled job that should have run but didn't?","acceptedAnswer":{"@type":"Answer","text":"Compare the schedule to the freshness of the job's log. If a job is supposed to run daily but its StandardOutPath log was last modified outside the expected window, flag it. A missing run produces no error and no alert in push-based monitoring — there is simply nothing. By deriving the signal from the gap between expected and actual log mtime, a read-only aggregator surfaces the silent failure that heartbeat tools miss."}},{"@type":"Question","name":"Is it safe to put a run button on a local job dashboard?","acceptedAnswer":{"@type":"Answer","text":"Only with a strict whitelist and no free-text command input. Bind the server to 127.0.0.1 only, and let the run button trigger exactly two things: launchctl kickstart on a known label, or a script whose absolute path is registered in the catalog. There is no text box that accepts an arbitrary command. The dashboard is read-and-run only — it cannot edit or delete registrations, so a UI bug can never corrupt your schedulers."}}]}
+</script>
+</head>
+<body>
+
+<h1>Aggregating cron and macOS launchd into one read-only dashboard — without migrating either</h1><p>You can watch every cron job and macOS LaunchAgent in a single dashboard <strong>without migrating either</strong> by globbing their on-disk state — <code>crontab -l</code>, the <code>~/Library/LaunchAgents/*.plist</code> files, and <code>launchctl print</code> exit codes — and normalizing all of it into one schema. You only read existing registrations, so nothing moves and nothing needs to be instrumented; you add a pane of glass on top of schedulers that keep running exactly as before.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 20, 2026 · 8 min read</p>
+
+<p>If you run a personal fleet of automation on one machine — a handful of cron jobs, several macOS LaunchAgents, a few long-running Python agents, and some MCP servers — you hit a specific failure mode that has nothing to do with any single job. The schedulers don't know about each other. <code>cron</code> and <code>launchd</code> are separate worlds; the Python agents are a third; the MCP servers a fourth. There is no single place that answers "what is scheduled, did it run, and what did it produce?" So things rot quietly: a daily report generator stops and you don't notice for a week, an ingest job's output piles up unread, a calibration job silently never fires after a reboot.</p>
+
+<p>The instinct is to reach for a scheduler or a monitoring SaaS. I evaluated 25 of them and they all failed for the same two reasons.</p>
+
+<h2>Why off-the-shelf tools don't fit</h2>
+
+<p>The candidates split into two camps, each with a disqualifying assumption:</p>
+
+<table>
+<tr><th>Tool category (examples)</th><th>Why it doesn't fit</th></tr>
+<tr><td>launchd GUIs — Lingon X, LaunchControl</td><td>launchd only; can't see cron. No link from a job to its output files.</td></tr>
+<tr><td>Schedulers — Cronicle, Rundeck, Airflow</td><td>Can't read your existing registrations. They want you to <em>re-create</em> every job inside their system — invasive migration.</td></tr>
+<tr><td>Cron monitoring SaaS — heartbeat / dead-man-switch services</td><td>Every job must <code>curl</code> a ping endpoint on success. That's editing every crontab line (migration + instrumentation), and it can't see a job that never started.</td></tr>
+<tr><td>Dashboards — Homepage, Dashy</td><td>Link collections. No run state, no exit codes, no outputs.</td></tr>
+<tr><td>Agent observability OSS (e.g. 1.4k-star session monitors)</td><td>Built to watch one runtime's sessions — not a heterogeneous cron + launchd + agent + MCP mix.</td></tr>
+</table>
+
+<p>The pattern across all 25: they are <strong>push</strong> systems that require <strong>migration</strong>. You move your jobs into their model, or you instrument each job to report into them. In a high-churn setup where you add new programs and MCP servers constantly, that tax compounds — every new thing has to be migrated or it's invisible.</p>
+
+<div class="note"><strong>The gap, stated precisely:</strong> there was no tool that does read-only aggregation of <em>existing</em> cron + launchd registrations, with a purpose description per job and a link to each job's output files. So the design constraint became: <em>aggregate without migrating, and read without instrumenting.</em></div>
+
+<h2>The approach: read-only aggregation</h2>
+
+<p>Instead of asking jobs to report in, read the state the OS already keeps. A deterministic collector unifies four read-only sources into one schema:</p>
+
+<pre><code># cron
+crontab -l                         # schedule + command per line
+
+# launchd
+~/Library/LaunchAgents/*.plist     # parse with plutil -convert json
+launchctl print gui/$UID/&lt;label&gt;   # load state, last exit code
+
+# resident services
+ps                                 # is the long-running process alive?</code></pre>
+
+<p>Normalize every entry into a single record — call it a <code>ScheduledJob</code>: a <code>label</code>, the <code>source</code> (cron or launchd), the <code>schedule</code>, the <code>command</code>, and the log path. Now cron lines and launchd plists live in one list, sorted and searchable, with no change to either scheduler.</p>
+
+<p>Two things are still missing from a bare job list, and they are the difference between a dashboard you ignore and one you use.</p>
+
+<h3>Linking a job to its outputs</h3>
+
+<p>A job that "ran successfully" is not interesting; the file it produced is. To connect the two without instrumenting anything, lean on a convention you can enforce yourself: <strong>every job writes its artifacts under <code>&lt;project&gt;/report/</code></strong>. Store one glob per job in a small catalog, and the dashboard lists each job's newest matching files by modification time (plus anything at the plist <code>StandardOutPath</code>). Clicking opens the file. This output shelf is the payload — you see what each job made, not just that it exited 0.</p>
+
+<h3>Detecting the run that didn't happen</h3>
+
+<p>The worst failure in scheduled work is silent: the job that should have run and didn't. Push monitoring is blind to it — a missing heartbeat looks the same as a paused job, and a job that never started sends nothing at all. A read-only aggregator can derive the signal directly: compare the schedule to the freshness of the log. If a daily job's <code>StandardOutPath</code> was last written outside its expected window, raise an "expected run, no output" flag on the card. No instrumentation — just the gap between when it should have run and when its log last changed.</p>
+
+<h2>Safety: read-and-run only, on localhost</h2>
+
+<p>A dashboard with a run button is a foot-gun unless you bound it hard. Four invariants:</p>
+
+<ul>
+<li><strong>Bind 127.0.0.1 only.</strong> Never exposed off the machine.</li>
+<li><strong>Whitelist, no free text.</strong> The run button triggers exactly <code>launchctl kickstart &lt;label&gt;</code> or a script whose absolute path is registered in the catalog. There is no input box that accepts an arbitrary command.</li>
+<li><strong>Read and run only — never edit or delete.</strong> The dashboard cannot modify or remove a registration. Changes happen where they always did (your crontab, your plists). A monitor that becomes a control panel is how you corrupt your schedulers.</li>
+<li><strong>No secrets in the UI.</strong> Show plist <code>EnvironmentVariables</code> key names, never values.</li>
+</ul>
+
+<p>The whole thing is a small FastAPI + htmx app — a few hundred lines, two dependencies. The leverage isn't the framework; it's the decision to <em>read existing state instead of demanding that state report to you.</em></p>
+
+<h2>The general principle</h2>
+
+<p>If you control the convention (here, a per-project <code>report/</code> directory) and the OS already records the state you need (schedules, exit codes, log mtimes), you don't need a heavier system — you need a read-only view that joins what's already on disk. Migration and instrumentation are costs you pay forever; a glob is a cost you pay once. For a single-operator machine that keeps growing, "aggregate without migrating" scales where "move everything into one scheduler" quietly does not.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do I see all my cron jobs and launchd agents in one place without moving them?</strong><br>
+Build a read-only aggregator that globs their on-disk state — parse <code>crontab -l</code>, parse <code>~/Library/LaunchAgents/*.plist</code>, read <code>launchctl print</code> for exit codes — and normalize into one schema. The jobs keep running unchanged; you add a pane of glass with nothing to migrate.</p>
+
+<p><strong>Q. Why do cron monitoring tools require migration or instrumentation?</strong><br>
+They are heartbeat / dead-man-switch designs: each job must ping their endpoint on success, so you edit every crontab line to add the ping. That can't see a job that never started, and can't link a job to its output files.</p>
+
+<p><strong>Q. How do I link a scheduled job to the output files it produces?</strong><br>
+Adopt a per-project output convention (e.g. <code>&lt;project&gt;/report/</code>), store a glob per job in a catalog, and list each job's newest matching files by mtime. Clicking opens the artifact.</p>
+
+<p><strong>Q. How do I detect a job that should have run but didn't?</strong><br>
+Compare the schedule to the log's modification time. If a daily job's log was last written outside the expected window, flag it — the silent failure heartbeat tools miss.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
