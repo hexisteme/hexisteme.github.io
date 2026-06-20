@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors — hexisteme notes</title>
+<meta name="description" content="Why pull (scan on-disk state) beats push (an event bus) for monitoring a small, high-churn fleet of agents, cron jobs, and MCP servers you don't fully control. The instrumentation-tax argument, self-healing polling, and keeping a monitor from becoming an orchestrator.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors","datePublished":"2026-06-20","dateModified":"2026-06-20","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Event bus vs polling for a multi-agent system, push vs pull monitoring, observing uninstrumented third-party MCP servers, self-healing state-based monitoring, keeping a monitor from becoming an orchestrator","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Should I use an event bus or polling for a small multi-agent system?","acceptedAnswer":{"@type":"Answer","text":"For a small, high-churn fleet you don't fully control, prefer polling (pull) over an event bus (push). An event bus requires every component — including third-party tools you can't modify — to emit events; any component that doesn't emit is silently invisible, so the 'single source of truth' becomes a lie. A poller that scans on-disk state (output file mtimes, health checks, exit codes) is self-healing: it reflects reality even for components that never report, and a new tool shows up the moment it writes a file, with zero instrumentation. Reserve event buses for high-throughput systems where you own and can instrument every producer."}},{"@type":"Question","name":"Is push or pull better for monitoring agents and services I don't control?","acceptedAnswer":{"@type":"Answer","text":"Pull. The decisive factor is instrumentation cost on components you can't change. Push (an event bus) needs each agent, cron job, and MCP server to emit; you cannot add emit calls to a third-party MCP server, so it's blind. Pull derives state from artifacts the component already leaves behind — log mtimes, output files, a process being alive, a health endpoint — so it works on uninstrumented and even uncooperative components. The slogan: state is truth, events are rumors. State on disk reflects what actually happened; an event only exists if something remembered to send it."}},{"@type":"Question","name":"How do I monitor third-party MCP servers that don't emit events?","acceptedAnswer":{"@type":"Answer","text":"Don't try to make them emit — observe their externally visible state. Poll a health endpoint or check whether the process is alive, watch the modification time of any files or logs they touch, and propagate status to anything that depends on them. Because the third-party server never has to cooperate, this survives version changes and restarts. This is the core reason a pull/poll design beats an event bus for a heterogeneous fleet: the components you least control are exactly the ones an event bus can't see."}},{"@type":"Question","name":"What does 'state is truth, events are rumors' mean?","acceptedAnswer":{"@type":"Answer","text":"It means on-disk state is a reliable record of what happened, while events are only as reliable as the code that emits them. If an agent crashes before emitting a 'done' event, an event-based monitor shows nothing — the failure is invisible. A state-based monitor sees the missing or stale output file and the failed health check, so it reflects the crash without the agent's cooperation. Events are claims that depend on the claimant surviving and remembering to speak; state is the evidence left behind regardless. For monitoring, prefer evidence over claims."}},{"@type":"Question","name":"How should a monitoring inbox decide what to surface first without using an LLM?","acceptedAnswer":{"@type":"Answer","text":"Use deterministic state triggers, not a learned priority score. Rank by hard conditions: BLOCKED (a dependency is down) first, then STALE (an output exists that you haven't read, or an expected run didn't happen), then NEW. Each is a fact derived from disk state — a health check, a file mtime versus a read-timestamp, a schedule versus a log mtime — not a model's opinion. An LLM-generated priority number is unfalsifiable and drifts; a deterministic trigger is reproducible and debuggable. Keep the model out of the ranking."}}]}
+</script>
+</head>
+<body>
+
+<h1>Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors</h1><p>For a small, high-churn fleet of agents, cron jobs, and MCP servers you don't fully control, prefer <strong>pull</strong> (scan on-disk state) over <strong>push</strong> (an event bus): a poller is self-healing and needs zero instrumentation, while an event bus goes silently blind the moment a component fails to emit, crashes before emitting, or is a third-party tool you can't modify at all. I designed the inbox as a computed view over existing state and rejected the event bus on purpose. Here is the reasoning, because it generalizes past my setup.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 20, 2026 · 8 min read</p>
+
+<p>I run a personal fleet on one machine — a handful of small agents, a pile of cron jobs and LaunchAgents, and several MCP servers, some of them third-party. I wanted a single inbox that answers "what needs my attention right now?": new outputs I haven't seen, decisions only a human can close, dependencies that broke.</p>
+
+<p>The obvious architecture is an event bus. Every component emits events — <code>job.finished</code>, <code>output.created</code>, <code>decision.pending</code> — to an append-only log; the inbox reads the log; closing an item writes a close-event that advances the next step. It's clean on a whiteboard. I rejected it for four reasons, and chose a pull design instead.</p>
+
+<h2>The four reasons I killed the event bus</h2>
+
+<h3>1. The instrumentation tax is a project killer</h3>
+
+<p>Push means every producer must emit. In a fleet that grows every week, that's a standing tax on each new agent, each new cron line, and — fatally — <em>each third-party MCP server you cannot modify</em>. You can't add an emit call to a server someone else wrote. So the moment you add a component and forget to instrument it (or can't), it becomes invisible in the inbox. An observability layer whose blind spots grow with your system is worse than useless: it's a "single source of truth" that quietly lies.</p>
+
+<div class="warn"><strong>The trap:</strong> the components you least control — third-party tools, things that crash early — are exactly the ones an event bus can't see. Push optimizes for the easy case (code you own) and fails the hard case (code you don't).</div>
+
+<h3>2. State is truth, events are rumors</h3>
+
+<p>An event is a claim that depends on the claimant surviving and remembering to speak. If an agent crashes <em>before</em> it emits <code>done</code>, an event-based monitor shows nothing — the failure is invisible. State is the evidence left behind regardless: a stale output file, a log that stopped growing, a health check that fails, a process that isn't there. A pull monitor reads that evidence and reflects the crash <em>without the agent's cooperation</em>. This makes pull self-healing — it converges on reality every cycle — while push is only as honest as its least-reliable emitter.</p>
+
+<pre><code># pull: derive status from evidence the component already leaves behind
+status = {
+  "alive":   process_is_running(job),         # ps / launchctl print
+  "fresh":   newest_output_mtime(job) &gt; expected,   # &lt;project&gt;/report/ glob
+  "healthy": health_check(dependency),        # poll endpoint
+}
+# no emit() anywhere; a component that never reports is still seen</code></pre>
+
+<h3>3. Orchestration schizophrenia</h3>
+
+<p>A closed-loop bus — where "close this item" emits an event that advances the next step — turns the inbox into a workflow engine. I already have an orchestration hub that decomposes goals into steps. Building a second one inside the monitor duplicates that responsibility and doubles the debugging surface: now a stuck task could be the hub's fault or the inbox's. A monitor should report state, not drive it. Keeping those two jobs in two systems is what keeps either one debuggable.</p>
+
+<h3>4. The bus itself becomes an unreviewed dump</h3>
+
+<p>An append-only event log is not free infrastructure. It accrues schema drift (the shape of <code>output.created</code> changes and old readers break), duplicate events, events nobody ever closes, and unbounded growth that demands compaction. You've added a database with none of a database's guarantees — and it needs its own monitoring. Pull has no such artifact: there's nothing to compact because there's nothing stored but the state that already exists on disk.</p>
+
+<h2>What pull looks like instead</h2>
+
+<p>The inbox is a <strong>computed view</strong> over state that already exists — no new store, no emit calls:</p>
+
+<table>
+<tr><th>Attention type</th><th>Derived from (pull)</th></tr>
+<tr><td>New / unread output</td><td>per-job output glob mtime vs a read-timestamp record</td></tr>
+<tr><td>Pending decision</td><td>existing on-disk sources — an attention scan's output, an undecided ledger entry, an expired evaluation date</td></tr>
+<tr><td>Broken dependency</td><td>health-check failure, propagated to anything that declares a dependency on it</td></tr>
+</table>
+
+<p>Priority is deterministic, not a model's guess: <strong>BLOCKED → STALE → NEW</strong>, where each is a hard fact (a failed health check, a file newer than its read-timestamp, a schedule past due). An LLM-generated priority number would be unfalsifiable and would drift; a deterministic trigger is reproducible and debuggable. The model stays out of the ranking entirely.</p>
+
+<h3>Freshness is "unread," not "old"</h3>
+
+<p>Pull also fixes a subtle metric. The intuitive freshness signal is elapsed time — "this ran 3 days ago." But age isn't the problem; <em>unread output</em> is. A report that ran an hour ago and that you haven't opened is more demanding of attention than one from last week you already read. So freshness is computed as a join: does an output exist whose mtime is newer than the last time you opened it? Clicking a card records a read-timestamp; unread items rise to the top; read ones sink. This is only cheap because the design already scans state — freshness falls out of the same glob, where in a push system it would be yet another event to emit and reconcile.</p>
+
+<h2>The boundary that keeps it honest</h2>
+
+<p>Choosing pull also forces a discipline: the monitor must not mutate fleet state. "Closing" an inbox item means <em>acknowledge and deep-link to the real place the work is closed</em> — it does not reach in and change a job, a ledger, or an agent's state. The moment a monitor starts writing back, it's an orchestrator again, and reasons 1–3 return. Read the world; link to the controls; never become the controls.</p>
+
+<h2>When push is right</h2>
+
+<p>None of this says event buses are bad — it says they fit a different shape. If you own every producer, can instrument all of them, and need high-throughput, low-latency fan-out, push is the right tool. The pull argument wins specifically for a <em>small, heterogeneous, high-churn fleet with components you don't control</em>, where the cost that dominates is instrumentation and the failure that hurts most is the silent one. Match the architecture to which cost is fatal: throughput, or blind spots.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Should I use an event bus or polling for a small multi-agent system?</strong><br>
+Polling, if the fleet is high-churn and includes components you can't instrument. An event bus is blind to anything that doesn't emit; a poller scanning on-disk state is self-healing and needs zero instrumentation. Use a bus when you own and can instrument every producer and need high throughput.</p>
+
+<p><strong>Q. Is push or pull better for monitoring agents I don't control?</strong><br>
+Pull. You can't add emit calls to a third-party MCP server, so push can't see it. Pull derives status from log mtimes, output files, liveness, and health endpoints — no cooperation required.</p>
+
+<p><strong>Q. How do I monitor third-party MCP servers that don't emit events?</strong><br>
+Observe their external state: poll a health endpoint, check the process is alive, watch files they touch, and propagate status to dependents. The component never has to cooperate.</p>
+
+<p><strong>Q. How should a monitoring inbox decide priority without an LLM?</strong><br>
+Deterministic state triggers — BLOCKED, then STALE, then NEW — each a fact derived from disk (health check, mtime vs read-timestamp, schedule vs log). An LLM priority score is unfalsifiable and drifts.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
