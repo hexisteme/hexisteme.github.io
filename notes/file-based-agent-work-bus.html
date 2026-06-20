@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A file-based work-bus for orchestrating a fleet of agent CLIs — coordination without a message broker — hexisteme notes</title>
+<meta name="description" content="How to coordinate a fleet of independent AI agent CLIs without LangGraph or a message broker: a filesystem work-bus where the orchestrator writes Task files and polls for Result files. Atomic writes, capability-based routing, absent-worker skip for graceful degradation, and a typed claim contract across the bus.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"A file-based work-bus for orchestrating a fleet of agent CLIs — coordination without a message broker","datePublished":"2026-06-21","dateModified":"2026-06-21","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Lightweight multi-agent orchestration, file-based work bus, coordinating agent CLIs without LangGraph or a message broker, capability routing, graceful degradation","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I orchestrate multiple AI agent CLIs without LangGraph or a message broker?","acceptedAnswer":{"@type":"Answer","text":"Use a filesystem work-bus. The orchestrator decomposes a goal into a directed graph of subtasks, writes a Task file per subtask into a shared directory, and polls for the corresponding Result file each worker writes back. Each file is written atomically (write to a temp path, then rename) so a reader never sees a half-written record. The durable coordination state is just files on disk: language-agnostic (any worker in any language reads and writes JSON), debuggable with ls and cat, and able to survive a restart of the orchestrator or any worker. You get most of what a broker gives you — durable hand-off, decoupling — with no broker to run or monitor."}},{"@type":"Question","name":"Is a file-based work-bus the same as an event bus, and isn't polling slow?","acceptedAnswer":{"@type":"Answer","text":"No — and that difference is the point. An event bus is push: producers emit ephemeral events, and anything that isn't listening at that instant misses them. A file work-bus is state: the Task and Result records are durable files that stay until consumed, so a worker that starts late or restarts still finds its work. Polling with a short backoff is the trade-off you make for that durability and simplicity; for a fleet coordinating tasks that take seconds to minutes, poll latency is negligible and you avoid running a broker. Reserve a real message bus for high-throughput, low-latency fan-out where you own and can instrument every producer."}},{"@type":"Question","name":"How does the orchestrator route a task to the right agent?","acceptedAnswer":{"@type":"Answer","text":"By capability, not by hard-coded worker name. Each worker registers the capabilities it advertises; the orchestrator decomposes the goal into subtasks tagged with a required capability and, for each, finds a healthy worker that advertises it. This keeps the orchestrator decoupled from the specific fleet: add or remove a worker and routing adapts, because nodes are matched to capabilities rather than to a fixed wiring diagram. It also lets the orchestrator coordinate a heterogeneous fleet — different workers, different languages — through one uniform contract."}},{"@type":"Question","name":"What happens when a worker the plan needs is missing or down?","acceptedAnswer":{"@type":"Answer","text":"Skip it and log it — never fail the whole run. If a subtask requires a capability no healthy worker currently advertises, the orchestrator marks that node skipped (worker_absent) and records it, then continues with the rest of the graph and synthesizes from what did complete. This is graceful degradation: on day one, when most workers don't exist yet, the orchestrator still runs and produces partial output, and the skip log tells you exactly which capabilities to build next. A missing worker is a gap to report, not a crash."}},{"@type":"Question","name":"How do you trust the results that workers write back to the bus?","acceptedAnswer":{"@type":"Answer","text":"Put a typed contract on the bus and validate at the boundary. Every result a worker writes is parsed into a strict schema before the orchestrator absorbs it; untrusted fields are coerced and normalized (for example, casing differences between the bus wire format and internal enums). Load-bearing claims carry a provenance label and must include evidence — a claim marked FACT without evidence IDs is rejected at parse time rather than trusted. The orchestrator treats worker output as untrusted input crossing a boundary, exactly as it would treat data from the network."}}]}
+</script>
+</head>
+<body>
+
+<h1>A file-based work-bus for orchestrating a fleet of agent CLIs — coordination without a message broker</h1><p>To coordinate a fleet of independent AI agent CLIs without a message broker or a heavy framework, use a <strong>filesystem work-bus</strong>: the orchestrator decomposes a goal into a graph of subtasks, writes a <code>Task</code> file per subtask, and polls for the <code>Result</code> file each worker writes back — every file written atomically. The durable coordination state lives on disk as files: language-agnostic, debuggable with <code>ls</code>, surviving restarts, and self-healing because an absent worker is skipped and logged instead of failing the run.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 21, 2026 · 8 min read</p>
+
+<p>Say you have several AI agents, each an independent installed CLI — one gathers information, one writes copy, one builds an app scaffold — and you want to run a goal that needs several of them in sequence. The heavyweight answers are an in-process framework (LangGraph, an AutoGPT-style loop) or a message broker (Redis, Kafka, RabbitMQ). Both are more than a single-operator fleet needs: a framework couples your workers into one process and one language, and a broker is infrastructure you now have to run, secure, and monitor.</p>
+
+<p>There's a lighter primitive that fits this shape: a work-bus made of files.</p>
+
+<h2>The mechanism</h2>
+
+<p>A conductor process owns a shared directory — the bus. To run a goal:</p>
+
+<ol>
+<li><strong>Decompose</strong> the goal into a directed acyclic graph of subtasks (e.g. <em>gather → narrate → build</em>).</li>
+<li>For each ready subtask, <strong>write a <code>Task</code> file</strong> into the bus, tagged with the capability it needs.</li>
+<li><strong>Poll</strong> for the matching <code>Result</code> file, with a short backoff.</li>
+<li><strong>Absorb</strong> each result, validate it, and release the next subtasks in the graph.</li>
+</ol>
+
+<p>The one rule that makes this safe is <strong>atomic writes</strong>: write each record to a temp path and <code>rename</code> it into place. Rename is atomic on POSIX filesystems, so a reader either sees the whole file or nothing — never a half-written record. Task and Result are typed records (a small pydantic schema), and the conductor keeps a registry of what's in flight.</p>
+
+<pre><code># atomic publish — a reader never sees a partial record
+def publish(path, record):
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(record.model_dump_json())
+    tmp.rename(path)          # atomic on POSIX
+
+# the conductor loop
+for task in topo_order(dag):
+    publish(bus / f"{task.id}.task.json", task)
+    result = poll(bus / f"{task.id}.result.json", backoff=...)   # durable: waits for the file
+    absorb(result)</code></pre>
+
+<h2>This is state, not events — by design</h2>
+
+<p>It's fair to ask whether a file work-bus is just an event bus in disguise. It isn't, and the distinction is the reason it works. An event bus is <em>push</em>: producers emit ephemeral events, and anything not listening at that instant misses them. A file work-bus is <em>state</em>: the <code>Task</code> and <code>Result</code> records are durable files that stay until consumed. A worker that starts late, or restarts mid-run, still finds its task waiting. (I argued the same principle for <em>monitoring</em> a fleet in <a href="pull-vs-event-bus-agent-fleet.html">state is truth, events are rumors</a> — here it shows up again for <em>coordinating</em> one.)</p>
+
+<div class="note"><strong>Why push is fine here but not for monitoring.</strong> You <em>build and control</em> these workers, so you can make them read and write the bus. Monitoring is the opposite case — you watch components you don't control, so you pull their state instead. Coordination of owned workers via durable files, monitoring of unowned components via state scans: both lean on durable state over ephemeral events.</div>
+
+<h2>Routing by capability, not by name</h2>
+
+<p>The conductor doesn't hard-wire "send step 2 to worker X." Each worker advertises capabilities; each subtask declares the capability it needs; the conductor matches them at dispatch time by finding a healthy worker that advertises the required capability. Add or remove a worker and routing adapts — there's no wiring diagram to edit. This is what lets one conductor coordinate a heterogeneous, changing fleet through a single uniform contract.</p>
+
+<h2>Graceful degradation: skip the absent worker</h2>
+
+<p>The most important behavior for a fleet that's still being built: <strong>a missing worker must not fail the run.</strong> If a subtask needs a capability no healthy worker currently advertises, the conductor marks that node <em>skipped</em> (a logged <code>worker_absent</code>), continues the rest of the graph, and synthesizes from whatever completed. On day one, when most workers don't exist yet, the conductor still runs end-to-end and produces partial output — and the skip log is a precise to-do list of which capabilities to build next. A gap is reported, not crashed on.</p>
+
+<h2>Trust the bus like a network boundary</h2>
+
+<p>Worker output is untrusted input crossing a boundary, and the bus treats it that way. Every result is parsed into a strict schema before absorption; mismatches (say, casing differences between the wire format and internal enums) are coerced and normalized at the seam. Load-bearing claims carry a provenance label and must include evidence — a claim that arrives marked <code>FACT</code> with no evidence IDs is rejected at parse time, not trusted. The typed contract is what lets independent workers, written in different languages by you at different times, interoperate without the conductor having to trust any of them blindly.</p>
+
+<h2>The honest limitation</h2>
+
+<div class="warn"><strong>No stop condition on re-routing.</strong> Capability-based routing has a sharp edge: if a node can be re-routed to "any worker advertising capability C" and results keep failing validation, a naive conductor can re-route in an unbounded loop. A file work-bus needs an explicit per-node attempt budget (and a dead-letter outcome) or it can spin. Durability and decoupling are the wins; a bounded retry policy is the cost you must pay to claim them safely.</div>
+
+<h2>When to reach for a real broker</h2>
+
+<p>This pattern fits a <em>small, heterogeneous fleet running tasks that take seconds to minutes</em>, coordinated by one operator. If you need high-throughput, low-latency fan-out across many producers and consumers, run a real message bus — the file-bus's polling and single-conductor model won't keep up. Match the tool to the failure that hurts: for a solo fleet, the pain is operational overhead and brittle coupling, and a directory of atomic files removes both.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do I orchestrate multiple agent CLIs without LangGraph or a broker?</strong><br>
+A filesystem work-bus: decompose into a subtask graph, write atomic Task files, poll for Result files. Durable state on disk — language-agnostic, debuggable, restart-safe, no broker to run.</p>
+
+<p><strong>Q. Isn't this just an event bus, and isn't polling slow?</strong><br>
+No — files are durable state, not ephemeral events, so a late/restarted worker still finds its task. Poll-with-backoff latency is negligible for second-to-minute tasks, and you avoid running a broker.</p>
+
+<p><strong>Q. How does it route tasks?</strong><br>
+By capability, not worker name. Workers advertise capabilities; subtasks declare a required capability; the conductor matches at dispatch. Fleets can change without editing wiring.</p>
+
+<p><strong>Q. What if a needed worker is missing?</strong><br>
+Skip and log it (worker_absent), continue the graph, synthesize from what completed. Graceful degradation, with the skip log as a build-next list.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
