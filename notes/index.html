@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Engineering Notes — hexisteme</title>
-<meta name="description" content="Engineering patterns from building AI agent systems: Reusable Decision Units (RDU), falsifier-driven decisions, Claude Code stop hooks, and more.">
+<meta name="description" content="Engineering patterns from building and running an AI agent fleet: Reusable Decision Units (RDU), falsifier-driven decisions, Claude Code stop hooks, read-only cron/launchd aggregation, and event-bus vs pull monitoring.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:680px;margin:0 auto;padding:40px 24px;color:#1a1a1a}
 a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-bottom:1px solid #eee;padding-bottom:4px}
@@ -37,6 +37,20 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="stop-hook-gates.html">Claude Code Stop Hooks as Behavioral Gates</a></h3>
   <p>Using Claude Code hooks to enforce behavioral constraints beyond prompts. AND-gate design, nag-once pattern, decision-ownership and sycophancy-prevention examples.</p>
   <span class="tag">Claude Code</span><span class="tag">hooks</span><span class="tag">behavioral gates</span>
+</div>
+
+<h2>Fleet Monitoring &amp; Scheduling</h2>
+
+<div class="card">
+  <h3><a href="cron-launchd-unified-dashboard.html">Aggregating cron and macOS launchd into one read-only dashboard — without migrating either</a></h3>
+  <p>See every cron job and LaunchAgent in one place by globbing on-disk state instead of importing them. Includes a 25-tool fit-gap matrix and the read-only aggregation pattern.</p>
+  <span class="tag">cron</span><span class="tag">launchd</span><span class="tag">observability</span>
+</div>
+
+<div class="card">
+  <h3><a href="pull-vs-event-bus-agent-fleet.html">Why I Rejected an Event Bus for My Solo Agent Fleet: State Is Truth, Events Are Rumors</a></h3>
+  <p>Why pull (scan on-disk state) beats push (an event bus) for monitoring a high-churn fleet with components you don't control. The instrumentation-tax argument and self-healing polling.</p>
+  <span class="tag">multi-agent</span><span class="tag">pull vs push</span><span class="tag">MCP</span>
 </div>
 
 <div class="foot"><a href="../">← hexisteme home</a> · CC-BY 4.0</div>
