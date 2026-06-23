@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie — hexisteme notes</title>
+<meta name="description" content="On macOS, when nslookup resolves a host but curl, pip, and Python fail with 'Could not resolve host,' the mDNSResponder daemon has gone into a non-responsive zombie state. The two-DNS-path asymmetry that diagnoses it, the weakest-first fix, and why long-running agent/MCP boxes hit it repeatedly.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"macOS: nslookup works but curl and Python \"Could not resolve host\" — the mDNSResponder zombie","datePublished":"2026-06-23","dateModified":"2026-06-23","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"macOS DNS resolution failure, mDNSResponder zombie state, nslookup works but curl fails, getaddrinfo, connection pool exhaustion, fixing the system resolver","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does nslookup work but curl says 'Could not resolve host' on the same macOS machine?","acceptedAnswer":{"@type":"Answer","text":"Because they use different DNS paths. nslookup and dig query DNS servers directly and bypass the mDNSResponder daemon, while curl, Python (requests/httpx), and pip use getaddrinfo(), which routes through mDNSResponder. When the daemon becomes non-responsive — its process ID stays alive but it silently stops answering — the direct path keeps resolving while the system-resolver path fails on the exact same host. The failure is the daemon, not your network, API keys, or code."}},{"@type":"Question","name":"How do I confirm it's mDNSResponder and not my code or API key on macOS?","acceptedAnswer":{"@type":"Answer","text":"Run dscacheutil -q host -a name <yourhost>. It uses the same daemon path as curl and Python, so an empty response while nslookup <yourhost> returns a valid IP confirms the daemon is the culprit — not your code or credentials. A second sanity check: curl --resolve <host>:443:<IP-from-nslookup> https://<host> — if that succeeds, routing and TLS are fine and mDNSResponder is the sole problem."}},{"@type":"Question","name":"How do I fix the macOS DNS resolver when curl and pip can't resolve hosts?","acceptedAnswer":{"@type":"Answer","text":"Restart the mDNSResponder daemon, escalating weakest-first: (1) sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder; (2) sudo launchctl kickstart -k system/com.apple.mDNSResponder; (3) if that prints 'Could not find service' (the service path differs across macOS versions), the universal fix is sudo killall -9 mDNSResponder mDNSResponderHelper — launchd's KeepAlive restarts it with a fresh PID. Verify with pgrep -l mDNSResponder plus a repeat dscacheutil or curl. Do not touch your API keys, SDK versions, or code."}},{"@type":"Question","name":"Why does my AI agent, MCP server, or long-running dev box keep hitting this DNS failure?","acceptedAnswer":{"@type":"Answer","text":"Connection-pool exhaustion. Many concurrent outbound long-poll connections — several MCP servers, a local inference/LLM server, and background jobs all holding sockets open — push mDNSResponder to high CPU until it stops answering. In one measured case, 30+ concurrent long-poll connections drove the daemon to 77% CPU and into the zombie state. Restarting the daemon recovers it, but recurrence only stops when you reduce the concurrent-connection source. Watch lsof -i -P -n | wc -l (80+ is a warning sign) and mDNSResponder CPU above ~30%."}},{"@type":"Question","name":"Should I edit /etc/resolv.conf or reinstall my SDK to fix macOS DNS resolution?","acceptedAnswer":{"@type":"Answer","text":"No. macOS does not use /etc/resolv.conf for its system resolver (the file even says so in its own comments), so editing it won't help. Reinstalling an SDK or changing library versions doesn't touch the mDNSResponder daemon either. The actual fix is restarting mDNSResponder and, for recurrence, capping the number of concurrent long-poll connections. Switching to a public resolver like 8.8.8.8 is only a diagnostic step to rule out a bad upstream resolver, not a default."}}]}
+</script>
+</head>
+<body>
+
+<h1>macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie</h1><p>If <code>nslookup</code> resolves a host fine but <code>curl</code>, <code>pip</code>, and Python (<code>requests</code>/<code>httpx</code>) fail with "Could not resolve host," your <strong><code>mDNSResponder</code> daemon has almost certainly entered a non-responsive "zombie" state</strong> — and the fix is to restart it (<code>sudo killall -9 mDNSResponder</code>), not to touch your API keys, SDK versions, or code.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 23, 2026 · 7 min read</p>
+
+<p>This failure is maddening because every signal points the wrong way. <code>nslookup example.com</code> returns a clean IP, so DNS "works." Your network is up. Your code didn't change. Yet <code>curl</code>, <code>pip install</code>, and every Python HTTP call die with "Could not resolve host." People burn hours rotating API keys, downgrading SDKs, and editing config files. None of that is the problem.</p>
+
+<h2>The two-DNS-path asymmetry (your fastest diagnosis)</h2>
+
+<p>macOS resolves DNS over <strong>two independent paths</strong>, and the asymmetry <em>is</em> the diagnosis:</p>
+
+<table>
+<tr><th>Path</th><th>Who uses it</th><th>Goes through mDNSResponder?</th></tr>
+<tr><td>Direct</td><td><code>nslookup</code>, <code>dig</code></td><td>No — queries DNS servers directly</td></tr>
+<tr><td>System resolver</td><td><code>curl</code>, Python, <code>pip</code>, most apps (<code>getaddrinfo()</code>)</td><td>Yes — routes to the daemon</td></tr>
+</table>
+
+<p>The daemon can keep its PID alive while silently refusing to answer. So the direct path (nslookup) succeeds and the system-resolver path (curl) fails <em>on the exact same host</em>. When one path works and the other fails, you are not looking at a network, key, or code problem — you are looking at a sick daemon.</p>
+
+<h2>Confirm it in 10 seconds</h2>
+
+<p>Use the daemon path directly so you're testing the same route curl uses:</p>
+
+<pre><code># Uses the mDNSResponder path (same as curl/Python). Empty result = zombie.
+dscacheutil -q host -a name example.com
+
+# ...while the direct path still returns a valid IP:
+nslookup example.com</code></pre>
+
+<p>If <code>dscacheutil</code> comes back empty but <code>nslookup</code> returns an IP, the daemon is confirmed as the culprit. One more sanity check proves routing and TLS are fine and isolates the daemon as the <em>sole</em> cause:</p>
+
+<pre><code># Bypass resolution entirely with the IP nslookup gave you:
+curl --resolve example.com:443:&lt;IP-from-nslookup&gt; https://example.com
+# Succeeds? Then DNS resolution is the only broken thing.</code></pre>
+
+<h2>Fix it weakest-tool-first</h2>
+
+<p>Start gentle and escalate only as needed:</p>
+
+<pre><code># 1) flush + reload (least disruptive)
+sudo dscacheutil -flushcache &amp;&amp; sudo killall -HUP mDNSResponder
+
+# 2) kickstart the service
+sudo launchctl kickstart -k system/com.apple.mDNSResponder
+
+# 3) universal hammer (if kickstart prints "Could not find service" —
+#    the service path differs across macOS versions)
+sudo killall -9 mDNSResponder mDNSResponderHelper
+#    launchd's KeepAlive immediately restarts it with a fresh PID.
+
+# verify
+pgrep -l mDNSResponder &amp;&amp; dscacheutil -q host -a name example.com</code></pre>
+
+<h2>Why agents and long-lived dev boxes hit this repeatedly</h2>
+
+<p>The zombie is usually triggered by <strong>connection-pool exhaustion</strong>. Many concurrent outbound long-poll connections — say several MCP servers, a local inference/LLM server, and an ingest or daily-report job all holding sockets open at once — push <code>mDNSResponder</code> into high CPU until it stops answering.</p>
+
+<div class="note"><strong>Measured case:</strong> 30+ concurrent long-poll connections drove <code>mDNSResponder</code> to <strong>77% CPU</strong> and into the non-responsive state. The recovery (restarting the daemon) alone doesn't stop recurrence — you have to find and cut the connection source. Watch for the active connection count climbing (<code>lsof -i -P -n | wc -l</code> in the 80+ range) and <code>mDNSResponder</code> CPU above ~30%.</div>
+
+<h2>"Disabled" in config does not mean the process is dead</h2>
+
+<p>A subtle trap when hunting the connection source: a server can be flagged off at the code or config level (an <code>ENABLED=False</code> switch) while its OS process <em>keeps running</em> and keeps holding its long-poll connections. The flag stopped new work from being dispatched but never killed the process, so it kept feeding the pile-up. When auditing, check <code>ps</code>/<code>pgrep</code> for the actual process and its elapsed time (<code>etime</code>) — not just the config flag.</p>
+
+<pre><code># the flag says off; the process says otherwise
+pgrep -lf &lt;server-name&gt;        # still there?
+ps -o pid,etime,%cpu,command -p &lt;pid&gt;</code></pre>
+
+<h2>Prevent recurrence — and the honest limitation</h2>
+
+<p>Two durable fixes: <strong>reduce concurrent long-poll load</strong> (trim always-on servers/MCP endpoints, kill stale inference servers, and on a box that runs for many days, restart <code>mDNSResponder</code> on a schedule), or install a <strong>watchdog LaunchDaemon</strong> that kickstarts the daemon when its CPU crosses a threshold.</p>
+
+<div class="warn"><strong>Honest caveat:</strong> this exact two-path asymmetry is macOS-specific — it's <code>mDNSResponder</code>/<code>getaddrinfo</code> behavior, not Linux's <code>nsswitch</code>/<code>resolv.conf</code>. And a watchdog that calls <code>launchctl kickstart</code> needs root: implement it as a LaunchDaemon running as root with a narrowly scoped script, not a broad sudo NOPASSWD rule. The watchdog is a band-aid — the real fix is capping concurrent connections.</div>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does nslookup work but curl says "Could not resolve host" on the same Mac?</strong><br>
+Different DNS paths. nslookup/dig query DNS servers directly; curl/Python/pip use <code>getaddrinfo()</code> → the mDNSResponder daemon. A zombie daemon (PID alive, not answering) breaks the second path only.</p>
+
+<p><strong>Q. How do I confirm it's mDNSResponder, not my code or key?</strong><br>
+<code>dscacheutil -q host -a name &lt;host&gt;</code> uses the daemon path — empty result while <code>nslookup</code> returns an IP confirms the daemon. <code>curl --resolve</code> with that IP succeeding proves routing/TLS are fine.</p>
+
+<p><strong>Q. How do I fix it?</strong><br>
+Weakest-first: <code>flushcache + killall -HUP</code> → <code>launchctl kickstart -k system/com.apple.mDNSResponder</code> → <code>sudo killall -9 mDNSResponder mDNSResponderHelper</code> (launchd restarts it).</p>
+
+<p><strong>Q. Why does my agent/MCP box keep hitting this?</strong><br>
+Connection-pool exhaustion from many concurrent long-poll connections (measured: 30+ → 77% CPU → zombie). Cut the connection source; restarting alone doesn't prevent recurrence.</p>
+
+<p><strong>Q. Edit /etc/resolv.conf or reinstall the SDK?</strong><br>
+No — macOS ignores <code>/etc/resolv.conf</code> for its system resolver, and the SDK isn't involved. Restart the daemon and cap concurrent connections.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
