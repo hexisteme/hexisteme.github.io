@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Engineering Notes — hexisteme</title>
-<meta name="description" content="Engineering patterns from building and running an AI agent fleet: Reusable Decision Units (RDU), falsifier-driven decisions, FACT vs INFERENCE provenance, Claude Code stop hooks, read-only cron/launchd aggregation, pull-vs-event-bus monitoring, and file-based agent orchestration.">
+<meta name="description" content="Engineering patterns from building and running an AI agent fleet: Reusable Decision Units (RDU), falsifier-driven decisions, FACT vs INFERENCE provenance, Claude Code stop hooks, read-only cron/launchd aggregation, pull-vs-event-bus monitoring, file-based agent orchestration, and macOS debugging.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:680px;margin:0 auto;padding:40px 24px;color:#1a1a1a}
 a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-bottom:1px solid #eee;padding-bottom:4px}
@@ -63,6 +63,14 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="file-based-agent-work-bus.html">A File-Based Work-Bus for Orchestrating a Fleet of Agent CLIs</a></h3>
   <p>Coordinate independent agent CLIs without LangGraph or a message broker: atomic Task/Result files, capability-based routing, absent-worker skip for graceful degradation, and a typed claim contract on the bus.</p>
   <span class="tag">orchestration</span><span class="tag">multi-agent</span><span class="tag">LangGraph alternative</span>
+</div>
+
+<h2>macOS &amp; Debugging</h2>
+
+<div class="card">
+  <h3><a href="macos-mdnsresponder-zombie-dns.html">macOS: nslookup Works but curl and Python "Could Not Resolve Host" — the mDNSResponder Zombie</a></h3>
+  <p>When nslookup resolves but curl/pip/Python fail, the mDNSResponder daemon is in a non-responsive zombie state. The two-DNS-path diagnosis, the weakest-first fix, and why long-running agent/MCP boxes trigger it (measured: 30+ long-poll connections → 77% CPU).</p>
+  <span class="tag">macOS</span><span class="tag">DNS</span><span class="tag">debugging</span>
 </div>
 
 <div class="foot"><a href="../">← hexisteme home</a> · CC-BY 4.0</div>
