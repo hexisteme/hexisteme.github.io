@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Silent 10× Tax: How a Nondeterministic System Prompt Voids Your LLM Prompt Cache — hexisteme notes</title>
+<meta name="description" content="A prompt cache is a prefix match, so one timestamp or one unsorted JSON key in the system prompt makes every later token miss the cache — a silent 10× cost leak that no error ever reports. Here's how it fails and how to assert it's working.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Silent 10x Tax: How a Nondeterministic System Prompt Voids Your LLM Prompt Cache", "datePublished": "2026-07-09", "dateModified": "2026-07-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a nondeterministic system prompt silently defeats prefix-based LLM prompt caching, and how to audit and assert that caching is working.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does a timestamp in the system prompt make prompt caching stop working?", "acceptedAnswer": {"@type": "Answer", "text": "Because a prompt cache is a prefix match: the cache key is the exact bytes of the rendered prompt up to a breakpoint, and any byte that changes anywhere in the prefix invalidates the cache for everything after it. A timestamp, UUID, or per-request ID sits near the front of the system prompt, so it changes on every request and nothing behind it can ever be reused. The fix is to freeze the system prompt and move volatile values to the end of the message list, after the last cache breakpoint."}}, {"@type": "Question", "name": "How much does a prompt-cache miss actually cost?", "acceptedAnswer": {"@type": "Answer", "text": "On Anthropic's API a cache read costs about 0.1x the base input price and a cache write costs about 1.25x for the default 5-minute TTL. So a token you could have read from cache at one-tenth price but instead reprocess at full price costs about ten times what it should. Across a long-lived agent session that reuses a large prefix on every turn, that difference is usually the single biggest token lever you have."}}, {"@type": "Question", "name": "How do I tell if my prompt cache is actually being hit?", "acceptedAnswer": {"@type": "Answer", "text": "Read the usage object on the response. cache_read_input_tokens is what was served from cache, cache_creation_input_tokens is what was written, and input_tokens is what was reprocessed at full price. If cache_read_input_tokens stays zero across repeated requests that should share a prefix, a silent invalidator is at work. Diff the rendered prompt bytes between two consecutive requests to find the byte that changed."}}, {"@type": "Question", "name": "Does non-deterministic JSON serialization break prompt caching?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. If any part of the cached prefix is built by serializing a dict or map without a stable key order, or by iterating a set, the bytes can differ run to run even when the logical content is identical, and the cache misses. Serialize with sorted keys and iterate ordered collections so the same logical prompt always produces the same bytes."}}, {"@type": "Question", "name": "Why does adding or reordering a tool invalidate the whole prompt cache?", "acceptedAnswer": {"@type": "Answer", "text": "Tools render at the very front of the prompt, before the system prompt and messages. Because caching is a prefix match, any change to the tool set — adding, removing, or reordering a tool — changes position zero and invalidates the entire cache below it. Keep the tool list frozen and deterministically ordered for a session; if you need dynamic tools, use a discovery mechanism that appends tool schemas rather than swapping the base set, and don't switch models mid-session, since caches are model-scoped."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Silent 10× Tax: How a Nondeterministic System Prompt Voids Your LLM Prompt Cache</h1>
+<p>Prompt caching is the largest single token lever for any long-lived LLM session — a cached token is served at roughly a tenth of its normal price. It is also one of the easiest things to break by accident, because when it breaks there is no error. One timestamp in the system prompt, one unsorted JSON key, and your cache-read rate quietly goes to zero while the bill goes up tenfold. This is how the failure works, and how to make it loud.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · July 9, 2026</p>
+
+<div class="note">A prompt cache is a <strong>prefix match</strong>: the cache key is the exact bytes of the rendered prompt up to a breakpoint, and a single byte change anywhere in the prefix invalidates everything after it. So anything volatile near the front of the prompt — a <code>datetime.now()</code> in the system header, a per-request UUID, a dict serialized without sorted keys, a tool list that reorders — silently defeats caching for the entire request. The cost is real (a miss is ~10× a hit on the cached span) and invisible (no exception, no warning). The only signal is one field in the usage object, and the only durable fix is to assert on it.</div>
+
+<h2>How prefix caching actually works</h2>
+<p>The mental model that prevents every bug below is one sentence: <strong>the cache key is the bytes of the rendered prompt, matched as a prefix.</strong> The provider renders your request in a fixed order — tools, then the system prompt, then the messages — hashes the bytes up to each cache breakpoint, and looks for a prior entry with the same prefix. If it finds one, the shared span is a cache <em>read</em>; the rest is processed fresh. If the very first byte differs, nothing matches and the whole thing is processed at full price.</p>
+<p>Three properties follow, and all three are load-bearing:</p>
+<ul>
+<li><strong>Prefix, not fuzzy match.</strong> There is no "close enough." Byte <em>N</em> changing invalidates the cache for every breakpoint at position ≥ <em>N</em>. Stable content has to physically come <em>before</em> volatile content in the rendered prompt, or the volatile content poisons everything after it.</li>
+<li><strong>Model-scoped.</strong> Caches are keyed per model. Switching the model mid-session — even to a cheaper one for a sub-task — starts from a cold cache.</li>
+<li><strong>Short-lived.</strong> On Anthropic's API the default cache entry lives ~5 minutes (a 1-hour tier exists at a higher write premium). A gap longer than the TTL means the next request pays to write the cache again.</li>
+</ul>
+<p>The economics are what make this worth caring about. A cache <strong>read</strong> costs about <strong>0.1×</strong> the base input price; a cache <strong>write</strong> costs about <strong>1.25×</strong> for the 5-minute TTL. So the break-even is fast — two requests sharing a prefix already come out ahead — and the downside of a silent miss is steep: every token you <em>could</em> have read at one-tenth price is instead reprocessed at full price. That is the 10× in the title, and on a long agent loop that resends a large fixed preamble every turn, it is most of the bill.</p>
+
+<h2>The silent failure: <code>cache_read</code> stays zero and nothing tells you</h2>
+<p>Here is what makes this class of bug nasty. A broken cache is <em>not an error</em>. Your requests succeed, your outputs are correct, your latency is a little worse and your cost is a lot worse, and nothing in the response says "you just paid full price for 40,000 tokens you had cached thirty seconds ago." The system is behaving exactly as designed; it simply never found a matching prefix.</p>
+<p>The only signal is the usage object. Every response reports three numbers you have to actually look at:</p>
+<table>
+<thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>cache_read_input_tokens</code></td><td>Served from cache — you paid ~0.1×</td></tr>
+<tr><td><code>cache_creation_input_tokens</code></td><td>Written to cache — you paid the ~1.25× write premium</td></tr>
+<tr><td><code>input_tokens</code></td><td>Reprocessed at full price — <strong>not cached</strong></td></tr>
+</tbody>
+</table>
+<div class="warn"><strong>If <code>cache_read_input_tokens</code> is zero across repeated requests that should share a prefix, a silent invalidator is at work.</strong> That single field is the whole diagnosis. When it's zero and you expected a hit, the move is mechanical: capture the fully rendered prompt bytes from two consecutive requests and diff them. The byte that changed is your invalidator, and it is almost always one of a small, known set.</div>
+
+<h2>The invalidators, in order of how often they bite</h2>
+<p>Every one of these changes the prefix bytes without changing the logical prompt — which is exactly why they're easy to write and hard to notice.</p>
+<ul>
+<li><strong>A timestamp or UUID in the system prompt.</strong> The classic. <code>f"Current time: {datetime.now()}"</code> or a per-request trace ID interpolated into the system header changes the prefix on <em>every single request</em>, so the cache is never read even once. Anything that must be dynamic belongs after the last breakpoint, in the message list — a fact injected at turn 5 invalidates nothing before turn 5.</li>
+<li><strong>Non-deterministic serialization.</strong> Building any part of the prefix with <code>json.dumps(d)</code> without <code>sort_keys=True</code>, or by iterating a <code>set</code>, can emit different bytes run to run for identical content. Same logical prompt, different key order, cache miss. Sort your keys and order your collections.</li>
+<li><strong>Tool-set churn.</strong> Tools render at position zero, ahead of everything. Adding, removing, or reordering a tool changes the very front of the prefix and invalidates the entire cache below it — across the whole session, and across users if the tool set is built per-user. Freeze the tool list and sort it deterministically; for genuinely dynamic tools, use a discovery mechanism that <em>appends</em> schemas rather than swapping the base set.</li>
+<li><strong>Per-user or per-session interpolation into the system prompt.</strong> Splicing a user ID, name, or session key into the system header gives every user a distinct prefix and kills all cross-request and cross-user sharing. Move it into the messages.</li>
+<li><strong>Conditional system sections.</strong> <code>if flag: system += "..."</code> means every combination of flags is a different prefix. Each variant caches separately and shares nothing.</li>
+<li><strong>Mid-session edits and model switches.</strong> Editing the top-level system prompt partway through a conversation re-processes the whole history uncached; switching models throws the cache away entirely (it's model-scoped). If you need to inject an operator instruction mid-run, append it as a message rather than editing the frozen system prompt.</li>
+</ul>
+
+<h2>Why it hurts most exactly where you'd want caching</h2>
+<p>The cruel part is that the failure concentrates in precisely the workloads caching is <em>for</em>. A one-shot classification call barely cares. A long-running agent — a fleet of workers, a multi-step DAG, an orchestration loop that resends a large fixed system prompt and tool set on every one of hundreds of turns — is entirely built on the assumption that the big fixed prefix is nearly free after the first write. When a worker reassembles its system prompt on each call and one field in that assembly is nondeterministic, that assumption silently inverts: the largest, most-reused span of the prompt becomes the most-repaid. The bigger and more disciplined your prompt architecture, the more a single stray byte costs you.</p>
+
+<h2>The audit: make the cache assert itself</h2>
+<p>Because the failure is silent, the only real defense is to stop trusting and start measuring. The audit is short:</p>
+<ul>
+<li><strong>Classify every input by how often it changes.</strong> Never → put it early, before any breakpoint. Per-session → after the global prefix. Per-turn → at the very end. Per-<em>request</em> (timestamps, IDs) → eliminate it from the prefix or move it dead last.</li>
+<li><strong>Check that rendered order matches stability order.</strong> Stable bytes must physically precede volatile bytes. A timestamp in the system header defeats every breakpoint after it no matter how many <code>cache_control</code> markers you sprinkle downstream.</li>
+<li><strong>Freeze the load-bearing pieces.</strong> System prompt frozen, tools deterministically ordered, model fixed for the session, JSON serialized with sorted keys.</li>
+<li><strong>Then assert.</strong> After the first request warms the cache, the code should check <code>usage.cache_read_input_tokens &gt; 0</code> on the second — and fail loudly if it isn't. A silent cache miss caught by an assertion in development is a non-event; the same miss shipped to a long-running fleet is a standing tax you won't see until you read the bill.</li>
+</ul>
+<p>None of this is exotic. It's the same discipline as any other cache: know your key, keep it stable, and verify your hit rate instead of assuming it. The only twist with prompt caching is that the key is the entire rendered prefix, so "keep it stable" reaches all the way back into how you build the system prompt — and the penalty for a stray byte is measured in tens of percent of your token bill, paid quietly, forever, until someone looks at the one field that would have told them.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does a timestamp in the system prompt make prompt caching stop working?</strong><br>
+Because a prompt cache is a prefix match: the key is the exact bytes of the rendered prompt up to a breakpoint, and any byte that changes anywhere in the prefix invalidates everything after it. A timestamp, UUID, or per-request ID near the front of the system prompt changes on every request, so nothing behind it is ever reused. Freeze the system prompt and move volatile values to the end of the message list, after the last cache breakpoint.</p>
+<p><strong>Q. How much does a prompt-cache miss actually cost?</strong><br>
+On Anthropic's API a cache read costs about 0.1× the base input price and a cache write about 1.25× for the default 5-minute TTL. A token you could have read from cache at one-tenth price but instead reprocess at full price costs roughly ten times what it should. Across a long session that reuses a large prefix every turn, that gap is usually the single biggest token lever you have.</p>
+<p><strong>Q. How do I tell if my prompt cache is actually being hit?</strong><br>
+Read the usage object. <code>cache_read_input_tokens</code> is what was served from cache, <code>cache_creation_input_tokens</code> is what was written, and <code>input_tokens</code> is what was reprocessed at full price. If <code>cache_read_input_tokens</code> stays zero across repeated requests that should share a prefix, a silent invalidator is at work — diff the rendered prompt bytes between two requests to find it.</p>
+<p><strong>Q. Does non-deterministic JSON serialization break prompt caching?</strong><br>
+Yes. If any part of the cached prefix is built by serializing a dict/map without a stable key order, or by iterating a set, the bytes can differ run to run even when the content is identical, and the cache misses. Serialize with sorted keys and iterate ordered collections so the same logical prompt always produces the same bytes.</p>
+<p><strong>Q. Why does adding or reordering a tool invalidate the whole prompt cache?</strong><br>
+Tools render at the very front of the prompt, before the system prompt and messages. Because caching is a prefix match, any change to the tool set changes position zero and invalidates the entire cache below it. Keep the tool list frozen and deterministically ordered per session; for dynamic tools, use a discovery mechanism that appends schemas rather than swapping the base set, and don't switch models mid-session, since caches are model-scoped.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
