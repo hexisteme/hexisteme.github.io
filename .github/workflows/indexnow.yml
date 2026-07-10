@@ -1,0 +1,56 @@
+name: IndexNow ping
+
+# master 로 push 될 때마다 변경된 HTML 페이지 URL 을 IndexNow 로 전송한다.
+# 대상 엔진: api.indexnow.org (Bing/Yandex/Seznam 등 참여 엔진에 공유 전파)
+# 키 파일: 리포 루트 1e66309797594b51ab628aba76742325.txt (IndexNow 소유 증명 — 공개가 정상)
+# 경로 무관 단일 관문: agent_realestate 데일리 push · devto-curate promote --push · 수동 push 전부 커버.
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed HTML and ping IndexNow
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          HOST="hexisteme.github.io"
+          KEY="1e66309797594b51ab628aba76742325"
+
+          # push 범위 결정 (신규 브랜치/force-push 방어)
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            RANGE="$AFTER^..$AFTER"
+          else
+            RANGE="$BEFORE..$AFTER"
+          fi
+
+          FILES=$(git diff --name-only --diff-filter=ACDMR "$RANGE" -- '*.html' || true)
+          if [ -z "$FILES" ]; then
+            echo "no html changed — skip"
+            exit 0
+          fi
+
+          # 파일경로 → URL (디렉토리 index.html 은 디렉토리 URL 로 정규화)
+          URLS=$(echo "$FILES" | sed "s|^|https://$HOST/|" | sed 's|/index\.html$|/|; s|^https://'"$HOST"'/index\.html$|https://'"$HOST"'/|')
+          COUNT=$(echo "$URLS" | grep -c . || true)
+          echo "pinging $COUNT urls:"
+          echo "$URLS"
+
+          PAYLOAD=$(printf '%s\n' "$URLS" | python3 -c "import sys,json;print(json.dumps({'host':'$HOST','key':'$KEY','urlList':[l.strip() for l in sys.stdin if l.strip()][:10000]}))")
+          CODE=$(curl -s -o /tmp/indexnow-resp -w "%{http_code}" -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json; charset=utf-8" -d "$PAYLOAD")
+          echo "IndexNow response: $CODE"
+          cat /tmp/indexnow-resp 2>/dev/null || true
+          case "$CODE" in
+            200|202) echo "accepted" ;;
+            *) echo "IndexNow ping failed ($CODE)"; exit 1 ;;
+          esac
