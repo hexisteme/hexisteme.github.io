@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Google Can't Fetch Your GitHub Pages Sitemap, but Bing Can — hexisteme notes</title>
+<meta name="description" content="Google Search Console showed 'Couldn't fetch' on my GitHub Pages sitemap for 25 days while all 289 URLs returned 200 and Bing crawled the same file fine — a documented platform pattern, not a broken site. Here's the diagnosis, the manual-indexing workaround that indexes pages while the sitemap stays stuck, the dead ends to skip, and why Bing quietly matters more for AI search.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Google Can't Fetch Your GitHub Pages Sitemap, but Bing Can: A Diagnosis and Workaround Playbook", "datePublished": "2026-07-10", "dateModified": "2026-07-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A diagnosis of Google Search Console reporting Couldn't fetch on a healthy GitHub Pages sitemap, and a workaround playbook using manual index requests while Bing crawls the same file fine.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does Google say \"Couldn't fetch\" for a GitHub Pages sitemap when every URL returns HTTP 200?", "acceptedAnswer": {"@type": "Answer", "text": "Because that status, with a blank last-read date, is a null state — the sitemap is on file but was never successfully fetched-and-parsed — not a verdict on the URLs inside. On GitHub Pages it is a common pattern that lasts weeks or months on perfectly healthy sites: a transient host hiccup at submission time can poison the first fetch, and the shared github.io infrastructure plus a new site's low crawl budget stop Google retrying cleanly. Nothing in your sitemap causes it."}}, {"@type": "Question", "name": "My GitHub Pages sitemap says \"Couldn't fetch\" in Google but Bing crawls it fine — is my site broken?", "acceptedAnswer": {"@type": "Answer", "text": "No. Bing crawling the identical file is strong evidence the file and server are fine — the problem is specific to Google's fetch state for that property. Audit to be sure (every URL 200, no noindex, canonicals correct, valid reachable XML); if that is green, it is downstream in Google's crawler, not your bytes."}}, {"@type": "Question", "name": "How do I get GitHub Pages indexed when Google won't read the sitemap?", "acceptedAnswer": {"@type": "Answer", "text": "Use the URL Inspection tool's Request indexing button — it hands a URL to Google's priority crawl queue independently of the sitemap. The quota is about 10 per property per day, so request your hubs first (homepage, section indexes) and let their links seed the rest, then spend the quota on your best pages a few a day. It is proven: people in the same state have indexed 200+ pages this way while the sitemap stayed stuck."}}, {"@type": "Question", "name": "Does the Google Indexing API work for regular GitHub Pages content?", "acceptedAnswer": {"@type": "Answer", "text": "No. The Indexing API only covers JobPosting and BroadcastEvent (livestream) data, not general pages, so it is off-label for blog posts or notes and Google won't honor it. Sitemap ping URLs are dead too — removed in 2023. The only supported nudges are resubmitting in Search Console (no faster) and manual Request indexing."}}, {"@type": "Question", "name": "Why does it matter that Bing indexes me if Google won't — isn't Google all that counts?", "acceptedAnswer": {"@type": "Answer", "text": "For AI search, a lot. Bing's index feeds Microsoft Copilot and part of ChatGPT's web results, so Bing can get you cited fast — my first pickup was four Copilot citations via Bing, no Google involved. Google indexing is a necessary condition for Google's own AI surfaces (AI Overviews, Gemini): if it can't crawl you, you are not eligible. A stuck Google sitemap does not mean nothing works — Bing may be citing you already."}}]}
+</script>
+</head>
+<body>
+
+<h1>Google Can't Fetch Your GitHub Pages Sitemap, but Bing Can: A Diagnosis and Workaround Playbook</h1>
+<p>For twenty-five days, Google Search Console showed the same three words next to my sitemap: <strong>Couldn't fetch.</strong> No last-read date, no error detail — just a status that never changed. The site is a plain GitHub Pages site with 289 URLs, and I'd done the obvious things wrong exactly zero times: every URL returned HTTP 200, nothing was <code>noindex</code>, the XML validated. Bing, handed the identical file, crawled it without complaint. So the problem was never the sitemap — it was one crawler's relationship with one host, which is a different kind of debugging than fixing your own code.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · July 10, 2026</p>
+
+<div class="note">"Couldn't fetch" on a GitHub Pages sitemap is almost never your sitemap. It's a documented platform pattern that can persist for weeks or months, and it does <strong>not</strong> deindex you — Google still finds pages through links. The two mistakes are assuming a broken sitemap means a broken site, and waiting for the sitemap to recover instead of using the one channel that works independently of it: the manual <strong>Request indexing</strong> button, which has a small daily quota but is proven to index hundreds of pages while the sitemap stays stuck. Bing, meanwhile, reads the same file fine — which matters more for AI search than you'd expect.</div>
+
+<h2>The symptom: a status that never changes</h2>
+<p>"Couldn't fetch" with a blank last-read date is a <em>specific state</em>, not a generic error: Google has your sitemap URL on file but has never completed a successful fetch-and-parse. It isn't "3 invalid URLs" (that reports as a parse result <em>with a count</em>). It's the null state — <strong>registered, never processed</strong> — and on GitHub Pages it's sticky. Mine sat there 25 days across several resubmits. The GitHub community forums have people watching it far longer: a 2026 thread stuck for <em>months</em>, older reports past a year, all on sites with nothing wrong.</p>
+
+<h2>First, prove the site is innocent</h2>
+<p>Rule your own site out completely, so you stop chasing a bug that isn't there. The audit is mechanical:</p>
+<ul>
+<li><strong>Every sitemap URL returns 200.</strong> One 404 or 301 chain is a real defect; 289/289 clean means the contents are sound.</li>
+<li><strong>Nothing is <code>noindex</code>.</strong> Check the <code>X-Robots-Tag</code> header and <code>&lt;meta name="robots"&gt;</code>. One stray <code>noindex</code> explains a lot.</li>
+<li><strong>Canonicals point where you think.</strong> Each <code>&lt;link rel="canonical"&gt;</code> self-referential, not accidentally aimed at another origin.</li>
+<li><strong>The XML is valid and reachable.</strong> Fetch <code>sitemap.xml</code> with a plain client: 200, served as XML, actually parses.</li>
+</ul>
+<p>Mine came back 289 URLs, zero <code>noindex</code>, zero canonical mismatches, all valid. That earns you the right to stop suspecting yourself — the problem is downstream of your site, not in your bytes.</p>
+
+<h2>How to read the crawl stats</h2>
+<p>Search Console's <strong>Crawl Stats</strong> report (Settings → Crawl stats) is the most under-read page in the console. Three signals:</p>
+<ul>
+<li><strong>Host status.</strong> Mine said the host "had problems in the past," with robots.txt failures under 1%. A transient hiccup around submission time leaves a stale impression that lingers after the host is fine — every fetch returns 200 now, but Google stays gun-shy.</li>
+<li><strong>Crawl volume, and <em>what's</em> crawling.</strong> Over three weeks: 259 requests — healthy-looking until you split it. About <strong>85% was AdsBot</strong> (Google's ad-landing-page verifier, present because the site is wired to AdMob), which has <em>nothing to do with search indexing</em>. Genuine search-discovery crawling was around <strong>6%</strong>. The headline number was mostly noise; the real signal was a trickle.</li>
+<li><strong>Response codes and blocking.</strong> No user-agent blocked, no 5xx storm, robots.txt allows everything. If Googlebot were getting 403s, you'd see it here. It wasn't.</li>
+</ul>
+<p>The synthesis: a new site, essentially no backlinks, on a shared host that once hiccuped, visited rarely by a low-trust crawler. That's a low-crawl-budget <em>profile</em> links and time fix, not a config bug.</p>
+
+<h2>The known GitHub Pages pattern</h2>
+<p>This is what turns panic into patience: it's the platform, not you. Every <code>*.github.io</code> site shares IP space and crawl infrastructure across a huge number of repos, and "Couldn't fetch" recurs on new-but-healthy Pages sites. The GitHub community discussions carry running threads on exactly this — one from 2026 stuck for months, an older one pairing the symptom with the workaround below — plus a Google Search Central help thread. The consistent shape: <strong>the site is fine, Bing is fine, and Google's sitemap fetch is stuck</strong> for reasons no one outside Google can resolve. So stop trying to force the sitemap, and route around it.</p>
+
+<h2>The workaround that actually works: manual indexing requests</h2>
+<p>The single most useful fact here: <strong>indexing does not require the sitemap.</strong> A sitemap is a <em>hint</em> for bulk URL discovery, not the gate to the index. Google will index a URL it found via a link, or one you hand it directly, regardless of the sitemap.</p>
+<p>The proof was in my own coverage report: of 289 URLs, Google had recognized just <strong>11</strong> — <strong>7 already indexed</strong> (each discovered through a link, since the sitemap was never read once) and <strong>4 crawled but not yet indexed.</strong> Link discovery was working — just slowly.</p>
+<p>To push it directly, use the URL Inspection tool's <strong>Request indexing</strong> button: paste a URL, Google live-fetches, and an indexable page drops into a priority crawl queue — independently of the stuck sitemap. The catch is a quota of roughly <strong>~10 requests per property per day.</strong> Tiny against 289 pages, but you don't need them all at once. And it's documented in the same thread as the problem: a user in the identical state made about <strong>11 requests a day</strong> and got <strong>200+ pages indexed</strong> while the sitemap never recovered. The playbook:</p>
+<ul>
+<li><strong>Hubs first</strong> — the homepage and each section index. Their outbound links become discovery paths into everything below, seeding the crawler into the rest of the site.</li>
+<li><strong>Then spend the daily quota on your best individual pages</strong>, a few a day, until coverage catches up.</li>
+<li><strong>Let links do the rest.</strong> Once a hub is indexed, Google follows its links on its own schedule; on my site the early wins were exactly the pages reachable from an indexed hub, or from an inbound cross-post link.</li>
+</ul>
+<p>The reframe: <strong>separate the channel you can't control (sitemap fetch) from the one you can (manual requests + links), and stop letting the broken one hold the working one hostage.</strong></p>
+
+<h2>The dead ends: don't spend a minute here</h2>
+<ul>
+<li><strong>The Google Indexing API is not for this.</strong> It's scoped to <code>JobPosting</code> and <code>BroadcastEvent</code> (livestream) structured data — not general web pages. Pointing it at notes or blog posts is off-label; Google won't honor it, and the integration is wasted effort.</li>
+<li><strong>Sitemap "ping" URLs are deprecated.</strong> Hitting <code>google.com/ping?sitemap=...</code> to force a re-fetch was <strong>removed in 2023</strong> — Google no longer processes those pings and the endpoint is gone. Any tutorial telling you to ping your sitemap is out of date. Resubmitting in Search Console is the only supported signal, and it won't unstick "Couldn't fetch" any faster.</li>
+</ul>
+<p>Neither applies. The supported path is manual requests plus patience — and, if it persists, a structural move off the shared <code>github.io</code> infrastructure onto a custom domain, which has un-stuck sitemap fetches for others (at the cost of a 301/canonical migration).</p>
+
+<h2>What this means for AI search</h2>
+<p>The Google/Bing split matters more than a normal SEO writeup would tell you: in 2026 the engine that indexes you increasingly decides which <em>AI assistants</em> can cite you, and the two ecosystems are asymmetric.</p>
+<ul>
+<li><strong>Bing reads the same sitemap fine</strong>, and its index feeds Microsoft Copilot and part of ChatGPT's web results. My first sign of AI pickup was Bing's own AI performance report showing <strong>four Copilot citations</strong> — a path that opened the moment Bing crawled me, with no help from Google.</li>
+<li><strong>Google indexing is a <em>necessary condition</em> for Google's AI surfaces.</strong> AI Overviews and Gemini's web citations draw from Google's index; if Google can't crawl you, you're structurally <em>absent</em> there — not down-ranked, just not eligible.</li>
+</ul>
+<p>So the order of operations flips from the old SEO instinct. <strong>Bing is the cheap, fast lane to AI citations; Google is the gated one</strong> you unlock slowly through manual requests and links. Honest caveat: Bing read my sitemap once then went quiet — its re-crawl cadence is slow, so a frequently-updated site wants IndexNow (which Bing supports) for freshness. But if your goal is to be <em>quoted</em> by assistants, not just ranked, getting cleanly into Bing is worth as much as fighting Google's sitemap — so check Bing's AI reports before concluding you're invisible.</p>
+
+<h2>The checklist</h2>
+<p>When Google shows "Couldn't fetch" on a GitHub Pages (or any low-authority) sitemap:</p>
+<ol>
+<li><strong>Don't assume it's you</strong> — it's a null state (registered, never fetched), not a validation failure.</li>
+<li><strong>Audit anyway:</strong> every URL 200, no <code>noindex</code>, canonicals correct, XML valid and reachable.</li>
+<li><strong>Read Crawl Stats:</strong> host status, real crawl volume vs. AdsBot noise, any UA blocking.</li>
+<li><strong>Recognize the pattern:</strong> it's common on GitHub Pages and can last months; Bing crawling the file confirms it's good.</li>
+<li><strong>Route around it</strong> with manual Request indexing — hubs first, ~10/day of your best pages, let links propagate the rest.</li>
+<li><strong>Skip the dead ends:</strong> the Indexing API (jobs/livestreams only) and sitemap ping (deprecated 2023).</li>
+<li><strong>Play both engines:</strong> Bing for fast AI citations, Google as the slow unlock.</li>
+</ol>
+<p>The sitemap will likely un-stick on its own eventually, or after a move to a custom domain. Until then, the site gets indexed anyway — because a sitemap was always a hint, and the index was never waiting on it.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does Google say "Couldn't fetch" for a GitHub Pages sitemap when every URL returns HTTP 200?</strong><br>
+Because that status, with a blank last-read date, is a <em>null state</em> — the sitemap is on file but was never successfully fetched-and-parsed — not a verdict on the URLs inside. On GitHub Pages it's a common pattern that lasts weeks or months on perfectly healthy sites: a transient host hiccup at submission time can poison the first fetch, and the shared <code>github.io</code> infrastructure plus a new site's low crawl budget stop Google retrying cleanly. Nothing in your sitemap causes it.</p>
+
+<p><strong>Q. My GitHub Pages sitemap says "Couldn't fetch" in Google but Bing crawls it fine — is my site broken?</strong><br>
+No. Bing crawling the identical file is strong evidence the file and server are fine — the problem is specific to Google's fetch state for that property. Audit to be sure (every URL 200, no <code>noindex</code>, canonicals correct, valid reachable XML); if that's green, it's downstream in Google's crawler, not your bytes.</p>
+
+<p><strong>Q. How do I get GitHub Pages indexed when Google won't read the sitemap?</strong><br>
+Use the URL Inspection tool's "Request indexing" button — it hands a URL to Google's priority crawl queue independently of the sitemap. The quota is ~10 per property per day, so request your hubs first (homepage, section indexes) and let their links seed the rest, then spend the quota on your best pages a few a day. It's proven: people in the same state have indexed 200+ pages this way while the sitemap stayed stuck.</p>
+
+<p><strong>Q. Does the Google Indexing API work for regular GitHub Pages content?</strong><br>
+No. The Indexing API only covers <code>JobPosting</code> and <code>BroadcastEvent</code> (livestream) data, not general pages, so it's off-label for blog posts or notes and Google won't honor it. Sitemap "ping" URLs are dead too — removed in 2023. The only supported nudges are resubmitting in Search Console (no faster) and manual "Request indexing."</p>
+
+<p><strong>Q. Why does it matter that Bing indexes me if Google won't — isn't Google all that counts?</strong><br>
+For AI search, a lot. Bing's index feeds Microsoft Copilot and part of ChatGPT's web results, so Bing can get you cited fast — my first pickup was four Copilot citations via Bing, no Google involved. Google indexing is a necessary condition for Google's own AI surfaces (AI Overviews, Gemini): if it can't crawl you, you're not eligible. A stuck Google sitemap doesn't mean nothing works — Bing may be citing you already.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
