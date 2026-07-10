@@ -45,6 +45,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">Claude Code</span><span class="tag">hooks</span><span class="tag">behavioral gates</span>
 </div>
 
+<div class="card">
+  <h3><a href="stop-hook-decision-ownership-ai-agent.html">The 'You Decide' Reflex: Blocking AI-Agent Decision Punting with a Stop Hook</a></h3>
+  <p>An agent that has gathered all the data to decide will still hand the choice back — "which do you prefer?" — because the training gradient rewards deference. A deterministic Stop-hook with an AND-gate (deflection phrase AND fresh tool evidence) blocks it while letting genuine value questions pass.</p>
+  <span class="tag">Claude Code</span><span class="tag">hooks</span><span class="tag">decision ownership</span>
+</div>
+
 
 <div class="card">
   <h3><a href="personas-vs-model-families-multi-agent-council-diversity.html">Do Multiple Personas on One LLM Give Real Diversity, or Do You Need Different Model Families?</a></h3>
@@ -109,6 +115,20 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">orchestration</span><span class="tag">multi-agent</span><span class="tag">LangGraph alternative</span>
 </div>
 
+<h2>Web, SEO &amp; AI Search</h2>
+
+<div class="card">
+  <h3><a href="github-pages-sitemap-couldnt-fetch-google.html">Google Can't Fetch Your GitHub Pages Sitemap, but Bing Can: A Diagnosis and Workaround Playbook</a></h3>
+  <p>25 days of "Couldn't fetch" on a sitemap whose 289 URLs all return 200 — a documented GitHub Pages pattern, not a broken site. Reading crawl stats, the manual Request-indexing workaround (~10/day quota), the dead ends to skip, and why Bing quietly matters more for AI search.</p>
+  <span class="tag">SEO</span><span class="tag">GitHub Pages</span><span class="tag">Search Console</span>
+</div>
+
+<div class="card">
+  <h3><a href="measure-ai-citations-weekly-probe.html">Does Any AI Actually Cite Your Site? A Cheap Weekly Probe That Turns GEO Into a Number</a></h3>
+  <p>GEO is unfalsifiable until you measure citations: a fixed set of user-shaped questions fired weekly at a grounded model, a deterministic owner-scoped match, and a ledger that error rows can't fake — plus when not to measure at all.</p>
+  <span class="tag">GEO</span><span class="tag">AI search</span><span class="tag">measurement</span>
+</div>
+
 <h2>macOS &amp; Debugging</h2>
 
 <div class="card">
@@ -121,6 +141,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="scrape-by-reading-your-open-browser-tab.html">When a Site Blocks Your Scraper, Read the Browser Tab You Already Have Open</a></h3>
   <p>For a personal tool, the way past robots.txt, bot detection, login walls, and JS-rendered SPAs isn't a better headless scraper — it's a ~40-line AppleScript/JXA bridge that reads the DOM out of the authenticated Chrome tab you already have open. Why it sidesteps every wall at once, and its honest read-only, single-machine limits.</p>
   <span class="tag">web scraping</span><span class="tag">macOS</span><span class="tag">automation</span>
+</div>
+
+<div class="card">
+  <h3><a href="local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></h3>
+  <p>A background LLM server loaded models onto a nearly full disk; unified memory overflowed, swap failed, and APFS metadata corruption left the machine unbootable for a day. The postmortem, the five-layer code-level hard block, and the operating rules for 24 GB unified memory.</p>
+  <span class="tag">macOS</span><span class="tag">postmortem</span><span class="tag">local LLM</span>
 </div>
 
 <div class="foot"><a href="../">← hexisteme home</a> · CC-BY 4.0</div>
