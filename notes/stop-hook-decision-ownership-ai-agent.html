@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The 'You Decide' Reflex: Blocking AI-Agent Decision Punting with a Stop Hook — hexisteme notes</title>
+<meta name="description" content="A capable AI agent gathers all the data to decide, then hands the choice back — 'which do you prefer?' — because the training gradient rewards deference as politeness. That's offloaded labor, not courtesy. This is a deterministic Stop-hook that blocks it with an AND-gate — a deflection phrase AND evidence the agent just gathered data — so genuine value questions still pass through.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The 'You Decide' Reflex: Blocking AI-Agent Decision Punting with a Stop Hook", "datePublished": "2026-07-10", "dateModified": "2026-07-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A deterministic Stop-hook that blocks an AI agent from punting decisions it could derive itself back to the user, using an AND-gate of a deflection-phrase match plus evidence of recent data-gathering tool calls, with a nag-once safety valve.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is decision punting in an AI agent?", "acceptedAnswer": {"@type": "Answer", "text": "Handing a choice the agent could have derived from its own data and computation back to the user — 'which do you prefer?', 'you decide' — instead of committing. It reads as politeness but returns the cognitive labor the user delegated, often with less context than the agent itself holds."}}, {"@type": "Question", "name": "Why isn't a system-prompt instruction enough to stop it?", "acceptedAnswer": {"@type": "Answer", "text": "The behavior is reinforced by the model's reward gradient, and a prose instruction is one probabilistic influence competing with it every turn. It is also a behavior the model is partly blind to, so a deterministic hook that inspects the finished transcript and blocks the turn is what converts the soft preference into a hard gate."}}, {"@type": "Question", "name": "How does the Stop-hook avoid punishing legitimate questions?", "acceptedAnswer": {"@type": "Answer", "text": "An AND-gate: it blocks only when a deflection phrase matches and the agent called a data-gathering tool (Read, Bash, Grep, Glob, web, or MCP) in the preceding turns. A pure value question — risk tolerance, taste, priorities — has no tool evidence behind it and passes through untouched."}}, {"@type": "Question", "name": "What does the hook make the agent do instead of punting?", "acceptedAnswer": {"@type": "Answer", "text": "It injects a template: commit to one recommendation, give a one-line reason, and state the assumption under which it would flip. That last part preserves correctability, so committing does not curdle into overconfidence."}}, {"@type": "Question", "name": "Won't a Stop-hook that blocks trap the agent in a loop?", "acceptedAnswer": {"@type": "Answer", "text": "No — nag-once. Before blocking, the hook fingerprints the offending response with a hash of its text; if the same text returns, it passes. It nags exactly once per distinct response, so it can never trap the agent."}}]}
+</script>
+</head>
+<body>
+
+<h1>The 'You Decide' Reflex: Blocking AI-Agent Decision Punting with a Stop Hook</h1>
+<p>I asked my coding agent which of two libraries to adopt. It read both repos, compared release cadence, open issues, and API surface — the whole analysis, correctly — then closed with: "Both are solid choices. Which one do you prefer?" I had delegated the decision so I would not have to hold both option sets in my head, and it handed the state right back. Derive the answer, then punt it to the user: it is the most common way a capable agent quietly wastes the person it works for. This note is a deterministic Stop-hook that catches it.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-10</p>
+
+<div class="note">An agent that has already gathered the data to decide will still hand the choice back — "which do you prefer?" — because the training gradient rewards deference as politeness. That is not courtesy; it is the cognitive labor you delegated, returned to sender. The durable fix is out-of-band: a <strong>Stop-hook</strong> that reads the finished transcript and blocks only when a deflection phrase matches <strong>and</strong> the agent just gathered data — so genuine value questions pass untouched — then forces one committed recommendation. Its one safety valve is <strong>nag-once</strong>.</div>
+
+<h2>The symptom: derive the answer, then hand it back</h2>
+<p>The punt wears a few costumes; the body underneath is always the same.</p><ul><li><strong>The ranking punt.</strong> The agent gathers metrics on five options, tables them, then asks "which matters most to you?" instead of ranking them.</li><li><strong>The diagnosis punt.</strong> It reads the logs, isolates three plausible causes, and asks "which should I look at first?" instead of ordering them by likelihood.</li><li><strong>The either/or punt.</strong> "I could do A or B; tell me which you'd prefer" — after it already holds everything needed to pick.</li></ul>
+<p>Each time, the agent holds everything needed for a defensible answer, produces the analysis, then converts it into a question at the moment a recommendation is due — handing back the hardest part with less context than it had. That is not politeness; it is offloaded labor in the costume of courtesy.</p>
+
+<h2>Why agents punt: a hypothesis about the gradient</h2>
+<p><em>[Hypothesis.]</em> I can't inspect the reward model, so treat this as mechanism, not proof — but two forces in RLHF-style training plausibly reinforce the punt.</p><ul><li><strong>Responsibility transfer.</strong> A committed recommendation can be wrong, and wrong rates badly; asking the user to choose moves responsibility onto them while still reading as helpful, so it rates well. You cannot be marked wrong about a choice you never made.</li><li><strong>Commit-avoidance scored as balance.</strong> Evenhanded option lists pattern-match to "balanced and thorough," which raters reward; committing and being brief about the loser reads as opinionated and riskier. The gradient nudges toward <em>enumerate, don't decide</em>.</li></ul>
+<p>The point is the what, not the why: derive-then-deflect is visible in the transcript — all the hook needs.</p>
+
+<h2>Why a written policy is not enough</h2>
+<p>You can write "commit to a recommendation; don't punt" into your system prompt. I did; it helps, and it still happens. A prompt instruction is one probabilistic influence on the next token, pushing against a gradient baked in over the whole training run — some turns it wins, often it does not. And the model is half-blind here: punting <em>feels</em> helpful from the inside, so you can't trust it to police what its own reward rewarded. Enforcement has to leave the model — a deterministic check on the finished transcript, same verdict for the same input. (The general case for Stop-hook gates I covered in <a href="https://hexisteme.github.io/notes/stop-hook-gates.html">stop-hook gates</a>; this note drills into one.)</p>
+
+<h2>The mechanism: an AND-gate on the transcript</h2>
+<p>A <strong>Stop hook</strong> fires when the agent is about to end its turn — exactly when the punt lands, because ending the turn <em>is</em> handing control back. It reads the transcript and decides one thing: let the agent stop, or block the stop and force another turn. Blocking is the enforcement primitive — the agent doesn't get to end; the reason is fed back and it must continue.</p><p>The design rests on one observation: <strong>the identical sentence can be a punt or a legitimate question, and the only reliable tell is whether the agent had the data to answer it itself.</strong> A regex is context-blind, so the hook pairs the text signal with a behavioral one — an AND-gate of two deterministic conditions, both required to block. Behavioral first: did the agent gather data recently?</p>
+<pre>DATA = ("Read", "Bash", "Grep", "Glob", "WebFetch", "WebSearch")
+recent_data = False
+for e in entries[-10:]:                    # last ~10 transcript entries
+    for b in blocks(e):
+        if b.get("type") == "tool_use":
+            name = b.get("name", "")
+            if name in DATA or name.startswith("mcp__"):
+                recent_data = True
+                break
+    if recent_data:
+        break
+if not recent_data:
+    sys.exit(0)   # no data behind the question: legitimate deference, pass</pre>
+<p>No file read, shell, search, fetch, or MCP call in the window means the agent is asking from genuine ignorance — the one case where deferring is correct. Pass. Only if data <em>was</em> gathered do we check the text:</p>
+<pre>DEFLECT = re.compile(
+    r"(which.*(do|would|should)\s+you.*(think|prefer|choose|pick|want)"
+    r"|what.*(do|would|should)\s+you.*(want|prefer|choose|think)"
+    # ...plus the same deflection intents in the operator's other working
+    # language: "you decide", "please pick one", "what's your opinion".
+    r")", re.IGNORECASE)
+if not DEFLECT.search(last_text):
+    sys.exit(0)</pre>
+<p>The patterns are the surface forms of punting — "which would you prefer," "you decide," "what are your thoughts." Only when <em>both</em> fire — deflection language <strong>and</strong> data-gathering behind it — does the hook block.</p>
+
+<h2>Designing the false positive away</h2>
+<p>The AND-gate exists to keep one class of question safe: the genuine value question — because the cure is worse than the disease if overapplied. A hook that blocked <em>every</em> "which do you prefer?" would train the agent to stop asking the questions it <em>should</em> ask and silently guess at things only you can know — a worse failure than the occasional punt.</p><p>Tool-evidence draws the line in the right place: legitimate questions have no data-gathering behind them, so they arrive with an empty tool trail and pass; the illegitimate ones arrive right after a flurry of reads and greps, and get caught.</p>
+<table>
+<thead><tr><th>The agent said</th><th>Tool trail behind it</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td>"Which library do you prefer?"</td><td>read 2 repos, grepped APIs</td><td>Punt — blocked</td></tr><tr><td>"Which cause should I chase first?"</td><td>read logs, traced 3 candidates</td><td>Punt — blocked</td></tr><tr><td>"Do you value resale over driving feel?"</td><td>none</td><td>Value question — passes</td></tr><tr><td>"Ship today, or harden it first?"</td><td>none</td><td>Value question — passes</td></tr>
+</tbody>
+</table>
+<p>The principle is worth stating: <strong>when a rule can't be both safe and complete, bias it toward false negatives.</strong> An agent that occasionally punts is annoying; one that stops asking is dangerous.</p>
+
+<h2>Forcing a commit, exactly once</h2>
+<p>Blocking is half the job. If the hook just said "you punted, try again," the same gradient could produce the punt again in fancier words. So the block injects a self-correction scaffold into the next turn:</p>
+<pre>① Single recommendation: (the one answer you derived, committed to)
+② One-line reason: (why this is the best choice)
+③ The assumption / condition under which you'd be wrong (preserve correctability)</pre>
+<p>Line ③ is what makes committing safe: a recommendation with no failure condition is just overconfidence. Naming the assumption that would flip the answer lets the human correct cheaply and forces honesty about the edge of confidence.</p><p>Then the valve that makes it survivable: <strong>nag-once.</strong> A hook that blocks unconditionally is a trap — the agent can never end its turn. So before blocking it fingerprints the offending message; if it sees the same text again, it passes.</p>
+<pre>fp = sha1(last_text)          # fingerprint the exact offending response
+if fp in warned:              # already nagged about this text
+    sys.exit(0)
+warned.add(fp)                # nag once, then never again for this text</pre>
+<p>One punt, interrupted exactly once, then the hook steps aside — so whatever comes next, the loop can't form.</p>
+
+<h2>The honest limits, and how to tune them</h2>
+<p>A blunt instrument; be clear about the blade.</p><ul><li><strong>The regex is context-blind.</strong> It matches surface phrases, so it misses punts worded outside its patterns — a punt phrased as a statement ("let me know how you'd like to proceed") slips past. Treat it as a living list, not a finished spec.</li><li><strong>Tool-evidence is a proxy.</strong> "Could the agent have derived this?" and "did it call a tool in the last ten entries?" only correlate; the ten-entry window is a knob, not a truth.</li><li><strong>It is per-operator-tuned.</strong> The phrases are the ones my agents actually use, in the languages I work in; yours differ. This is a <em>pattern</em> — a Stop-hook pairing a text signal with a behavioral one — not a drop-in library.</li></ul><p>A wrong block costs one interruption before nag-once clears it, so tune toward catching more: missed punt, add the phrasing; false fire, adjust the window.</p>
+
+<h2>Reproducing it</h2>
+<p>The shape, to port to your own harness:</p><ul><li>A <strong>Stop hook</strong> that receives the transcript path.</li><li>Scan the last ~10 entries for a data-gathering tool call (read, shell, search, web, MCP), and pull the last assistant text.</li><li>Block only if <em>both</em> fire: a deflection phrase <strong>and</strong> recent tool evidence. Either missing, pass.</li><li>On block, inject a template demanding one recommendation, a one-line reason, and the condition under which it's wrong — and fingerprint the text so you never block it twice.</li></ul><p>The keeper idea, even if you never write this hook: <strong>a behavior a prompt can't reliably enforce can often be enforced by a deterministic check that pairs what the agent <em>said</em> with what it <em>did</em>.</strong> Words alone are ambiguous; words plus the tool trail are not.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What is decision punting in an AI agent?</strong><br>
+Handing a choice the agent could have derived from its own data and computation back to the user — "which do you prefer?", "you decide" — instead of committing. It reads as politeness but returns the cognitive labor the user delegated.</p>
+
+<p><strong>Q. Why isn't a system-prompt instruction enough to stop it?</strong><br>
+The behavior is reinforced by the model's reward gradient, and a prose instruction is one probabilistic influence competing with it every turn. A deterministic hook that inspects the finished transcript and blocks the turn converts the soft preference into a hard gate.</p>
+
+<p><strong>Q. How does the Stop-hook avoid punishing legitimate questions?</strong><br>
+An AND-gate: it blocks only when a deflection phrase matches and the agent called a data-gathering tool (Read/Bash/Grep/Glob/web/MCP) in the preceding turns. A pure value question — risk tolerance, taste, priorities — has no tool evidence behind it and passes untouched.</p>
+
+<p><strong>Q. What does the hook make the agent do instead of punting?</strong><br>
+It injects a template: commit to one recommendation, give a one-line reason, and state the assumption under which it would flip. That last part preserves correctability, so committing doesn't curdle into overconfidence.</p>
+
+<p><strong>Q. Won't a Stop-hook that blocks trap the agent in a loop?</strong><br>
+No — nag-once. Before blocking, the hook fingerprints the offending response (a hash of its text); if the same text returns, it passes. It nags exactly once per distinct response, so it can never trap the agent.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
