@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Does Any AI Actually Cite Your Site? A Cheap Weekly Probe That Turns GEO Into a Number — hexisteme notes</title>
+<meta name="description" content="You can optimize for AI search forever without knowing whether it works. Here's a pennies-a-week probe that fires the questions your users would ask a grounded model, checks whether the citations point back to you, and logs the trend — turning 'is any AI citing me?' from a hope into a falsifiable number.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Does Any AI Actually Cite Your Site? A Cheap Weekly Probe That Turns GEO Into a Number", "datePublished": "2026-07-10", "dateModified": "2026-07-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A cheap, reproducible weekly probe that measures whether grounded AI assistants cite your website, by firing fixed user-phrased queries at a citation-returning model and deterministically matching owned URL patterns in the answer's sources.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can I tell whether AI assistants like Perplexity or ChatGPT actually cite my website?", "acceptedAnswer": {"@type": "Answer", "text": "Fire a fixed set of questions your users would actually ask at a grounded model that returns citations — for example Perplexity Sonar via OpenRouter — then run a deterministic substring check for your domain or owner/repo in the citation URLs and the answer text. Log every run to an append-only ledger so the citation rate becomes a trend you can watch, not a one-off guess."}}, {"@type": "Question", "name": "How much does it cost to monitor AI citations weekly?", "acceptedAnswer": {"@type": "Answer", "text": "About half a cent per query on a grounded model like Perplexity Sonar. A fixed set of a couple dozen questions run once a week is roughly a dime — comfortably under a dollar a month. The cost is low enough that the real constraint is measurement discipline, not budget."}}, {"@type": "Question", "name": "Why should the citation-match pattern use owner/repo paths instead of a bare project name?", "acceptedAnswer": {"@type": "Answer", "text": "Because a bare name collides with same-named projects by other people. A repo called patent-mcp matched someone else's clone and produced false-positive citations that were never mine. Scoping the match to an owned path — your domain, owner/repo, or an App Store ID path — removes the collision and keeps the number honest."}}, {"@type": "Question", "name": "How do I keep API errors and out-of-credit failures from corrupting the citation trend?", "acceptedAnswer": {"@type": "Answer", "text": "Record failed rounds as a distinct error row, such as {\"error\": \"HTTPError\"}, and skip those rows in every summary and trend calculation. A 402 out-of-credit run then reads as no data for that week, not as a citation rate of zero — the difference between a gap in the record and a false decline."}}, {"@type": "Question", "name": "When should I start measuring AI citations after publishing?", "acceptedAnswer": {"@type": "Answer", "text": "Not immediately. Citations follow a publish, then crawl, then rank, then cite pipeline, so measuring days after publishing just records zeros that mean too early, not not working. Give it weeks, and in the meantime read platform reports like Bing's AI Performance report and Google Search Console — they often show the first citation before an external probe can."}}]}
+</script>
+</head>
+<body>
+
+<h1>Does Any AI Actually Cite Your Site? A Cheap Weekly Probe That Turns GEO Into a Number</h1>
+<p>Everyone writing about SEO now has a second acronym to sell you: GEO — generative engine optimization, getting your content surfaced when someone asks an AI assistant instead of typing into a search box. The advice is abundant and reasonable: FAQ schema, a question-and-answer voice, clean canonical HTML. What almost nobody does is <em>check whether any of it worked</em>. You can pour weeks into being AI-legible with no idea whether a single assistant has ever surfaced you to a single person. That is not optimization; it is superstition with a publishing calendar. Here's the cheap harness I built to turn the question into a number I can watch.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-10</p>
+
+<div class="note">GEO is unfalsifiable until you measure citations. The probe is small: a <strong>fixed set of questions your users would actually ask</strong>, fired weekly at a <em>grounded</em> model that returns citation URLs (Perplexity Sonar, via OpenRouter), and a <strong>deterministic substring check</strong> for your owned patterns. Append every run to a ledger and the <strong>citation rate becomes a trend</strong> — the falsifier: if the rate doesn't move after you "optimize," the optimization was fiction. The hard parts aren't the code; they're keeping the match honest, stopping failures from faking a zero, and not measuring too early.</div>
+
+<h2>The one thing nobody measures</h2>
+<p>The gap persists because the question feels unanswerable: the assistants rarely tell you when they've quoted you, so people fall back on proxies and <em>assume</em> it's working. The reframe that makes it tractable is to ask a narrow, repeatable question instead: <strong>when a potential user asks the specific thing my content answers, does an AI cite me?</strong> Fix the questions, fire them weekly, record whether your site is in the answer's sources, and the citation rate becomes a scorecard — and a <em>falsifier</em>: a week of "optimization" that leaves the rate flat three weeks later did nothing, and now you have the receipt.</p>
+
+<h2>Design the probe around your user's question, not your brand</h2>
+<p>The queries are the heart of it, and there are two rules. First, they're <strong>fixed</strong>: a trend only means something if the measuring stick doesn't change, so swapping questions throws away comparability. Second, each is phrased as <strong>a sentence a real user would type</strong>, not your brand name — "Is there an MCP server for searching Korean patents?", not "korean-patent-mcp." Prompting the AI with your name to check it knows your name is vanity; what drives traffic is whether it surfaces you when someone describes <em>the problem you solve</em>. Each question is paired with the owned patterns that count as a hit in the answer's sources:</p>
+<pre>{
+  "id": "agent-file-work-bus",
+  "query": "How do I orchestrate multiple AI agent CLIs without a message broker?",
+  "assets": ["yoursite.com/notes/file-based-agent-work-bus", "yoursite.com/notes"]
+}</pre>
+<p>When you publish a note, append its question and owned patterns; the probe watches for it next week.</p>
+
+<h2>Make the verdict mechanical — and scope it to what you own</h2>
+<p>The match has to be <strong>deterministic</strong> — a plain substring test, never a model deciding "were you cited?" The moment an LLM grades its own citation, it stops being reproducible. So the rule is boring on purpose: does one of my owned patterns appear in a citation URL, or in the answer text? A URL hit is a <em>strong</em> signal (it linked me); a prose hit is <em>weak</em> (it named me without linking). Keep both, never conflated.</p>
+<p>The correctness fix that mattered most was <strong>scoping every pattern to a path I own</strong>. My first version matched bare names, and a repo of mine shares its bare name with a stranger's same-named clone — so the probe counted that stranger's project as "me" — citations I never earned. A bare <code>patent-mcp</code> is anyone's; <code>owner/patent-mcp</code> is mine.</p>
+<div class="warn"><strong>A generous match is worse than no match.</strong> A bare project name that collides with a stranger's clone hands you a citation rate that looks great and means nothing. Scope every pattern to an owned path — domain, <code>owner/repo</code>, App Store ID — so a "hit" can only ever be you.</div>
+
+<h2>You need a grounded model — and its citations</h2>
+<p>You can't measure this with an ordinary chat model: a plain LLM either answers from stale weights with no live retrieval, or won't expose its sources — either way there's nothing to check. The probe needs a <strong>grounded</strong> model that retrieves live results and returns the URLs it used. I use Perplexity's Sonar through OpenRouter: an ordinary chat-completions endpoint that returns the citation URLs as structured annotations — the entire measurable surface.</p>
+<p>The economics make it a habit. Sonar runs about <strong>half a cent per query</strong>; a couple dozen questions once a week is roughly a dime — under a dollar a month. Cap the answer tokens low — you want the sources, not the prose — and space the calls so a rate limit doesn't truncate the sweep. The budget is never the constraint; discipline is.</p>
+
+<h2>Treat failure as data, not as a zero</h2>
+<p>Here's the bug that silently wrecks the trend: a failed round is not a citation rate of zero. The first time I turned the probe back on, every query failed with HTTP 402 — the key was valid but the account was out of credit. Had the probe logged those as "not cited," the ledger would show a cliff: a collapse to zero across every query, indistinguishable from "the AI stopped citing me." A fabrication caused by an empty wallet.</p>
+<p>The fix is to make errors a <strong>distinct record</strong>. A failed query writes an error row, not a <code>cited: false</code> row, and every summary and trend skips error rows entirely:</p>
+<pre>{"ts": "...", "id": "agent-file-work-bus", "cited": true, "matched": ["url:yoursite.com/notes/file-based-agent-work-bus"], "n_citations": 12}
+{"ts": "...", "id": "agent-file-work-bus", "error": "HTTPError"}</pre>
+<p>A 402 sweep then reads as <em>no data this week</em> — the truth — not a decline. The probe fails loudly to stderr so I notice, but keeps going through the rest of the set. The principle outlives the tool: <strong>a gap in the record must never masquerade as a measurement.</strong></p>
+
+<h2>Don't measure the day you publish</h2>
+<p>The other way to get a garbage number is to measure too early. Citations don't appear at publish; they follow a pipeline — <strong>publish → crawl → rank → cite</strong> — and each stage takes time. Measuring three days out records a wall of zeros that mean "too early," not "not working" — confuse the two and you'll panic or write off good content.</p>
+<p>I walked into this. My notes had been live only days when I first wanted numbers; a free spot-check showed my domain at <strong>zero surface</strong> for even my strongest queries — the index hadn't accepted the sitemap yet. So I deferred the paid probe and its weekly cron for three weeks — measuring an un-crawled site produces nothing but noise. Turning the cron <em>off</em> for that window was itself the disciplined move.</p>
+
+<h2>The probe is one lens; platform reports are another</h2>
+<p>An active probe asks one grounded model a controlled question set — clean and repeatable, but a single lens. The complement is the passive report each platform gives about <em>real</em> citations to real users. While my probe was still paused, Bing Webmaster Tools handed me the first hard evidence I'd been cited at all: its AI Performance report logged <strong>four Copilot citations on 2026-07-06</strong> — a signal the deferred probe couldn't have caught.</p>
+<p>Both lenses matter because of an asymmetry in where each assistant gets its facts: ChatGPT and Copilot lean on the <strong>Bing</strong> index; Google's AI Overviews and Gemini lean on the <strong>Google</strong> index. Being cited is partly a question of which index has crawled and ranked you, and no single probe sees all of it.</p>
+<table>
+<thead><tr><th>Lens</th><th>What it sees</th><th>Blind spot</th></tr></thead>
+<tbody>
+<tr><td>Active probe (Perplexity Sonar)</td><td>Whether a controlled question set gets you cited, as a weekly trend you fully control</td><td>One model only; only the questions you thought to ask</td></tr>
+<tr><td>Bing AI Performance report</td><td>Real ChatGPT/Copilot citations drawn from the Bing index, tallied passively</td><td>Bing-family surfaces only; no control over the prompts</td></tr>
+<tr><td>Google Search Console</td><td>Crawl status and impressions feeding AI Overviews / Gemini</td><td>Citation attribution is coarse; no clean "cited" flag</td></tr>
+</tbody>
+</table>
+<p>The probe tells you what happens when the exact question is asked; the reports, what actually happened across a platform's surface. Together they triangulate the truth.</p>
+
+<h2>Reproduce it</h2>
+<p>None of this needs more than a hundred lines of Python and a scheduler. The discipline is the product:</p>
+<ul>
+<li><strong>Write fixed, user-voiced queries</strong> — one or two per asset, the problem you solve, not your name. Freeze them; add one only when you publish.</li>
+<li><strong>Scope match patterns to owned paths</strong> — domain, <code>owner/repo</code>, App Store ID — never a bare name a stranger could share.</li>
+<li><strong>Use a grounded model that returns citations</strong> — Perplexity Sonar via OpenRouter, or anything that retrieves live and exposes source URLs.</li>
+<li><strong>Judge deterministically</strong> — substring-match against citation URLs (strong) and answer text (weak); never let a model grade itself.</li>
+<li><strong>Append-only ledger, one row per query per run</strong> — keep the raw URLs so you can audit any verdict later.</li>
+<li><strong>Make errors a distinct row, excluded from the trend</strong> — a failed round is missing data, never a zero.</li>
+<li><strong>Schedule it weekly</strong> (cron or launchd), key in a <code>chmod 600</code> env file so the headless run reads it without echoing it.</li>
+<li><strong>Wait weeks before trusting the number,</strong> and cross-check platform reports — they often show the first citation before any probe can.</li>
+</ul>
+<p>The honest ending: this post is itself an asset I'm about to add to the probe — a new question, a new owned pattern, and a fresh row of zeros I won't panic about for three weeks. GEO advice is cheap and untestable: either measure your citations or stop claiming they're going up. Half a cent a query buys you the right to know.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How can I tell whether AI assistants like Perplexity or ChatGPT actually cite my website?</strong><br>
+Fire a fixed set of questions your users would actually ask at a grounded model that returns citations — for example Perplexity Sonar via OpenRouter — then run a deterministic substring check for your domain or <code>owner/repo</code> in the citation URLs and the answer text. Log every run to an append-only ledger so the citation rate becomes a trend you can watch, not a one-off guess.</p>
+<p><strong>Q. How much does it cost to monitor AI citations weekly?</strong><br>
+About half a cent per query on a grounded model like Perplexity Sonar. A fixed set of a couple dozen questions run once a week is roughly a dime — comfortably under a dollar a month. The cost is low enough that the real constraint is measurement discipline, not budget.</p>
+<p><strong>Q. Why should the citation-match pattern use owner/repo paths instead of a bare project name?</strong><br>
+Because a bare name collides with same-named projects by other people. A repo called <code>patent-mcp</code> matched someone else's clone and produced false-positive citations that were never mine. Scoping the match to an owned path — your domain, <code>owner/repo</code>, or an App Store ID path — removes the collision and keeps the number honest.</p>
+<p><strong>Q. How do I keep API errors and out-of-credit failures from corrupting the citation trend?</strong><br>
+Record failed rounds as a distinct error row, such as <code>{"error": "HTTPError"}</code>, and skip those rows in every summary and trend calculation. A 402 out-of-credit run then reads as no data for that week, not as a citation rate of zero — the difference between a gap in the record and a false decline.</p>
+<p><strong>Q. When should I start measuring AI citations after publishing?</strong><br>
+Not immediately. Citations follow a publish → crawl → rank → cite pipeline, so measuring days after publishing just records zeros that mean "too early," not "not working." Give it weeks, and in the meantime read platform reports like Bing's AI Performance report and Google Search Console — they often show the first citation before an external probe can.</p>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
