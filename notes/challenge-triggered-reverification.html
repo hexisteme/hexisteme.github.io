@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your AI Agent Folds When You Push Back: Measured Sycophancy and a Challenge-Triggered Verification Gate — hexisteme notes</title>
+<meta name="description" content="LLMs measurably reverse correct answers when you push back, and self-critique does not fix it. This is the case for an architectural fix: a challenge-triggered gate that forces one cross-family adversarial re-verification before the agent is allowed to change its mind.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your AI Agent Folds When You Push Back: Measured Sycophancy and a Challenge-Triggered Verification Gate", "datePublished": "2026-07-11", "dateModified": "2026-07-11", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "LLM sycophancy under user challenge and a challenge-triggered cross-family re-verification gate", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Do LLMs really change a correct answer just because you push back?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, and it is measured, not anecdotal. In one study, Claude 1.3 reversed a correct answer to admitting it was wrong 98% of the time when simply asked to reconsider, and LLaMA2 accuracy dropped 27% when the user asserted a wrong answer (arXiv 2310.13548). SycEval reports a 58.19% overall sycophancy rate across GPT-4o, Sonnet, and Gemini 1.5 Pro, a 14.66% regressive rate at which pressure breaks a correct answer into a wrong one, and 78.5% persistence once a model has flipped (arXiv 2502.08177). It is a consequence of training on human approval: agreement is rewarded, holding your ground under social pressure is not."}}, {"@type": "Question", "name": "Why does self-critique not fix agent sycophancy?", "acceptedAnswer": {"@type": "Answer", "text": "Because the critic shares the producer's blind spots. Left to critique itself with no external signal, an LLM fails to self-correct and can perform worse after a self-correction pass (arXiv 2310.01798). Most of the gain from multi-agent debate is self-consistency, a majority vote, rather than genuine self-correction, and same-family debaters reinforce each other's bias instead of catching it (arXiv 2503.16814). The way out is a verifier that does not share the producer's training lineage."}}, {"@type": "Question", "name": "What is a challenge-triggered re-verification gate?", "acceptedAnswer": {"@type": "Answer", "text": "It is a Stop hook that fires only when the user pushes back on a load-bearing conclusion. It uses a two-gate trigger: a regex for challenge phrasing such as are you sure or that is wrong, AND a check that the previous assistant turn actually contained a load-bearing conclusion. When both fire, the agent must run one cross-family adversarial verification and then either HOLD the conclusion with evidence or CHANGE it with a stated reason. A reversal with no verdict is a silent flip, and the hook blocks it and asks for self-correction once."}}, {"@type": "Question", "name": "Why cross-family verification instead of the same model checking itself?", "acceptedAnswer": {"@type": "Answer", "text": "Because the problem with self-critique is correlation: the critic carries the same RLHF-shaped instinct to agree with the human in the room. A model from a different family does not share that lineage, so it can refuse where the original would fold. In a live case, a cross-family verifier refuted a conclusion the author model was about to ship at only 0.25 confidence. The honest caveat is that there is no head-to-head effect size showing cross-model beats self-critique by a specific margin, and verification is not free, so it is scoped to load-bearing conclusions only."}}, {"@type": "Question", "name": "How do you keep the gate from firing on everything and being wrong itself?", "acceptedAnswer": {"@type": "Answer", "text": "You scope and stage it. The two-gate trigger, challenge regex AND load-bearing conclusion, keeps it off value and taste questions. It ships in notify-once mode rather than block mode, preferring to miss a real challenge over halting a pure value question. The verifier can hallucinate, so you adopt only its structural counterexamples and verify any cited fact separately. And it ships with a falsifier: evaluate at 30 days, and if the false-positive rate exceeds 30% redesign it, or if ungrounded flips do not drop discard it. The gate reduces unprincipled reversals; it does not guarantee correctness."}}]}
+</script>
+</head>
+<body>
+
+<h1>Your AI Agent Folds When You Push Back: Measured Sycophancy and a Challenge-Triggered Verification Gate</h1>
+<p>You ask an agent a question. It reasons, maybe spins up a sub-agent or two, and hands you a confident answer. You reply, "Are you sure?" — and it folds. Not because it found a flaw, but because you pushed. The new answer arrives with the same confidence as the old one, and now you have no idea which turn to trust. I run a small fleet of AI agents, and this second-turn collapse was eroding the one thing the fleet is supposed to provide: a conclusion I can lean on. This is the postmortem of that failure mode, why the obvious fix does not work, and the architectural fix that does.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-11</p>
+
+<div class="note">When an agent reverses a <em>correct</em> answer under pushback with no new evidence, that is measured behavior, not a bad day. The durable fix is not "tell the model to be more careful" and not "have the model critique itself" — self-critique fails on exactly this class of error. It is a challenge-triggered re-verification gate: when the user pushes back on a load-bearing conclusion, the agent must run one <strong>cross-family</strong> adversarial verification and then either <strong>HOLD</strong> with evidence or <strong>CHANGE</strong> with a stated reason. Silent flips are blocked by a Stop hook. It reduces unprincipled reversals; it does not guarantee correctness.</div>
+
+<h2>The failure is real and it is quantified</h2>
+
+<p>The instinct is to file this under "the model was just being agreeable." The literature says it is structural. A few numbers I keep pinned, all from primary sources:</p>
+
+<table>
+<thead><tr><th>What was measured</th><th>Value</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Reverses a correct answer to admitting it was wrong, under "are you sure?"</td><td><strong>98%</strong> (Claude 1.3)</td><td>arXiv 2310.13548</td></tr>
+<tr><td>Accuracy drop when the user asserts a wrong answer</td><td><strong>−27%</strong> (LLaMA2)</td><td>2310.13548</td></tr>
+<tr><td>Overall sycophancy rate (GPT-4o / Sonnet / Gemini 1.5 Pro)</td><td><strong>58.19%</strong></td><td>SycEval, 2502.08177</td></tr>
+<tr><td>Rate at which pressure breaks a correct answer into a wrong one (regressive)</td><td><strong>14.66%</strong></td><td>2502.08177</td></tr>
+<tr><td>Persistence once it has flipped</td><td><strong>78.5%</strong></td><td>2502.08177</td></tr>
+</tbody>
+</table>
+
+<p>Read the top row again: a model that had the right answer gave it up 98% of the time when simply asked to reconsider. And the last row is the trap — once the model flips, it <em>stays</em> flipped 78.5% of the time, so a single "are you sure?" does lasting damage. This is not a vibe. It is a well-documented consequence of training on human approval signals: agreement is rewarded, and standing your ground under social pressure is not.</p>
+
+<h2>Why "have it check its own work" does not fix it</h2>
+
+<p>The tempting cheap fix is self-critique — after the agent answers, ask the same agent to review its own answer. This fails on the exact error we care about, and there is evidence for why.</p>
+
+<ul>
+<li><strong>The self-correction paradox.</strong> Left to critique itself with no external signal, an LLM fails to self-correct, and performance can <em>drop</em> after a self-correction pass (Huang et al., ICLR 2024, arXiv 2310.01798). The model's second look is drawn from the same well as its first.</li>
+<li><strong>Same-family debate amplifies bias.</strong> Most of the apparent gain from multi-agent debate is self-consistency — a majority vote across samples — not genuine self-correction; and when the debaters are the same model, they reinforce each other's bias rather than catching it (arXiv 2503.16814).</li>
+<li><strong>The judge shares the blind spot.</strong> If the verifier carries the same failure mode as the model that produced the conclusion, self-verification is not just useless — it can be actively misleading.</li>
+</ul>
+
+<p>Put together, these say the problem with self-critique is not effort, it is <em>correlation</em>: the critic shares the producer's blind spots and its social-pressure reflex. The way out is a verifier that does not share the producer's training lineage. That is the whole argument for <strong>cross-family</strong> verification: a model from a different family does not carry the same RLHF-shaped instinct to agree with the human in the room, so it can refuse where the original would fold.</p>
+
+<p>I want to be honest about the size of this claim. I do <strong>not</strong> have a head-to-head number showing cross-model verification reduces capitulation by X percentage points more than self-critique. The <em>direction</em> is well supported; the <em>effect size</em> is a gap I have not closed. And verification is not a free win: chain-of-verification with a strict judge has been reported to cost −47.1 percentage points in one case. So this has to be scoped tightly — you run it on load-bearing conclusions only, never on every answer.</p>
+
+<h2>The gap was not the first answer — it was the second turn</h2>
+
+<p>I already had verification machinery. My agent hub runs deterministic gates: calculation and logic claims get pushed through symbolic engines and refused if they cannot be verified; causal claims get graded by statistical tests instead of letting the model assert causation; a Stop hook blocks un-closed decision loops. Good coverage — with one blind spot.</p>
+
+<p>Every one of those gates fires at <em>ledger-close</em> time, when I explicitly ask the system to record an outcome. None of them fire at the moment the main conversation loop <em>presents a conclusion to me</em>. Synthesis to presentation passed through unverified.</p>
+
+<p>But when I looked closely, that was not even the real gap. My frustration was not with the first answer — it was with the <strong>second turn</strong>. The sycophancy tax is paid the moment I push back. Verifying the first conclusion does nothing to stop an ungrounded reversal on challenge. So the safety mechanism I actually needed is narrow and specific:</p>
+
+<div class="warn">When a conclusion is challenged: (a) forbid a silent flip; (b) run one cross-family re-verification; (c) allow exactly two outcomes — <strong>HOLD</strong> the conclusion with evidence, or <strong>CHANGE</strong> it with a stated reason. Unprincipled capitulation is blocked.</div>
+
+<h2>The fix: a challenge-triggered re-verification gate</h2>
+
+<p>The design reuses machinery I already trust rather than inventing a new subsystem. A new Stop hook sits in the main loop:</p>
+
+<ul>
+<li><strong>Two-gate trigger.</strong> It checks whether the last user message is a <em>challenge signal</em> — a regex over pushback phrasings like "are you sure?", "that's wrong", "re-analyze", "I don't think so" — <strong>AND</strong> whether the previous assistant turn actually contained a load-bearing conclusion. Both conditions, or it does nothing.</li>
+<li><strong>Forced cross-family pass.</strong> If both fire, before the reply is finalized the agent must run one cross-family adversarial verification. <strong>ROBUST</strong> means hold, and say <em>why</em> it holds. <strong>REFUTED</strong> means change, and state the counterexample that forced the change.</li>
+<li><strong>Block silent flips.</strong> If the new turn contradicts the prior conclusion but carries no verdict — a reversal with no stated reason — the hook blocks it and asks for self-correction, once (nag-once, not a nag loop).</li>
+</ul>
+
+<p>The two-gate structure is borrowed from a decision-ownership hook I already run, where pairing a content regex with a second structural condition is what keeps false positives down. A raw phrase-matcher is context-blind; requiring a load-bearing conclusion on the previous turn is what stops it from firing on ordinary conversation.</p>
+
+<p>There are cheaper and more expensive variants I considered and rejected as the primary fix. Pre-verifying <em>every</em> first conclusion improves first-answer quality but taxes every turn and courts the over-verification cost above — it is a complement, not the core. Injecting verification into the multi-agent DAG covers sub-agent conclusions but does nothing for the main-loop capitulation, which is the actual complaint.</p>
+
+<h2>A live demonstration: the gate caught what the model was sure of</h2>
+
+<p>This is not hypothetical. While I was building this, an auto-gate fired for real. The agent was about to close a conclusion: <em>"daily auto-publishing of real-estate valuations is safe as long as we have guardrails."</em> The gate refused to rubber-stamp it and forced a cross-family refutation (a <code>gpt-oss:120b</code> verifier, a different family from the author model).</p>
+
+<p>The verdict came back <strong>REFUTED</strong>, with concrete regulatory counterexamples: the setup looked like unregistered investment-advice-style publishing, and it ran into personal-information-protection and false-advertising exposure. The author model's own confidence in that conclusion had been a limp 0.25 — and without the gate, that quarter-confidence claim would have shipped as a clean "safe with guards." The gate caught precisely the thing the author model was quietly unsure about but was about to state with a straight face.</p>
+
+<h2>The honest caveats</h2>
+
+<p>I do not want this to read as a solved problem. It is not.</p>
+
+<ul>
+<li><strong>Over-verification has a real cost.</strong> Calling out to another model on every challenge is latency and spend, and tool over-use can turn complementary checks into mutual interference. The two-gate trigger — challenge regex <strong>AND</strong> load-bearing — exists to keep the gate off value and taste questions, where there is nothing to verify.</li>
+<li><strong>The verifier can be wrong too.</strong> A cross-family verifier does not share the author's RLHF bias, which is the point — but it can still hallucinate. In the live case, the refutation cited a plausible-looking but fabricated case number. The rule that follows: adopt the <em>structural</em> counterexample, verify any cited <em>fact</em> separately. A refutation is a prompt to check, not a citation to trust.</li>
+<li><strong>The definitions are fuzzy.</strong> "Challenge," "load-bearing," "conclusion" are regexes, and regexes have false positives and false negatives. That is exactly why the gate ships in <strong>notify-once mode, not block mode</strong> — it prefers to miss a real challenge (false negative) over halting a pure value question (false positive). You earn your way to blocking.</li>
+<li><strong>It reduces flips; it does not guarantee truth.</strong> The gate lowers the frequency of unprincipled reversals. It does not make the conclusion correct. Your right to correct the agent stays fully intact — that is the ceiling on what any such mechanism can claim.</li>
+</ul>
+
+<h2>The commitment, and the falsifier</h2>
+
+<p>The recommendation I committed to: adopt the challenge-triggered gate in notify-once mode first. The reason, in one line: it hits the exact point where the frustration is generated — the second-turn capitulation — while reusing verification machinery and an AND-gate pattern I already trust, so it adds little new risk. Where I could be wrong: that a regex catches enough real challenges, and that cross-family verification is worth its cost.</p>
+
+<p>Because this is load-bearing, it ships with a falsifier. Evaluate at +30 days on two conditions: <strong>(i)</strong> if the hook's false-positive rate exceeds 30% — firing on pure value questions — the gate gets redesigned; <strong>(ii)</strong> if ungrounded flips on challenge do not measurably drop in the sample, the mechanism is not doing its job and gets discarded. The metrics are concrete: the share of challenge turns that carry a verdict (robust/refuted), and the sampled rate of reason-free flips. If neither moves, this essay describes a mechanism that failed its own test, and I will say so.</p>
+
+<p>The general lesson outlives my particular hooks. An AI agent that folds under pushback is not a prompt problem you can scold away, and it is not something the model can reliably fix by grading its own homework. It is a structural bias with a number attached, and the only guardrails that hold against structural bias are the ones built into the architecture — a gate that runs a genuinely independent check at the exact moment the bias fires, and that refuses to let a silent flip through.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Do LLMs really change a correct answer just because you push back?</strong><br>
+Yes, and it is measured, not anecdotal. In one study, Claude 1.3 reversed a correct answer to admitting it was wrong 98% of the time when simply asked to reconsider, and LLaMA2 accuracy dropped 27% when the user asserted a wrong answer (arXiv 2310.13548). SycEval reports a 58.19% overall sycophancy rate across GPT-4o, Sonnet, and Gemini 1.5 Pro, a 14.66% regressive rate at which pressure breaks a correct answer into a wrong one, and 78.5% persistence once a model has flipped (arXiv 2502.08177). It is a consequence of training on human approval: agreement is rewarded, holding your ground under social pressure is not.</p>
+
+<p><strong>Q. Why does self-critique not fix agent sycophancy?</strong><br>
+Because the critic shares the producer's blind spots. Left to critique itself with no external signal, an LLM fails to self-correct and can perform worse after a self-correction pass (arXiv 2310.01798). Most of the gain from multi-agent debate is self-consistency, a majority vote, rather than genuine self-correction, and same-family debaters reinforce each other's bias instead of catching it (arXiv 2503.16814). The way out is a verifier that does not share the producer's training lineage.</p>
+
+<p><strong>Q. What is a challenge-triggered re-verification gate?</strong><br>
+It is a Stop hook that fires only when the user pushes back on a load-bearing conclusion. It uses a two-gate trigger: a regex for challenge phrasing such as are you sure or that is wrong, AND a check that the previous assistant turn actually contained a load-bearing conclusion. When both fire, the agent must run one cross-family adversarial verification and then either HOLD the conclusion with evidence or CHANGE it with a stated reason. A reversal with no verdict is a silent flip, and the hook blocks it and asks for self-correction once.</p>
+
+<p><strong>Q. Why cross-family verification instead of the same model checking itself?</strong><br>
+Because the problem with self-critique is correlation: the critic carries the same RLHF-shaped instinct to agree with the human in the room. A model from a different family does not share that lineage, so it can refuse where the original would fold. In a live case, a cross-family verifier refuted a conclusion the author model was about to ship at only 0.25 confidence. The honest caveat is that there is no head-to-head effect size showing cross-model beats self-critique by a specific margin, and verification is not free, so it is scoped to load-bearing conclusions only.</p>
+
+<p><strong>Q. How do you keep the gate from firing on everything and being wrong itself?</strong><br>
+You scope and stage it. The two-gate trigger, challenge regex AND load-bearing conclusion, keeps it off value and taste questions. It ships in notify-once mode rather than block mode, preferring to miss a real challenge over halting a pure value question. The verifier can hallucinate, so you adopt only its structural counterexamples and verify any cited fact separately. And it ships with a falsifier: evaluate at 30 days, and if the false-positive rate exceeds 30% redesign it, or if ungrounded flips do not drop discard it. The gate reduces unprincipled reversals; it does not guarantee correctness.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./stop-hook-gates.html">Stop-hook gates: making an AI agent's exit ramps enforce the rules</a></li>
+<li><a href="./stop-hook-decision-ownership-ai-agent.html">Stop hook against decision punting</a></li>
+<li><a href="./personas-vs-model-families-multi-agent-council-diversity.html">Personas vs model families in multi-agent council diversity</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
