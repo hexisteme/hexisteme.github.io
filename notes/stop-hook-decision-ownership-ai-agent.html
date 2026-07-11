@@ -83,10 +83,13 @@ if not DEFLECT.search(last_text):
 ② One-line reason: (why this is the best choice)
 ③ The assumption / condition under which you'd be wrong (preserve correctability)</pre>
 <p>Line ③ is what makes committing safe: a recommendation with no failure condition is just overconfidence. Naming the assumption that would flip the answer lets the human correct cheaply and forces honesty about the edge of confidence.</p><p>Then the valve that makes it survivable: <strong>nag-once.</strong> A hook that blocks unconditionally is a trap — the agent can never end its turn. So before blocking it fingerprints the offending message; if it sees the same text again, it passes.</p>
-<pre>fp = sha1(last_text)          # fingerprint the exact offending response
-if fp in warned:              # already nagged about this text
+<pre>fp = sha1(last_text)                        # fingerprint the exact offending response
+warned = Path.home() / ".claude/decision-ownership.warned"
+seen = warned.read_text().splitlines() if warned.exists() else []
+if fp in seen:                              # already nagged about this text
     sys.exit(0)
-warned.add(fp)                # nag once, then never again for this text</pre>
+# state lives on disk — every hook run is a fresh process, an in-memory set would forget
+warned.write_text("\n".join(seen + [fp]))   # nag once, then never again for this text</pre>
 <p>One punt, interrupted exactly once, then the hook steps aside — so whatever comes next, the loop can't form.</p>
 
 <h2>The honest limits, and how to tune them</h2>

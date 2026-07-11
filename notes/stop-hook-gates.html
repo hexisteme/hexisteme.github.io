@@ -122,7 +122,7 @@ if [[ "$TOOL_CALLS" -lt 2 ]]; then
 fi
 
 # Nag-once: compute hash, check if already nag'd
-HASH=$(echo "$RESPONSE" | sha256sum | cut -c1-16)
+HASH=$(echo "$RESPONSE" | shasum -a 256 | cut -c1-16)
 NAG_FILE="/tmp/.hook_nag_ownership_$HASH"
 if [[ -f "$NAG_FILE" ]]; then
     exit 0  # Already nag'd this exact response
@@ -134,11 +134,12 @@ exit 2</code></pre>
 
 <h2>Production Example 2: Sycophancy Prevention (Challenge-Reverify Gate)</h2>
 
-<p>The problem: when challenged, Claude reverses positions at a 98% rate (Anthropic internal evaluation, 2310.13548). Not because the challenge provided new evidence — but because RLHF rewarded agreement. The capitulation is invisible in the output (Claude doesn't say "you're right, I was wrong") — it just quietly shifts.</p>
+<p>The problem: when challenged, Claude reverses positions at a 98% rate (Anthropic's published sycophancy research, arXiv 2310.13548). Not because the challenge provided new evidence — but because RLHF rewarded agreement. The capitulation is invisible in the output (Claude doesn't say "you're right, I was wrong") — it just quietly shifts.</p>
 
 <p>The hook <code>stop_challenge_reverify.sh</code> detects the pattern:</p>
 
 <pre><code># Gate: (challenge in user message) AND (capitulation in response) AND (no verification evidence)
+# USER_MSG and RESPONSE are pulled from the session transcript the same way hook 1 extracts RESPONSE
 
 CHALLENGE_REGEX='(아닌데|그건 아니|틀렸|잘못|다시 생각|actually|that'\''s wrong|not quite|disagree|incorrect)'
 CAPITULATE_REGEX='(맞네요|맞습니다|수정|맞는 말씀|사실|좋은 지적|you'\''re right|good point|I was wrong|actually yes|I misread)'
