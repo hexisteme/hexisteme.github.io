@@ -79,6 +79,13 @@ Because input-laundering defects are layers of the same threat, and each fix exp
 <p><strong>Q. Can a deterministic gate fully protect against a dishonest input-injecting agent?</strong><br>
 No. The gate closes laundering paths inside the pipeline — label forgery, score laundering, penalty dodging — but it cannot close the boundary above it: the honesty of the agent injecting the inputs. Host verification proves a value came from a legitimate host; it does not prove the agent fetched the right page or reported the response faithfully. Treat this as an intrinsic trust boundary, label it explicitly in your threat model, and mitigate it outside the deterministic function: re-fetch the exact pinned URL independently at verification time, diff against a second fetch, sample for human review, and log raw responses so any claimed FACT stays auditable.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./fact-vs-inference-provenance-ai-agent.html">How to make an AI research agent label facts vs inferences — a deterministic provenance pipeline</a></li>
+<li><a href="./falsifier-driven-ai.html">Falsifier-Driven AI Decisions: No Claim Without Falsification Conditions</a></li>
+<li><a href="./measure-ai-citations-weekly-probe.html">Does Any AI Actually Cite Your Site? A Cheap Weekly Probe That Turns GEO Into a Number</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

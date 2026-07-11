@@ -106,6 +106,13 @@ Adopt a per-project output convention (e.g. <code>&lt;project&gt;/report/</code>
 <p><strong>Q. How do I detect a job that should have run but didn't?</strong><br>
 Compare the schedule to the log's modification time. If a daily job's log was last written outside the expected window, flag it — the silent failure heartbeat tools miss.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./pull-vs-event-bus-agent-fleet.html">Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors</a></li>
+<li><a href="./file-based-agent-work-bus.html">A file-based work-bus for orchestrating a fleet of agent CLIs — coordination without a message broker</a></li>
+<li><a href="./scrape-by-reading-your-open-browser-tab.html">When a Site Blocks Your Scraper, Read the Browser Tab You Already Have Open</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

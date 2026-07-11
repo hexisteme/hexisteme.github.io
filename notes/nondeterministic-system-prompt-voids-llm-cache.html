@@ -90,6 +90,13 @@ Yes. If any part of the cached prefix is built by serializing a dict/map without
 <p><strong>Q. Why does adding or reordering a tool invalidate the whole prompt cache?</strong><br>
 Tools render at the very front of the prompt, before the system prompt and messages. Because caching is a prefix match, any change to the tool set changes position zero and invalidates the entire cache below it. Keep the tool list frozen and deterministically ordered per session; for dynamic tools, use a discovery mechanism that appends schemas rather than swapping the base set, and don't switch models mid-session, since caches are model-scoped.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./claude-code-400-no-low-surrogate-jsonl-repair.html">Claude Code &quot;400: no low surrogate in string&quot; on every turn: repairing a permanently broken session transcript</a></li>
+<li><a href="./harness-invariants-stop-cross-component-leaks.html">How to Stop AI Agent Skills, Hooks, and Cron Jobs from Silently Conflicting Over Where They Run and What Data They Trust</a></li>
+<li><a href="./stop-hook-gates.html">Claude Code Stop Hooks as Behavioral Gates</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

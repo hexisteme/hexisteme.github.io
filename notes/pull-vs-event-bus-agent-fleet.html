@@ -98,6 +98,13 @@ Observe their external state: poll a health endpoint, check the process is alive
 <p><strong>Q. How should a monitoring inbox decide priority without an LLM?</strong><br>
 Deterministic state triggers — BLOCKED, then STALE, then NEW — each a fact derived from disk (health check, mtime vs read-timestamp, schedule vs log). An LLM priority score is unfalsifiable and drifts.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./file-based-agent-work-bus.html">A file-based work-bus for orchestrating a fleet of agent CLIs — coordination without a message broker</a></li>
+<li><a href="./cron-launchd-unified-dashboard.html">Aggregating cron and macOS launchd into one read-only dashboard — without migrating either</a></li>
+<li><a href="./harness-invariants-stop-cross-component-leaks.html">How to Stop AI Agent Skills, Hooks, and Cron Jobs from Silently Conflicting Over Where They Run and What Data They Trust</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

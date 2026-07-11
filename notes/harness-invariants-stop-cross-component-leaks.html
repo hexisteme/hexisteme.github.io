@@ -61,6 +61,13 @@ No — match the declaration weight to the component's blast radius. For unatten
 <p><strong>Q. How do I retrofit invariants onto an agent system I already built?</strong><br>
 Prioritize by blast radius rather than trying to do it all at once. First, system entry points — the scripts that route config or classify profiles — because everything downstream trusts them. Second, hooks that fire on every prompt. Third, your highest-frequency skills. Everything else gets backfilled on a recurring audit cadence. In that cadence, scan for: decision records missing a locality field, skills with no declared invariants, and any routine/hook unchanged for 30+ days (re-verify these, because the environment they assumed may have shifted). The 30-day re-check is what catches source-of-truth drift, which is one of the two leaks this pattern was built to prevent.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./stop-hook-gates.html">Claude Code Stop Hooks as Behavioral Gates</a></li>
+<li><a href="./file-based-agent-work-bus.html">A file-based work-bus for orchestrating a fleet of agent CLIs — coordination without a message broker</a></li>
+<li><a href="./nondeterministic-system-prompt-voids-llm-cache.html">The Silent 10× Tax: How a Nondeterministic System Prompt Voids Your LLM Prompt Cache</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

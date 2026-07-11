@@ -115,6 +115,13 @@ It injects a template: commit to one recommendation, give a one-line reason, and
 <p><strong>Q. Won't a Stop-hook that blocks trap the agent in a loop?</strong><br>
 No — nag-once. Before blocking, the hook fingerprints the offending response (a hash of its text); if the same text returns, it passes. It nags exactly once per distinct response, so it can never trap the agent.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./stop-hook-gates.html">Claude Code Stop Hooks as Behavioral Gates</a></li>
+<li><a href="./rdu-reusable-decision-units.html">RDU: Reusable Decision Units for Consistent AI Agents</a></li>
+<li><a href="./harness-invariants-stop-cross-component-leaks.html">How to Stop AI Agent Skills, Hooks, and Cron Jobs from Silently Conflicting Over Where They Run and What Data They Trust</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

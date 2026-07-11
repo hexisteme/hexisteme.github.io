@@ -145,6 +145,13 @@ It's defense in depth: every layer that could start the risky process is made to
 <p><strong>Q. How do you safely run heavy GPU or ML workloads on a 24 GB unified-memory Mac?</strong><br>
 One heavy job at a time, and never let two 14 GB-class workloads — or a heavy ML task plus Photoshop, a video editor, and a VM — overlap, because they contend for the same pool. Run a memory preflight before generative work (sum free, inactive, speculative, and purgeable pages from <code>vm_stat</code>; if it's under about 8 GB, close apps first), keep the model in a low-memory mode, and hold 20 GB+ of disk free so the swap buffer stays healthy. The goal is never to reach the memory-overcommit state that forces the OS to swap onto a disk with no room.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./stop-hook-gates.html">Claude Code Stop Hooks as Behavioral Gates</a></li>
+<li><a href="./macos-mdnsresponder-zombie-dns.html">macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie</a></li>
+<li><a href="./claude-code-400-no-low-surrogate-jsonl-repair.html">Claude Code &quot;400: no low surrogate in string&quot; on every turn: repairing a permanently broken session transcript</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>

@@ -70,6 +70,13 @@ Not fully, because the mid-pair truncation that creates the lone surrogate happe
 <p><strong>Q. How do I make the auto-repair scan fast enough to run on every session start?</strong><br>
 Add a byte-level pre-filter before any JSON parsing. A lone surrogate only persists as either the escape sequence \ud... or the raw UTF-8 bytes ED A0–BF (valid UTF-8 only allows ED followed by 80–9F). If a file contains neither signal it's provably clean and you skip the expensive per-line json.loads. This dropped a 174-file scan from 3.4s to 1.1s. Scope it to recent days, run quiet unless something was fixed, and skip open files.</p>
 
+<h2>Related notes</h2>
+<ul>
+<li><a href="./macos-mdnsresponder-zombie-dns.html">macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie</a></li>
+<li><a href="./nondeterministic-system-prompt-voids-llm-cache.html">The Silent 10× Tax: How a Nondeterministic System Prompt Voids Your LLM Prompt Cache</a></li>
+<li><a href="./local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></li>
+</ul>
+
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
 </html>
