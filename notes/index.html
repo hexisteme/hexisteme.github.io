@@ -95,6 +95,18 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">llm</span><span class="tag">prompt caching</span><span class="tag">cost</span>
 </div>
 
+<div class="card">
+  <h3><a href="challenge-triggered-reverification.html">Your AI Agent Folds When You Push Back: Measured Sycophancy and a Challenge-Triggered Verification Gate</a></h3>
+  <p>LLMs measurably reverse correct answers under "are you sure?" (98% in one Anthropic measurement), and self-critique can't fix it — the critic shares the producer's blind spots. The fix is architectural: a Stop-hook gate that forces one cross-family re-verification on challenge, then allows only HOLD-with-evidence or CHANGE-with-reason.</p>
+  <span class="tag">llm</span><span class="tag">sycophancy</span><span class="tag">verification</span>
+</div>
+
+<div class="card">
+  <h3><a href="multi-model-fanout-triangulation-blind-spots.html">Five Models, One Shared Blind Spot: What Multi-Model Fan-Out Catches and What It Can't</a></h3>
+  <p>Fanning one evidence digest out to five model families: 68/68 numeric claims survived recomputation, four models caught an anomaly the fifth missed — and all four external models missed an experiment-design flaw sitting in plain sight. Convergence on the same framing is cross-consistency, not independent evidence.</p>
+  <span class="tag">multi-model</span><span class="tag">verification</span><span class="tag">llm</span>
+</div>
+
 <h2>Fleet Monitoring &amp; Orchestration</h2>
 
 <div class="card">
@@ -113,6 +125,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="file-based-agent-work-bus.html">A File-Based Work-Bus for Orchestrating a Fleet of Agent CLIs</a></h3>
   <p>Coordinate independent agent CLIs without LangGraph or a message broker: atomic Task/Result files, capability-based routing, absent-worker skip for graceful degradation, and a typed claim contract on the bus.</p>
   <span class="tag">orchestration</span><span class="tag">multi-agent</span><span class="tag">LangGraph alternative</span>
+</div>
+
+<div class="card">
+  <h3><a href="agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></h3>
+  <p>An efficiency audit found a silent cost regression, a cache-invalidation trap, a pricing cliff — and a terrifying "12% task completion" that turned out to be benchmark contamination plus a schema misreading (real rate: 98.4%). Verify the metric before reacting; the false alarm's investigation still fixed three real defects.</p>
+  <span class="tag">observability</span><span class="tag">multi-agent</span><span class="tag">postmortem</span>
 </div>
 
 <h2>Web, SEO &amp; AI Search</h2>
