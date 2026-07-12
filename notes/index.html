@@ -107,6 +107,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">multi-model</span><span class="tag">verification</span><span class="tag">llm</span>
 </div>
 
+<div class="card">
+  <h3><a href="cross-family-llm-audit-shared-blind-spots.html">Cross-Vendor Audit: What It Caught in My Own Model's Writing, and What It Got Wrong</a></h3>
+  <p>A different-vendor LLM audited ten queued posts written by my main model: it caught three copy-paste-breaking macOS/Linux platform bugs and a destructive in-place file conversion the writing family repeatedly missed — and also filed a false accusation that only grepping the primary source could refute. Cross-family audit works; auditor self-reports still need re-verification.</p>
+  <span class="tag">cross-vendor</span><span class="tag">llm</span><span class="tag">verification</span>
+</div>
+
 <h2>Fleet Monitoring &amp; Orchestration</h2>
 
 <div class="card">
@@ -145,6 +151,26 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="measure-ai-citations-weekly-probe.html">Does Any AI Actually Cite Your Site? A Cheap Weekly Probe That Turns GEO Into a Number</a></h3>
   <p>GEO is unfalsifiable until you measure citations: a fixed set of user-shaped questions fired weekly at a grounded model, a deterministic owner-scoped match, and a ledger that error rows can't fake — plus when not to measure at all.</p>
   <span class="tag">GEO</span><span class="tag">AI search</span><span class="tag">measurement</span>
+</div>
+
+<div class="card">
+  <h3><a href="verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></h3>
+  <p>A crosspost pipeline with 19 green gate tests published nine articles whose titles were visibly broken on the live platform for nine days. Tests verify the payload you build, not what the other system renders — a pipeline isn't verified until you check the output surface itself.</p>
+  <span class="tag">testing</span><span class="tag">postmortem</span><span class="tag">pipeline</span>
+</div>
+
+<h2>Shipping Solo Apps with AI</h2>
+
+<div class="card">
+  <h3><a href="why-your-vibe-coded-app-looks-worse.html">Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit</a></h3>
+  <p>A 6-agent forensic audit over 92 of my own sessions answered "am I prompting wrong?" — partially yes (zero visual references, zero style tokens), but the dominant cause was silent infrastructure decay: exhausted generation credits quietly swapped in code-approximated shapes, a generation server was down with a required model file missing, and a ready asset pipeline was never invoked for six-plus weeks.</p>
+  <span class="tag">vibe coding</span><span class="tag">gamedev</span><span class="tag">audit</span>
+</div>
+
+<div class="card">
+  <h3><a href="government-open-data-api-docs-vs-reality.html">Government Open-Data APIs: Every Guess I Made Was Wrong Until I Probed It Live</a></h3>
+  <p>Building a travel app on Korea's open-data portal: a documented-looking op name returned 500 (the real one returned per-gate passenger counts, not the grade field I'd invented), a sibling dataset 404'd because approval is per-dataset, a discarded dataset left a 401 red herring on the wrong gateway, and one API's airport parameter means the other end of the flight. Live capture is the only ground truth.</p>
+  <span class="tag">open data</span><span class="tag">API</span><span class="tag">degrade path</span>
 </div>
 
 <h2>macOS &amp; Debugging</h2>
