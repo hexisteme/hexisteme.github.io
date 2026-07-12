@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days — hexisteme notes</title>
+<meta name="description" content="A dev.to crosspost pipeline had 19 green gate tests and still published nine articles with the front-matter quotes literally visible in the live title, for nine days, undetected. The postmortem on why &quot;tests pass&quot; and &quot;the output is correct&quot; are different claims.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days", "datePublished": "2026-07-13", "dateModified": "2026-07-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A postmortem on a dev.to crosspost pipeline with 19 green gate tests that shipped nine articles with front-matter quotes literally visible in the live title for nine days, plus a silent non-ASCII sanitizer and a default User-Agent 403 block, and the lesson that tests verify the payload you build, not what the other system renders.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can a pipeline have 19 passing tests and still ship a broken title?", "acceptedAnswer": {"@type": "Answer", "text": "Because all 19 tests verified the pipeline's own contract — that the parser extracts a title, that the payload builder produces valid JSON, that the API call succeeds — and none of them verified what the receiving system actually rendered. A hand-rolled front-matter parser returned the title string with its wrapping quote characters still attached, the payload builder passed that string straight into the API's title field, and the API accepted it without complaint because a string starting and ending in a literal quote character is still a legal string. Every test that could have caught it was checking a different, upstream question."}}, {"@type": "Question", "name": "Why did nine days pass before anyone noticed the broken titles?", "acceptedAnswer": {"@type": "Answer", "text": "Because nothing in the pipeline was set up to look at the live output. The publish call returned success, the API responded normally, and the test suite stayed green through all nine publishes. The bug was found only when a human happened to open the live profile page directly, for a reason unrelated to the title bug itself. No automated step in the pipeline ever fetched the published page and compared it to what was intended."}}, {"@type": "Question", "name": "What is an \"output-surface smoke check\" and why does it matter here?", "acceptedAnswer": {"@type": "Answer", "text": "It's a check that runs after a publish call succeeds: fetch the live URL once and diff the rendered title (and ideally the body) against what was intended. It matters because it is the only kind of check in this story that verifies the other system's rendering rather than your own payload. Tests that only inspect the payload you built can pass forever while the live page is visibly wrong, because payload correctness and rendered-output correctness are different claims."}}, {"@type": "Question", "name": "What were the two other silent bugs found around the same time?", "acceptedAnswer": {"@type": "Answer", "text": "First, dev.to's server-side title sanitizer silently strips non-ASCII characters — a multiplication sign used in one title vanished from the live page with no error, because the API still returns 200 when it strips content. The fix was a protocol: keep symbol-bearing titles on the canonical site and spell the same idea out in plain ASCII for dev.to. Second, a metrics-collection script using Python's default User-Agent string got blocked with a 403 \"Forbidden Bots\" response, because dev.to treats the default urllib User-Agent as a bot signature; a custom User-Agent header fixed it immediately."}}, {"@type": "Question", "name": "Why does debugging the User-Agent bug matter to finding the quote bug?", "acceptedAnswer": {"@type": "Answer", "text": "Because the two bugs were unrelated in cause but connected in discovery. Chasing down the 403 error from the metrics collector required opening the live dev.to profile page by hand to check what was actually there — and that direct look at the output surface is what exposed the quote bug, nine days after it first went live. No part of the pipeline was designed to look at the live page regularly; the only reason anyone did was an unrelated debugging session, which is a fragile way to catch a silent failure."}}]}
+</script>
+</head>
+<body>
+
+<h1>Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-13</p>
+
+<div class="note">A dev.to crosspost pipeline had 19 gate tests, all green, through nine publishes. All nine articles went live with their front-matter quotes literally showing in the title — one even leaked an escaped quote character — and nothing in the pipeline noticed for nine days. A human found it by accident while debugging an unrelated bug. The postmortem covers that bug plus two more silent failures found in the same sweep, and the one lesson underneath all three: tests verify the payload you build, not what the other system renders. A pipeline isn't verified until you've verified the output surface.</div>
+
+<h2>The pipeline that had "passed everything"</h2>
+
+<p>I have a small pipeline that crossposts my notes to dev.to. It parses a Markdown file's front matter, builds a payload, and calls the dev.to API to publish. It has 19 gate tests, and every one of them was green the whole time it was shipping. It published nine articles. All nine went live with their titles broken — the front-matter quotes were sitting right there in the title, visible to anyone who looked, for nine days, and nothing in the pipeline noticed. I didn't notice either. A human had to open the dev.to profile page by accident before anyone found out.</p>
+
+<p>This is the postmortem, and the reason I'm writing it up as a general essay rather than just a fixed-bug log is that the root cause isn't specific to dev.to, or to Markdown front matter, or to Python. It's a category of mistake that any pipeline with an external endpoint on the other end can make: testing the payload you build, and never testing what the other system does with it.</p>
+
+<p>The shape of it is ordinary. A draft file has YAML-style front matter — <code>title: "Some Title"</code> — because that's the convention. A parser reads the front matter and pulls out the title. A payload builder takes that title and a few other fields and assembles the JSON body for the dev.to API. The API gets called, dev.to accepts it, the article is live. Nineteen gate tests cover this path — the front-matter parsing and the payload/API contract of the pipeline's own code. All green, every publish.</p>
+
+<p>The gap is in what "parses the front matter" actually means. The parser isn't a real YAML parser. It's closer to <code>line.partition(":")</code> — split each line on the first colon, take the right-hand side as the value. That works fine for <code>tags: testing, devops</code> where there's nothing to unwrap. It does not work for <code>title: "Some Title"</code>, because the quote characters are part of the string on the right-hand side of the colon, and a partition-based parser has no concept of "this value is quoted, strip the quotes." It just hands back <code>"Some Title"</code> — quotes included — as the value of <code>title</code>.</p>
+
+<p>The payload builder then does exactly what it's supposed to do with whatever it's handed: puts that string, quotes and all, into the <code>title</code> field of the API payload. dev.to accepts it. The API doesn't reject a title that starts and ends with a literal double-quote character — why would it, that's a legal string. So the live title on dev.to read, literally, <code>"Why Your AI Agent ..."</code> with the quote marks rendered as visible characters. One of the nine had it worse: the front matter had an escaped quote in it, and that came through as a literal <code>\"</code> in the live title too.</p>
+
+<p>All 19 tests stayed green through every one of these nine publishes, because every test in that suite verified something upstream of the actual rendered output: "does the parser extract a title," "does the payload builder produce valid JSON," "does the API call succeed." None of them asked the only question that would have caught this: what does the title look like on the page a reader actually sees.</p>
+
+<h2>Nine days, and a human found it by accident</h2>
+
+<p>The first of the nine articles went live on July 2nd. The bug was found on July 11th. That's nine days of a broken title sitting on a public profile, through nine separate publishes, with a green test suite the entire time. Nothing in the pipeline flagged it. No error, no failed test, no alert. The way it actually got found was not automation — I happened to open the dev.to profile page and look at it, for a reason that had nothing to do with the title bug. I'll get to that reason, because it's the more interesting part of this story.</p>
+
+<p>The fix, once found, was small: add an unquote step to the payload builder that strips one matched pair of leading and trailing quote characters (double or single) before the title goes into the API payload. Then, separately, the nine already-published articles needed their live titles repaired — eight of them fixed by scripting a PUT call against the dev.to API for each one, and the ninth (the one with the escaped-quote artifact) normalized by hand because it didn't fit the same mechanical pattern. A regression test went in afterward to lock the unquote behavior down.</p>
+
+<h2>What "verify the output surface" actually means</h2>
+
+<p>The generalizable lesson isn't "write a YAML parser correctly," though that's true too. It's this: a test suite verifies the contract you designed. It cannot verify what a system outside your control does with the thing you handed it, unless you explicitly go check. My 19 tests verified "front matter goes in, a payload comes out, the API call doesn't error." Every one of those is a claim about my own code. None of them is a claim about what dev.to renders. Those are different claims, and green tests on the first kind tell you nothing about the second kind.</p>
+
+<p>The concrete gate this implies is an output-surface smoke check: after a publish call succeeds, fetch the live URL once and diff the rendered title (and ideally the rendered body) against what you intended to publish. That's a small, cheap addition — one HTTP GET and a string comparison — and it is the only thing in this whole story that would have caught the bug on day one instead of day nine. A pipeline is not verified until you've verified the surface the other system actually shows to the world, not just the payload you handed it.</p>
+
+<h2>Two more silent bugs, found in the same sweep</h2>
+
+<p>Two other bugs surfaced around the same time, and both share the same shape: dev.to changes what you sent without telling you, and there's no error to catch.</p>
+
+<p>The first: I'd used a <code>×</code> (multiplication sign) in a title once. It's a non-ASCII character. On the live dev.to title, it was simply gone — not replaced, not escaped, just silently stripped. dev.to runs a server-side title sanitizer that strips non-ASCII characters, and the API still returns 200 when it does this, so there's no client-side signal that anything happened to your input. The response I settled on: dev.to titles are ASCII only, full stop. If a title needs a symbol that actually carries meaning — <code>×</code>, <code>→</code>, <code>≥</code> — that symbol stays in the canonical title on my own site, and the dev.to version gets the same idea spelled out in plain ASCII words instead.</p>
+
+<p>The second: the metrics collector I run to pull performance stats off dev.to (a small urllib-based script) started getting 403 "Forbidden Bots" back from the dev.to API. The cause was almost funny once found: the script was using Python's default User-Agent string, <code>Python-urllib/3.x</code>, and dev.to blocks that UA as a bot signature. The exact same endpoint, hit with a custom User-Agent header, returned a normal 200. The fix was one header. The lesson is worth keeping regardless of dev.to specifically: the default User-Agent of whatever HTTP client library you're using is not neutral — it's an identity, it announces itself, and it is often the first thing an API's bot-blocking rules are tuned to reject.</p>
+
+<h2>The ironic part: debugging bug 3 exposed bug 1</h2>
+
+<p>Here's the detail that makes this postmortem worth writing up as a story and not just a checklist. I was not looking for the quote bug on July 11th. I was debugging the 403 error from the metrics collector. Chasing that down led me to open the dev.to profile page directly, by hand, to look at what the live articles actually said — and that's when I saw the literal quote marks sitting in nine titles.</p>
+
+<p>Bug 3 had nothing to do with bug 1. Fixing a User-Agent header does not, in any causal sense, fix a front-matter parser. But the <em>investigation</em> of bug 3 required a human to look at the actual rendered output surface, and that look is exactly the thing 19 automated tests never did. One silent bug's debugging path became the only reason another, unrelated silent bug got discovered at all. If the metrics collector had never hit that 403, there's no guarantee anyone opens that profile page, and the quote bug could plausibly still be live today.</p>
+
+<p>That's not a coincidence worth being cute about — it's a structural point. Silent failures don't get found by the systems that produce them; they get found by whatever forces a human or a script to actually look at the far end. In this case, the periodic metrics collection was, incidentally, the only path in the entire pipeline that regularly touched the live dev.to state at all. Everything else only ever looked at its own payload before sending it. Observation of the actual output surface wasn't designed in anywhere — it showed up as a side effect of an unrelated debugging session, which is a fragile way to get it and not something I want to rely on again.</p>
+
+<h2>The half-YAML sin</h2>
+
+<p>There's a narrower lesson underneath the parser bug specifically, and it generalizes past this one pipeline: reading something that <em>looks like</em> YAML with a hand-rolled parser is a minefield, and quoting is exactly the kind of landmine it steps on. <code>line.partition(":")</code> handles the easy majority of front matter — bare scalars, comma lists — and silently mishandles the part where YAML's actual syntax rules (quoting, escaping, multiline blocks) matter. The fix isn't necessarily "always use a real YAML parser," though that's the more robust answer. If a project is going to keep a hand-rolled parser for simplicity, its known limitations need to be written down as an explicit gate — something that detects "this value is still wrapped in quote characters" and fails loudly, rather than passing the raw string through and calling it done.</p>
+
+<h2>Where it landed</h2>
+
+<p>The fixes: an unquote step in the payload builder that strips one matched pair of leading/trailing quote characters before the title reaches the API; a one-time bulk repair of the nine live titles (eight via a scripted PUT, one by hand for the escaped-quote case); a regression test for the unquote behavior; a documented ASCII-only rule for dev.to titles with symbol-bearing titles kept on the canonical site instead; and a custom User-Agent header on the metrics collector. None of these fixes were hard. The nine days of live broken titles weren't a hard-bug problem — they were a nobody-looked problem.</p>
+
+<p>The single change I'm carrying forward is the output-surface smoke check: after any publish, fetch the live page once and diff what's actually there against what was intended. Green tests tell you your code did what you told it to do. They don't tell you what the other system did with what you handed it. Only looking at the other system's output tells you that — and until you've looked, the pipeline isn't verified, whatever the test suite says.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How can a pipeline have 19 passing tests and still ship a broken title?</strong><br>
+Because all 19 tests verified the pipeline's own contract — that the parser extracts a title, that the payload builder produces valid JSON, that the API call succeeds — and none of them verified what the receiving system actually rendered. A hand-rolled front-matter parser returned the title string with its wrapping quote characters still attached, the payload builder passed that string straight into the API's title field, and the API accepted it without complaint because a string starting and ending in a literal quote character is still a legal string. Every test that could have caught it was checking a different, upstream question.</p>
+
+<p><strong>Q. Why did nine days pass before anyone noticed the broken titles?</strong><br>
+Because nothing in the pipeline was set up to look at the live output. The publish call returned success, the API responded normally, and the test suite stayed green through all nine publishes. The bug was found only when a human happened to open the live profile page directly, for a reason unrelated to the title bug itself. No automated step in the pipeline ever fetched the published page and compared it to what was intended.</p>
+
+<p><strong>Q. What is an "output-surface smoke check" and why does it matter here?</strong><br>
+It's a check that runs after a publish call succeeds: fetch the live URL once and diff the rendered title (and ideally the body) against what was intended. It matters because it is the only kind of check in this story that verifies the other system's rendering rather than your own payload. Tests that only inspect the payload you built can pass forever while the live page is visibly wrong, because payload correctness and rendered-output correctness are different claims.</p>
+
+<p><strong>Q. What were the two other silent bugs found around the same time?</strong><br>
+First, dev.to's server-side title sanitizer silently strips non-ASCII characters — a multiplication sign used in one title vanished from the live page with no error, because the API still returns 200 when it strips content. The fix was a protocol: keep symbol-bearing titles on the canonical site and spell the same idea out in plain ASCII for dev.to. Second, a metrics-collection script using Python's default User-Agent string got blocked with a 403 "Forbidden Bots" response, because dev.to treats the default urllib User-Agent as a bot signature; a custom User-Agent header fixed it immediately.</p>
+
+<p><strong>Q. Why does debugging the User-Agent bug matter to finding the quote bug?</strong><br>
+Because the two bugs were unrelated in cause but connected in discovery. Chasing down the 403 error from the metrics collector required opening the live dev.to profile page by hand to check what was actually there — and that direct look at the output surface is what exposed the quote bug, nine days after it first went live. No part of the pipeline was designed to look at the live page regularly; the only reason anyone did was an unrelated debugging session, which is a fragile way to catch a silent failure.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./github-pages-sitemap-couldnt-fetch-google.html">Google Can't Fetch Your GitHub Pages Sitemap, but Bing Can</a></li>
+<li><a href="./local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></li>
+<li><a href="./claude-code-400-no-low-surrogate-jsonl-repair.html">Claude Code "400: no low surrogate in string" on every turn: repairing a permanently broken session transcript</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
