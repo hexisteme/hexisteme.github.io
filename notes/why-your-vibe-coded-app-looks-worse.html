@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit — hexisteme notes</title>
+<meta name="description" content="A solo builder ran a 6-agent forensic audit over 92 of their own sessions to explain why a vibe-coded game looked worse than AI showcase demos, and found the bigger cause was silent infrastructure decay, not bad prompting: exhausted generation credits quietly swapped in code-approximated shapes, a local generation server was down with a required model file missing, and an asset pipeline was never run on one project for six-plus weeks.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit", "datePublished": "2026-07-13", "dateModified": "2026-07-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A solo builder's 6-agent forensic audit of 92 of their own coding sessions, finding that a vibe-coded game's weak visuals traced mostly to silent infrastructure decay (exhausted generation credits, a down local generation server missing a model file, and an unused asset pipeline) rather than to prompting alone.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does a vibe-coded game or app often look worse than AI-built showcase demos?", "acceptedAnswer": {"@type": "Answer", "text": "Two separate causes stack on top of each other. The smaller one is prompting: abstract requests like \"make it polished,\" with zero visual references and zero style tokens (palette, size, font), leave every color and proportion decision to the model, which reverts to safe, generic defaults. The larger one is silent infrastructure decay: generation credits quietly running out, a local generation server being down with a required model file missing, or an asset pipeline never being invoked on a given project. Both look identical from the outside as \"the art is mediocre,\" but only one of them is actually about model capability."}}, {"@type": "Question", "name": "How do you tell whether bad AI-generated visuals are a prompting problem or an infrastructure problem?", "acceptedAnswer": {"@type": "Answer", "text": "Audit whether the visual pipeline you assume is running actually ran, before blaming the model. In one forensic audit across 92 sessions, a generation tool's account balance had silently hit $0.00 mid-project and higher-tier assets were quietly swapped for code-approximated shapes with no error surfaced; a local generation server was down with a required model file missing; and a separate asset pipeline had simply never been applied to one project for six-plus weeks. None of these produced a visible failure — they all just produced mediocre output that looked exactly like a model doing its best."}}, {"@type": "Question", "name": "Why doesn't asking an AI model to \"make it prettier\" or \"more polished\" work?", "acceptedAnswer": {"@type": "Answer", "text": "Abstract adjectives don't narrow the model's choice space, so it re-samples the training-data average instead of producing something distinctive. Anthropic's own material states this directly: without explicit different steering, a model reverts to \"safe\" choices, because web training data skews heavily toward inoffensive, generic design. The fix is concrete constraints — named reference games or images, an explicit style token file, and a verifiable quality gate — not stronger adjectives."}}, {"@type": "Question", "name": "Is an AI model bad at drawing game art directly in code?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, structurally so — art drawn directly in code (SVG paths, engine-native shape drawing) tends to be programmer art, a limitation that shows up repeatedly across model generations on benchmarks like Simon Willison's pelican-riding-a-bicycle test. The fix isn't to give up on AI-generated art; it's to keep the model out of the drawing step and have it call a dedicated image-generation tool instead, which it can do correctly and reliably when that tool is actually reachable."}}, {"@type": "Question", "name": "What's the single highest-leverage fix when an AI asset pipeline has silently stalled?", "acceptedAnswer": {"@type": "Answer", "text": "Resume the pipeline that already has a proven success, rather than starting a new one. In this audit, the highest-ROI move was topping up the exhausted credit balance on the one tool that had already produced a real, working character — restoring a proven path is faster and more certain than debugging or standing up an alternative pipeline from scratch."}}]}
+</script>
+</head>
+<body>
+
+<h1>Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-13</p>
+
+<div class="note">I kept asking why my vibe-coded game looked worse than everyone's AI-built showcases, and assumed I was prompting wrong. So I ran a 6-agent forensic audit over 92 of my own sessions. The verdict: partially my prompting — zero visual references, zero style tokens, abstract "make it polished" requests — but the bigger cause was silent infrastructure decay. Generation credits had run out mid-project and were quietly replaced by code-approximated shapes, a local generation server was down with a required model file missing, and an asset pipeline was never applied to one project for six-plus weeks. The lesson: before blaming the model or your prompts, audit whether the visual pipeline you think is running actually ran.</div>
+
+<h2>The prompting half was real, but small</h2>
+
+<p>I kept circling the same question for weeks: why does my vibe-coded game look worse than the polished demos every other AI-built project seems to post? Am I prompting wrong? I'd nudge, ask for "something more polished," get back a slightly different flavor of mediocre, and assume the gap was somewhere in my phrasing. Eventually I stopped guessing and ran a proper audit — six agents, one doing a local harness audit, one doing transcript forensics across 92 of my own sessions, three doing web research in different directions, and one doing nothing but trying to poke holes in the others' conclusions. The verdict surprised me: I was partially right about my prompting, but it wasn't the main problem. The main problem was that I didn't actually know which parts of my own pipeline were running.</p>
+
+<p>The forensic pass over my sessions found exactly what I was afraid it would find. Across my game projects: zero visual references provided, zero style tokens specified — no palette, no size targets, no font choices — and a dominant pattern of asking for something like "make the design high quality" without giving Claude anything to anchor that to. Every color decision, every proportion, every shading choice was left entirely to the model.</p>
+
+<p>The forensics also surfaced a pattern I hadn't noticed about myself: in a different project of mine, a novel I'm writing, I attach five or six reference images per turn, routinely. In my game projects, that number was zero. It wasn't that I don't have the habit of giving visual references. I just never brought it into games specifically.</p>
+
+<p>The transcripts had a few lines that made this concrete. "It's a character game. The design needs to be high quality too" — a result metric with no direction, which is exactly the shape of request that makes a model fall back to its own defaults. Later: "this microbe-level design isn't appealing" — a real critique, delivered after the fact, when a moodboard up front would have caught it before any generation spend. And at one point I asked Claude directly whether the result was fun. Aesthetic and fun judgment isn't something a model can hand back to you honestly if you're the one who's supposed to be judging it.</p>
+
+<h2>The bigger problem: pipelines that only look like they're running</h2>
+
+<p>Here's what the audit actually surfaced as the dominant cause, and it wasn't a prompting problem at all. I have three separate visual-asset pipelines set up across my projects. Functionally, none of them were working at the time.</p>
+
+<p>PixelLab — the tool that had actually produced my one real success, a character called CodeSprout in my iOS/SpriteKit project — had an account balance of $0.00. Generation had simply stopped being possible partway through that project, and I hadn't noticed, because nothing failed loudly. The higher character tiers, Evolved and Elder, got silently replaced with code-approximated squash-and-stretch shapes instead — a fallback that a note buried in that project's own prototype notes had actually recorded, which is the only reason I found out after the fact rather than never.</p>
+
+<p>A second project, a Godot testbed, has a well-written style.json and four concept PNGs — and then nothing. The full-sheet generation step needed a local ComfyUI server plus a Hunyuan3D model file, and that server was down with the required model missing. The project didn't fail; it most likely just quietly stopped advancing at the cheapest stage that had already succeeded.</p>
+
+<p>The third case is the starkest. A separate Godot project — sound design done, icon done, iOS export pipeline fully ready to ship — still has its main character rendered as a literal ColorRect: an orange rectangle for a body, green dots for eyes. I have an asset-generation pipeline built specifically for this. It had existed for six-plus weeks. It had simply never been run against this project. Not broken, not blocked — never invoked.</p>
+
+<p>Three projects, three different failure shapes, and the common thread across all of them is the same: at no point did any of these pipelines fail in a way that stopped me. Everything silently degraded to the next thing that would still produce an output — a code-approximated shape, a stalled-but-not-erroring concept stage, a default primitive that Godot renders without complaint. From the outside, and even from inside the session transcripts, a silently-skipped generation step and an incompetent one look identical. Both produce "the art still looks bad." Only one of them is a model-quality problem.</p>
+
+<p>And it wasn't that I was asking the model to do something it's structurally bad at, either — the audit checked that too. In the one project where the pipeline was actually running (the iOS/SpriteKit game), the model called the PixelLab generation tool 23 times, correctly, and never once tried to fake the art with code. Tool selection wasn't the failure mode here. Tool state was.</p>
+
+<h2>Why "make it prettier" doesn't fix the part that is a prompting problem</h2>
+
+<p>The part of this that is genuinely about prompting has a mechanism behind it, and it's one Anthropic states plainly in its own material: without an explicit different instruction, the model reverts to "safe" choices, because the web's training data skews overwhelmingly toward design that offends no one. Asking for "polished" or "pretty" doesn't narrow that down — it just re-samples the training average. The purple-and-indigo gradient that shows up everywhere in AI-generated interfaces has been traced back, credibly, to a single default color in a 2019 Tailwind UI example that ended up saturating years of tutorial content.</p>
+
+<p>Even Anthropic's own official frontend-design skill — installed 500,000-plus times specifically to break this pattern — names three defaults it has to actively suppress: cream background with serif type and terracotta accents, black background with a single acid-toned accent, and newspaper-style typesetting. And the skill's own fix produces a new dominant look of its own once enough people use it. The lesson there isn't "the skill doesn't work" — it's that no single layer is sufficient. You need the skill, explicit style tokens, and an actual reference image, together, or the model has nothing narrow enough to converge on.</p>
+
+<p>The same mechanism shows up in game art specifically. When a model draws pixel art directly in code — SVG paths, GDScript-drawn shapes — the result is structurally programmer art, the same effect Simon Willison's pelican-riding-a-bicycle benchmark keeps demonstrating on every new model release. That's not a reason to give up on AI-generated game art; it's a reason to keep the model out of the drawing step entirely and let it call a dedicated generation tool — which, again, is exactly what it did correctly in the one project where that tool was actually reachable.</p>
+
+<h2>What I changed, in order</h2>
+
+<p>I didn't try to fix everything at once. The audit gave me a single ranked recommendation, not a checklist: top up PixelLab credits first, because it's the shortest path back to the only pipeline I'd already proven works end to end. Recovering the local ComfyUI server is second, and only if I actually need the higher-resolution mascot tier that PixelLab doesn't cover — that recovery needs its own preflight (confirming disk headroom, since a prior local-model incident on this machine taught me not to skip that check) before I touch it. Replacing the ColorRect placeholder character is third, specifically because that project's deployment pipeline is otherwise done — it's the highest-leverage single asset swap available to me right now.</p>
+
+<p>On the request side, I made exactly three changes, not a longer list:</p>
+
+<p>I now ask for a moodboard before any implementation starts — three or four style candidates as actual images, not descriptions, that I pick from and then freeze into a style file every later asset has to match. Naming one or two existing games I want the look to resemble does more work than any number of adjectives; a name narrows the model's choice space in a way "polished" never will.</p>
+
+<p>I replaced "make it look polished" with a gate I can actually check: a character silhouette has to be legible at a minimum readable size on the target screen, and it has to stay distinguishable if I convert it to grayscale. No completion gets declared until that passes — not because the visual sense behind "polished" was wrong, just because it wasn't checkable.</p>
+
+<p>And I asked the model to close its own screenshot loop: capture its own output after each asset or UI change, review it, and show me before moving on, rather than waiting for me to remember to look. I don't have to change what I do here — I still just correct in text — but the loop closes without depending on my memory of whether I actually looked.</p>
+
+<h2>The lesson that generalizes past games</h2>
+
+<p>The specific fixes here are game-specific — style files, silhouette gates, generation-tool routing. The lesson underneath them isn't. Before you conclude a model is bad at something, check whether the tool that was supposed to produce the result actually ran. A generation-credit balance that silently hits zero, a local server that's down with a missing model file, a pipeline that exists but was never invoked on this particular project — none of these produce an error you'll notice. They all produce output that looks like "the AI tried and this is what it's capable of." It isn't. It's what happens when the thing you assumed was running wasn't, and nothing was built to tell you.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does a vibe-coded game or app often look worse than AI-built showcase demos?</strong><br>
+Two separate causes stack on top of each other. The smaller one is prompting: abstract requests like "make it polished," with zero visual references and zero style tokens (palette, size, font), leave every color and proportion decision to the model, which reverts to safe, generic defaults. The larger one is silent infrastructure decay: generation credits quietly running out, a local generation server being down with a required model file missing, or an asset pipeline never being invoked on a given project. Both look identical from the outside as "the art is mediocre," but only one of them is actually about model capability.</p>
+
+<p><strong>Q. How do you tell whether bad AI-generated visuals are a prompting problem or an infrastructure problem?</strong><br>
+Audit whether the visual pipeline you assume is running actually ran, before blaming the model. In one forensic audit across 92 sessions, a generation tool's account balance had silently hit $0.00 mid-project and higher-tier assets were quietly swapped for code-approximated shapes with no error surfaced; a local generation server was down with a required model file missing; and a separate asset pipeline had simply never been applied to one project for six-plus weeks. None of these produced a visible failure — they all just produced mediocre output that looked exactly like a model doing its best.</p>
+
+<p><strong>Q. Why doesn't asking an AI model to "make it prettier" or "more polished" work?</strong><br>
+Abstract adjectives don't narrow the model's choice space, so it re-samples the training-data average instead of producing something distinctive. Anthropic's own material states this directly: without explicit different steering, a model reverts to "safe" choices, because web training data skews heavily toward inoffensive, generic design. The fix is concrete constraints — named reference games or images, an explicit style token file, and a verifiable quality gate — not stronger adjectives.</p>
+
+<p><strong>Q. Is an AI model bad at drawing game art directly in code?</strong><br>
+Yes, structurally so — art drawn directly in code (SVG paths, engine-native shape drawing) tends to be programmer art, a limitation that shows up repeatedly across model generations on benchmarks like Simon Willison's pelican-riding-a-bicycle test. The fix isn't to give up on AI-generated art; it's to keep the model out of the drawing step and have it call a dedicated image-generation tool instead, which it can do correctly and reliably when that tool is actually reachable.</p>
+
+<p><strong>Q. What's the single highest-leverage fix when an AI asset pipeline has silently stalled?</strong><br>
+Resume the pipeline that already has a proven success, rather than starting a new one. In this audit, the highest-ROI move was topping up the exhausted credit balance on the one tool that had already produced a real, working character — restoring a proven path is faster and more certain than debugging or standing up an alternative pipeline from scratch.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></li>
+<li><a href="./local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></li>
+<li><a href="./harness-invariants-stop-cross-component-leaks.html">How to Stop AI Agent Skills, Hooks, and Cron Jobs from Silently Conflicting Over Where They Run and What Data They Trust</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
