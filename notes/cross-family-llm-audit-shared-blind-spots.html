@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cross-Vendor Audit: What It Caught in My Own Model's Writing, and What It Got Wrong — hexisteme notes</title>
+<meta name="description" content="A different-vendor LLM audited ten queued blog posts written by my main model and caught three copy-paste-breaking macOS/Linux platform bugs — one of them a destructive in-place file conversion — but also filed one false accusation that only grepping the source could refute.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Cross-Vendor Audit: What It Caught in My Own Model's Writing, and What It Got Wrong", "datePublished": "2026-07-13", "dateModified": "2026-07-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A case study having a different vendor's LLM audit ten queued blog posts written by the main model: it caught real macOS/Linux platform bugs and a destructive in-place file conversion that same-family review missed, but its own findings still had to be independently re-verified against the primary source.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why would a different vendor's LLM catch bugs my own model's review missed?", "acceptedAnswer": {"@type": "Answer", "text": "Because a same-family writer and reviewer share the same training distribution, and shared training distribution tends to produce shared error distribution. Conventions like sha256sum or destructive plutil usage are common in Linux-centric documentation, so a model trained heavily on that material reaches for them by default — and a reviewer trained on largely the same material checks against the same defaults, so nothing looks wrong. A different vendor's errors are uncorrelated with that pattern, which is exactly why it can see what same-family review structurally cannot."}}, {"@type": "Question", "name": "What specific bugs did the cross-vendor audit catch?", "acceptedAnswer": {"@type": "Answer", "text": "Three blocker-level findings, all Linux conventions that don't hold on macOS, sitting inside copy-pasteable code blocks: using sha256sum for hash verification (macOS has no such command; the equivalent is shasum -a 256), using plutil -convert json <file> to inspect a plist (that invocation destroys the original file in place — stdout output requires -o -), and implementing a \"nag once\" guard as an in-memory set (hooks spawn a fresh process on every call, so in-memory state never persists, silently turning the guard into \"nag every time\" instead of a disk-backed one)."}}, {"@type": "Question", "name": "Should you trust everything a cross-vendor audit reports?", "acceptedAnswer": {"@type": "Answer", "text": "No. Of seven findings the auditor reported, six were independently re-verified against the primary source — grepping the original text, checking official docs, checking against a real machine — and confirmed. One was not: it turned out to be the auditor misreading a correct sentence, not an actual defect. Treat a cross-vendor audit as a finding generator, not a verdict; skipping the re-verification step just trades your own family's blind spot for the auditor's hallucination."}}, {"@type": "Question", "name": "Why does it matter if a fix only lands in one of two places?", "acceptedAnswer": {"@type": "Answer", "text": "In a crosspost setup, each post exists as both a source markdown file in the publish queue and an already-live canonical HTML page. Fixing a confirmed finding in only one of those doesn't close the bug — it creates a new inconsistency between the draft and what readers are actually seeing. Every confirmed fix has to land in both the queue markdown and the live canonical HTML in the same commit before pushing."}}, {"@type": "Question", "name": "Is this worth doing for every batch of posts?", "acceptedAnswer": {"@type": "Answer", "text": "In this run, yes: a copy directory, read-only exposure to the auditor, and one prompt — no pipeline changes — turned up three platform blockers (a missing command, a destructive in-place file conversion, a silently broken guard) plus a misattributed number, a broken sentence, and a cross-article contradiction — six confirmed findings across ten posts, with zero tone or style complaints. The plan is to re-run the same pass before every future publish wave of ten-plus posts."}}]}
+</script>
+</head>
+<body>
+
+<h1>Cross-Vendor Audit: What It Caught in My Own Model's Writing, and What It Got Wrong</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-13</p>
+
+<div class="note">I had a different vendor's model audit ten blog posts my main model had already written and reviewed. It caught three copy-paste-breaking macOS/Linux platform bugs — one of them a destructive in-place file conversion — that same-family review missed entirely — the kind of shared blind spot you get when the writer and the checker learned the same defaults. But the audit wasn't ground truth either: one of its seven findings turned out to be its own misreading, caught only by grepping the primary source. The lesson isn't "trust the other vendor" — it's that cross-family audit surfaces what same-family review can't see, and its own self-reports need the identical scrutiny applied right back at them.</div>
+
+<h2>The setup: copies only, and a self-verifying prompt</h2>
+
+<p>I write these engineering notes with one main model, and until recently I also reviewed them with that same model. Same family writes, same family checks its own work. That sounded fine right up until I had ten queued posts sitting in a publish backlog and a nagging thought: if the writer and the reviewer come from the same training distribution, what exactly is the review checking for? So I ran an experiment. I took the queue and had a different vendor's model audit it before anything went out — not to replace my own review, but to see what a genuinely different set of weights would flag that mine hadn't.</p>
+
+<p>The mechanics were deliberately boring. I copied the ten queued articles into a scratchpad directory and exposed only that copy to the auditor via <code>--add-dir</code> — the auditor never got write access to the originals, so nothing it did could touch the source of truth by accident. The audit itself ran as <code>agy --model gemini-3.1-pro-high</code>, pointed at the copy directory, with one instruction: find technical factual errors, broken sentences, cross-article inconsistencies, unsupported claims, and tone violations, and verify each one yourself on the web before reporting it. I wanted a model that would check its own homework, not just pattern-match on "this looks wrong."</p>
+
+<p>It came back with seven findings.</p>
+
+<h2>Rule one: don't trust the auditor either</h2>
+
+<p>Seven findings from a different vendor is not the same thing as seven confirmed bugs. I re-verified every single one independently — grepping the original text, checking official documentation, and where possible checking against a real machine — before touching anything. Of the seven, six held up and got fixed. One didn't: the auditor flagged a sentence as an error, and when I went back to the primary source, it turned out to be the auditor misreading a perfectly correct sentence, not a defect in the writing. Without the re-verification step, I would have "fixed" a sentence that wasn't broken. That's the whole discipline in one sentence: a cross-family audit is a finding generator, not a verdict. If you skip the independent check, you're not eliminating your own family's blind spot, you're just trading it for the auditor's.</p>
+
+<h2>What it actually caught: three blockers, all the same shape</h2>
+
+<p>The three most serious findings — the ones I'd call blockers — had an identical signature: Linux conventions written into code examples that simply don't hold on macOS. All three were sitting in copy-pasteable code blocks, which is what made them dangerous rather than cosmetic.</p>
+
+<table>
+<tr><th>#</th><th>What the post said</th><th>What's actually true on macOS</th></tr>
+<tr><td>1</td><td>Verify a hash with <code>sha256sum</code></td><td>macOS doesn't ship <code>sha256sum</code> — the equivalent is <code>shasum -a 256</code></td></tr>
+<tr><td>2</td><td>Inspect a plist with <code>plutil -convert json &lt;file&gt;</code></td><td>That invocation destroys the original file in place — writing to stdout requires <code>-o -</code></td></tr>
+<tr><td>3</td><td>Implement a "nag once" guard as an in-memory set</td><td>Hooks spawn a fresh process on every invocation, so in-memory state never survives between calls — this silently becomes "nag every time," and the guard needs to live on disk instead</td></tr>
+</table>
+
+<p>Line up what each one does to a reader who trusts the code block and pastes it in: the first one just breaks immediately, a command-not-found. The second one is worse — it quietly destroys the very file you were trying to inspect. The third is the sneakiest of the three, because nothing crashes and nothing errors; the guard just silently fails to do the one thing it was written to do, and you'd only notice from the symptom, not from any error message.</p>
+
+<h2>What else it caught: a broken sentence, a contradiction, and a misattributed number</h2>
+
+<p>The other three confirmed findings were smaller but still real. One was a broken sentence — leftover debris from an earlier editing pass that never got cleaned up. One was a cross-article inconsistency: two different posts in the queue stated the same underlying fact in ways that didn't quite agree with each other, fixed by adding a hedge to the looser of the two so they lined up. The last one was the most interesting: a number attributed in the text to "our internal evaluation" that, on checking, actually traced back to a public paper (arXiv 2310.13548) rather than anything I'd measured myself. The fix wasn't deleting the number — the number was fine — it was giving it the right citation instead of an implied one that overstated how much of that result was mine.</p>
+
+<h2>Why the same family missed all three blockers</h2>
+
+<p>None of the blocker findings are subtle once you see them. <code>sha256sum</code> not existing on macOS is not an obscure fact. So why did a model write it, and why did the same-family review pass it? My working explanation is that shared training distribution produces shared error distribution. Conventions like <code>sha256sum</code> and destructive <code>plutil</code> usage are the kind of thing that shows up constantly in Linux-centric documentation and Stack Overflow answers, which means a model trained heavily on that material reaches for them by default — and if the reviewer is trained on largely the same material, it reaches for the same defaults when checking, so nothing looks wrong. Author and reviewer aren't independent checks on each other if they're wrong in the same direction for the same reason.</p>
+
+<p>This is really just the content-QA version of a limitation that shows up under other names too: a judge that shares a policy model's blind spots isn't a real check on that policy, because "checking" and "generating" are drawing from the same well. The value of routing the audit to a different vendor isn't that gemini-3.1-pro-high is smarter about macOS specifically — it's that its errors, if any, are uncorrelated with mine, so the things it does get right are the things most likely to be exactly what my own review structurally can't see.</p>
+
+<h2>Repairs have to be paired, or you create a new bug while fixing the old one</h2>
+
+<p>One detail that's easy to overlook: these posts exist in two places at once — a source markdown file in the publish queue and an already-live canonical HTML page. Fixing a confirmed finding in only one of those two locations doesn't close the bug, it just adds a new inconsistency between the draft and the thing readers are actually looking at. Every confirmed fix went into both the queue markdown and the live canonical HTML in the same commit before pushing, specifically because a crosspost setup punishes half-fixes.</p>
+
+<h2>Was it worth it, and will I keep doing it</h2>
+
+<p>The whole procedure is cheap enough that there's no real argument against running it every time:</p>
+
+<pre><code>1. cp queue/*.md scratchpad/audit-copy/        # protect the originals
+2. agy --model gemini-3.1-pro-high --add-dir scratchpad/audit-copy \
+     "find technical factual errors / cross-article inconsistencies / broken
+      sentences in these posts, and verify each one via web search"
+3. For each of the N findings: re-verify independently — grep the primary
+   source, check official docs or a real device — never take the report as-is
+4. Only confirmed findings get fixed, in both the queue md and the live
+   canonical html, together — then push</code></pre>
+
+<p>A copy directory, read-only exposure, and one prompt — no pipeline changes required. Out of ten posts, seven flagged findings, six confirmed and fixed, one correctly thrown out, and zero tone or style complaints from a model with no particular reason to share my writing voice. The takeaway I'm carrying forward isn't "cross-vendor audits are always right" — one in seven wasn't. It's that a same-family review loop has a structural hole exactly where the writer and the checker learned the same defaults, and the only way I've found to see that hole is to put a genuinely different model on the other side of it, then refuse to believe anything it says until it's been checked against the primary source. Next queue of ten-plus posts gets the same pass before anything goes out.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why would a different vendor's LLM catch bugs my own model's review missed?</strong><br>
+Because a same-family writer and reviewer share the same training distribution, and shared training distribution tends to produce shared error distribution. Conventions like sha256sum or destructive plutil usage are common in Linux-centric documentation, so a model trained heavily on that material reaches for them by default — and a reviewer trained on largely the same material checks against the same defaults, so nothing looks wrong. A different vendor's errors are uncorrelated with that pattern, which is exactly why it can see what same-family review structurally cannot.</p>
+
+<p><strong>Q. What specific bugs did the cross-vendor audit catch?</strong><br>
+Three blocker-level findings, all Linux conventions that don't hold on macOS, sitting inside copy-pasteable code blocks: using sha256sum for hash verification (macOS has no such command; the equivalent is shasum -a 256), using plutil -convert json &lt;file&gt; to inspect a plist (that invocation destroys the original file in place — stdout output requires -o -), and implementing a "nag once" guard as an in-memory set (hooks spawn a fresh process on every call, so in-memory state never persists, silently turning the guard into "nag every time" instead of a disk-backed one).</p>
+
+<p><strong>Q. Should you trust everything a cross-vendor audit reports?</strong><br>
+No. Of seven findings the auditor reported, six were independently re-verified against the primary source — grepping the original text, checking official docs, checking against a real machine — and confirmed. One was not: it turned out to be the auditor misreading a correct sentence, not an actual defect. Treat a cross-vendor audit as a finding generator, not a verdict; skipping the re-verification step just trades your own family's blind spot for the auditor's hallucination.</p>
+
+<p><strong>Q. Why does it matter if a fix only lands in one of two places?</strong><br>
+In a crosspost setup, each post exists as both a source markdown file in the publish queue and an already-live canonical HTML page. Fixing a confirmed finding in only one of those doesn't close the bug — it creates a new inconsistency between the draft and what readers are actually seeing. Every confirmed fix has to land in both the queue markdown and the live canonical HTML in the same commit before pushing.</p>
+
+<p><strong>Q. Is this worth doing for every batch of posts?</strong><br>
+In this run, yes: a copy directory, read-only exposure to the auditor, and one prompt — no pipeline changes — turned up three platform blockers (a missing command, a destructive in-place file conversion, a silently broken guard) plus a misattributed number, a broken sentence, and a cross-article contradiction — six confirmed findings across ten posts, with zero tone or style complaints. The plan is to re-run the same pass before every future publish wave of ten-plus posts.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./multi-model-fanout-triangulation-blind-spots.html">Five Models, One Shared Blind Spot: What Multi-Model Fan-Out Catches and What It Can't</a></li>
+<li><a href="./personas-vs-model-families-multi-agent-council-diversity.html">Do Multiple Personas on One LLM Give Real Diversity, or Do You Need Different Model Families?</a></li>
+<li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
