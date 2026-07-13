@@ -256,6 +256,22 @@
             }
         }
 
+        /// 익명 도달 계측 — "친구가 링크를 아예 안 눌렀나 / 눌렀는데 이탈했나" 를 구분하는
+        /// 유일한 관측 지점 (앱의 Invite.Sent ↔ Trip.JoinedFromInvite 사이의 구멍).
+        ///
+        /// ⚠️ TelemetryDeck WebSDK 는 `url: location.href` 를 **그대로** 전송한다 —
+        /// 쿼리에 정산방 payload(멤버 이름·지출·금액)가 들어있으므로 **비컨 전에 반드시 제거**한다.
+        /// 제거해도 payload 는 이미 JS 변수/localStorage 에 있어 기능에 영향 없다.
+        function sendAnonymousBeacon(hadInvite) {
+            try {
+                history.replaceState(null, '', location.pathname + (hadInvite ? '?i=1' : ''));
+            } catch (e) {}
+            const s = document.createElement('script');
+            s.src = 'https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js';
+            s.dataset.appId = '84DAEF14-4350-41AB-838A-DEE31BD98B65';   // 앱과 동일 — 한 대시보드에 퍼널 통합
+            document.head.appendChild(s);
+        }
+
         (async function main() {
             const LS_D = 'jeongmu_invite_d';   // 항상 *평문* 으로 저장 (앱 버전 무관 복구)
             const LS_TS = 'jeongmu_invite_ts';
@@ -264,6 +280,7 @@
             const params = new URLSearchParams(window.location.search);
             const compressed = params.get('c');
             let plain = params.get('d');
+            sendAnonymousBeacon(Boolean(compressed || plain));
 
             if (!plain && compressed) {
                 plain = await inflateToPlain(compressed);
