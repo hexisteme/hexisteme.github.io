@@ -45,6 +45,16 @@
             color: #8B7B6E;
             margin-bottom: 24px;
         }
+        .restore {
+            display: none;
+            background: #E0F8F6;
+            color: #1F8A80;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
         .room {
             background: linear-gradient(135deg, #FFE5D0 0%, #FFD3B0 100%);
             border-radius: 16px;
@@ -76,10 +86,30 @@
             transition: transform 0.1s ease;
         }
         .cta:active { transform: scale(0.97); }
+        .cta-secondary {
+            display: block;
+            background: #fff;
+            color: #FF6B6B;
+            border: 1.5px solid #FFD1C4;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 700;
+            padding: 14px;
+            border-radius: 14px;
+            margin-bottom: 12px;
+            transition: transform 0.1s ease;
+        }
+        .cta-secondary:active { transform: scale(0.97); }
         .hint {
             font-size: 12px;
             color: #8B7B6E;
             margin-top: 8px;
+            line-height: 1.6;
+        }
+        .kakao-tip {
+            font-size: 11px;
+            color: #B8A99A;
+            margin-top: 10px;
             line-height: 1.6;
         }
         .divider {
@@ -118,6 +148,10 @@
         <h1 class="title">정산방에 초대받았어요</h1>
         <p class="subtitle">정총무 · 카드 문자만 붙여도 자동 정산</p>
 
+        <div id="restore-banner" class="restore">
+            🔁 아까 받은 초대가 저장되어 있어요 — 아래 버튼으로 이어서 합류하세요
+        </div>
+
         <div class="room">
             <div id="room-name" class="room-name">정총무 정산방</div>
             <div id="room-meta" class="room-meta">멤버·지출 정보 불러오는 중</div>
@@ -131,16 +165,27 @@
 
         <div class="divider"></div>
 
-        <a id="cta" class="cta" href="https://apps.apple.com/kr/app/id6762071132">
+        <!-- 설치자: 카톡 인앱브라우저는 universal link 를 앱으로 안 넘기므로
+             사용자-탭 custom scheme 버튼이 유일한 앱 진입로 (2026-07-13 감사 P0-1).
+             자동 redirect 는 웹뷰가 차단할 수 있어 반드시 <a> 탭으로만. -->
+        <a id="open-app" class="cta" style="display:none" href="#">
+            📲 정총무 앱에서 열기
+        </a>
+
+        <a id="store" class="cta-secondary" href="https://apps.apple.com/kr/app/id6762071132">
             App Store에서 정총무 받기
         </a>
 
         <p class="hint">
-            이미 정총무가 설치되어 있다면<br>
-            메시지로 받은 초대 링크를 <b>다시 한번</b> 눌러주세요.
+            앱이 없다면: 설치 후 <b>이 페이지로 돌아오면</b><br>
+            초대가 저장되어 있어 바로 이어집니다.
+        </p>
+        <p class="kakao-tip">
+            카카오톡에서 앱이 열리지 않으면 오른쪽 위 ⋯ 메뉴 →<br>
+            <b>'Safari로 열기'</b> 후 다시 시도해 주세요.
         </p>
         <p class="lang-en">
-            Already installed? Re-tap the invite link in your messages.
+            No app yet? Install, then return to this page — your invite is saved here.
         </p>
     </main>
 
@@ -160,10 +205,7 @@
             }
         }
 
-        (function decodeAndRender() {
-            const params = new URLSearchParams(window.location.search);
-            const d = params.get('d');
-            if (!d) return;
+        function renderRoom(d) {
             const text = b64urlDecode(d);
             if (!text) return;
             let payload;
@@ -194,6 +236,39 @@
             if (parts.length > 0) {
                 document.getElementById('room-meta').textContent = parts.join(' · ');
             }
+        }
+
+        (function main() {
+            const LS_D = 'jeongmu_invite_d';
+            const LS_TS = 'jeongmu_invite_ts';
+            const SEVEN_DAYS = 7 * 24 * 3600 * 1000;
+
+            const params = new URLSearchParams(window.location.search);
+            let d = params.get('d');
+
+            if (d) {
+                // 설치 전 유입 대비 저장 — App Store 설치 후 이 페이지로 돌아오면 복구 (deferred DL 대체)
+                try {
+                    localStorage.setItem(LS_D, d);
+                    localStorage.setItem(LS_TS, String(Date.now()));
+                } catch (e) {}
+            } else {
+                // 쿼리 없이 재방문 (설치 후 복귀) — 7일 이내 저장분 복구
+                try {
+                    const saved = localStorage.getItem(LS_D);
+                    const ts = Number(localStorage.getItem(LS_TS) || 0);
+                    if (saved && Date.now() - ts < SEVEN_DAYS) {
+                        d = saved;
+                        document.getElementById('restore-banner').style.display = 'block';
+                    }
+                } catch (e) {}
+            }
+
+            if (!d) return;
+            const openApp = document.getElementById('open-app');
+            openApp.href = 'jeongmu://join?d=' + encodeURIComponent(d);
+            openApp.style.display = 'block';
+            renderRoom(d);
         })();
     </script>
 </body>
