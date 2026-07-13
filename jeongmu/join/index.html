@@ -190,34 +190,56 @@
     </main>
 
     <script>
-        // base64-URL-safe (RFC 4648 §5) → JSON
-        function b64urlDecode(s) {
+        // ── payload 인코딩 ───────────────────────────────────────────────
+        //  ?d= 평문 base64url JSON        (v1.3.5 이하 앱이 읽는 유일한 형식)
+        //  ?c= raw DEFLATE + base64url    (v1.3.6+, URL 60% 단축)
+        //
+        //  `c` 는 AASA 에 등록돼 있지 않다 → 어떤 앱 버전도 가로채지 못하고 항상 이 페이지로 온다.
+        //  이 페이지가 압축을 풀어 '앱에서 열기' 버튼을 **평문 `d` 스킴 링크**로 만들어 주므로
+        //  구버전 앱도 정상 합류한다. (Apple 의 .zlib 은 raw DEFLATE/RFC1951 — 실측 확인)
+
+        function b64urlToBytes(s) {
             s = String(s).replace(/-/g, '+').replace(/_/g, '/');
             while (s.length % 4) s += '=';
+            const bin = atob(s);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return bytes;
+        }
+
+        function bytesToB64url(bytes) {
+            let bin = '';
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        /// 압축 payload → 평문 base64url (앱 스킴 링크용). 실패 시 null.
+        async function inflateToPlain(c) {
+            if (typeof DecompressionStream === 'undefined') return null;  // Safari 16.3 이하
             try {
-                // UTF-8 safe — ms 이름에 한글 포함 가능
-                const bin = atob(s);
-                const bytes = new Uint8Array(bin.length);
-                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                return new TextDecoder('utf-8').decode(bytes);
+                const stream = new Blob([b64urlToBytes(c)]).stream()
+                    .pipeThrough(new DecompressionStream('deflate-raw'));
+                const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+                return bytesToB64url(buf);
             } catch (e) {
                 return null;
             }
         }
 
-        function renderRoom(d) {
-            const text = b64urlDecode(d);
-            if (!text) return;
-            let payload;
-            try { payload = JSON.parse(text); } catch (e) { return; }
+        function jsonFromPlain(d) {
+            try {
+                return JSON.parse(new TextDecoder('utf-8').decode(b64urlToBytes(d)));
+            } catch (e) {
+                return null;
+            }
+        }
 
-            // 정산방 이름
+        function renderRoom(payload) {
+            if (!payload) return;
             if (payload.tn) {
                 const safe = String(payload.tn).slice(0, 60);
                 document.getElementById('room-name').textContent = '‘' + safe + '’';
             }
-
-            // 멤버 수 + 지출 수 + 기간
             const memberCount = Array.isArray(payload.ms) ? payload.ms.length : 0;
             const expenseCount = Array.isArray(payload.es) ? payload.es.length : 0;
             const parts = [];
@@ -226,49 +248,50 @@
             if (typeof payload.sd === 'number' && typeof payload.ed === 'number') {
                 const sd = new Date(payload.sd * 1000);
                 const ed = new Date(payload.ed * 1000);
-                const fmt = (d) => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
-                if (sd.getTime() === ed.getTime()) {
-                    parts.push(fmt(sd));
-                } else {
-                    parts.push(fmt(sd) + ' ~ ' + fmt(ed));
-                }
+                const fmt = (x) => `${x.getFullYear()}.${String(x.getMonth()+1).padStart(2,'0')}.${String(x.getDate()).padStart(2,'0')}`;
+                parts.push(sd.getTime() === ed.getTime() ? fmt(sd) : fmt(sd) + ' ~ ' + fmt(ed));
             }
             if (parts.length > 0) {
                 document.getElementById('room-meta').textContent = parts.join(' · ');
             }
         }
 
-        (function main() {
-            const LS_D = 'jeongmu_invite_d';
+        (async function main() {
+            const LS_D = 'jeongmu_invite_d';   // 항상 *평문* 으로 저장 (앱 버전 무관 복구)
             const LS_TS = 'jeongmu_invite_ts';
             const SEVEN_DAYS = 7 * 24 * 3600 * 1000;
 
             const params = new URLSearchParams(window.location.search);
-            let d = params.get('d');
+            const compressed = params.get('c');
+            let plain = params.get('d');
 
-            if (d) {
+            if (!plain && compressed) {
+                plain = await inflateToPlain(compressed);
+            }
+
+            if (plain) {
                 // 설치 전 유입 대비 저장 — App Store 설치 후 이 페이지로 돌아오면 복구 (deferred DL 대체)
                 try {
-                    localStorage.setItem(LS_D, d);
+                    localStorage.setItem(LS_D, plain);
                     localStorage.setItem(LS_TS, String(Date.now()));
                 } catch (e) {}
-            } else {
+            } else if (!compressed) {
                 // 쿼리 없이 재방문 (설치 후 복귀) — 7일 이내 저장분 복구
                 try {
                     const saved = localStorage.getItem(LS_D);
                     const ts = Number(localStorage.getItem(LS_TS) || 0);
                     if (saved && Date.now() - ts < SEVEN_DAYS) {
-                        d = saved;
+                        plain = saved;
                         document.getElementById('restore-banner').style.display = 'block';
                     }
                 } catch (e) {}
             }
 
-            if (!d) return;
+            if (!plain) return;   // 압축 해제 실패(구형 브라우저) → 스토어 버튼만 노출
             const openApp = document.getElementById('open-app');
-            openApp.href = 'jeongmu://join?d=' + encodeURIComponent(d);
+            openApp.href = 'jeongmu://join?d=' + encodeURIComponent(plain);
             openApp.style.display = 'block';
-            renderRoom(d);
+            renderRoom(jsonFromPlain(plain));
         })();
     </script>
 </body>
