@@ -80,7 +80,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <p>So I can't claim Gemini is the smarter model. The claim I can defend is narrower and more useful: <strong>the leg with a slot for disconfirmation produced disconfirmation, and the leg without one didn't.</strong></p>
 
-<p>So I went back and measured it instead of asserting it. Same model, same question, one field different, three runs each. Without the dissent slot nemotron returned <em>yes, yes, partly</em>. With it: <em>partly, partly, partly</em> — and it found an overreach of its own, a different one than Gemini found ("dismissing push-vs-pull as irrelevant ignores real differences in failure modes and latency"). The slot moves the verdict. But look at that lone <em>partly</em> in the first row: one run in three dissented anyway, unprompted. A single call is noisy enough that reading a one-shot difference as a model-quality difference was never sound to begin with — the same error a third time. I trusted one observation of a thing that could only tell me what I gave it room to say.</p>
+<p>So I went back and measured it rather than asserting it — same model, same question, one field different, repeated runs. The slot moves the verdict, and the run-to-run noise turned out to be large enough that my one-shot comparison of two models was never evidence of anything in the first place. That experiment, and what it means for anyone wiring up an LLM as a judge, is its own post: <a href="llm-judge-schema-bias-controlled-experiment.html">I Asked Three Judges If I Was Wrong. One JSON Field Decided the Answer.</a></p>
 
 <p>Which is, I realized with some irritation, the same bug as the monitor.</p>
 
