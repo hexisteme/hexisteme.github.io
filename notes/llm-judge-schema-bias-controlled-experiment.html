@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LLM-as-Judge Schema Bias: A Controlled Experiment — hexisteme notes</title>
+<meta name="description" content="I ran a reader's rebuttal past three judges — my own code review plus two model vendors — and got a table that looked like proof cross-vendor verification pays off. It didn't. The two model prompts had different response schemas, and a controlled same-model experiment showed the schema decided the verdict, not the vendor.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"I asked three judges if I was wrong. One JSON field decided the answer.","datePublished":"2026-07-14","dateModified":"2026-07-14","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"LLM-as-judge schema bias, disconfirmation slots in verification prompts, controlled experiment on cross-vendor model verification, why model comparisons require an identical schema, self-report versus external observation applied to prompts","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I know if my LLM-as-judge prompt is biased toward agreeing?","acceptedAnswer":{"@type":"Answer","text":"Check the response schema, not the model. If every field in the rubric is phrased as a degree of agreement — how correct is X, what's the best case for X, what should the other side concede — the schema cannot structurally produce a \"no\", no matter which model fills it in. A judge prompt needs a required field explicitly framed as disagreement, such as where_the_commenter_overreaches or what_would_falsify_this, before its output means anything."}},{"@type":"Question","name":"What is a disconfirmation slot in a verification prompt?","acceptedAnswer":{"@type":"Answer","text":"A required field in a response schema whose entire purpose is to hold disagreement — not a free-text aside nobody is obligated to use, but a named slot the model must address even if the answer is \"nothing\". In a controlled test, the same model given the same question returned mostly agreement without the slot and mostly qualified dissent with it, because the slot was the only place dissent had anywhere to go."}},{"@type":"Question","name":"If two different models reach the same verdict, does that prove the verdict is correct?","acceptedAnswer":{"@type":"Answer","text":"Not if both were filling out the same slot-less schema. Convergence between two readers who were only ever offered agreement-shaped fields is convergence on the form, not independent confirmation of the answer. Real signal requires that each reader had a structural chance to disagree and didn't take it, which means the schema has to make disagreement possible before agreement is worth anything."}},{"@type":"Question","name":"Why isn't one run of an LLM-as-judge prompt enough to compare two models?","acceptedAnswer":{"@type":"Answer","text":"Because a single call is noisy enough to look like a model difference when it is actually chance. In one test, a model asked the identical question three times on the same schema returned two agreements and one qualified dissent, meaning a single draw could have produced any of three different \"conclusions\" about what that model thinks, before the schema was even changed. Compare on at least three runs per condition, and treat a one-shot difference between models as unproven."}},{"@type":"Question","name":"Does routing a question to a different model vendor fix a biased verification schema?","acceptedAnswer":{"@type":"Answer","text":"No — the schema constrains the answer before the vendor gets a chance to. In this case, one vendor's prompt happened to include a slot for dissent and the other vendor's did not; the apparent \"one model is more critical\" finding disappeared the moment both were asked through the same schema. Cross-vendor checking is genuinely useful, but only after the question itself is capable of producing a negative answer — otherwise you are comparing instruments, not judgment."}}]}</script>
+</head>
+<body>
+
+<h1>I Asked Three Judges If I Was Wrong. One JSON Field Decided the Answer.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · July 14, 2026 · 7 min read</p>
+
+<div class="note">A reader's rebuttal sent me to three judges — my own code review plus two model vendors — before I replied. The table that came back looked like proof that cross-vendor verification pays off. It was actually proof of a schema bug: one model's prompt had a required field for disagreement and the other didn't, and a same-model controlled experiment confirmed the schema, not the vendor, decided who got to say no.</div>
+
+<p>A reader rebutted a post I'd written about how I monitor a small fleet of agents. Before I answered him, I wanted one question settled: was he right? Not how to respond — whether the argument held. So I ran his comment past three independent judges before writing a word back, and got a comparison that looked like a clean win for checking your work across vendors. It wasn't. The comparison was measuring my own mistake, not the dispute, and the mistake generalizes: it will happen to anyone who builds an LLM-as-judge check and doesn't look hard enough at the form the judge was handed.</p>
+
+<h2>The dispute, briefly</h2>
+
+<p>I'd argued that for an agent fleet you don't fully control, polling on-disk state beats an event bus — "state is truth, events are rumors." A commenter, <a href="https://dev.to/anp2network">@anp2network</a>, pointed out that push-vs-pull was the wrong axis: the real axis is self-report versus external observation, and a poller reading files a job wrote about itself is self-report over a filesystem, no more trustworthy than the event bus I'd rejected. He was right, and my own freshness check proved it live in production. That whole story — the bug, the four days it cost me, the fix — is <a href="./monitor-green-nothing-shipped-score-the-effect.html">its own post</a>. What matters here is only what I did in the hour after his comment landed, before I'd written a reply.</p>
+
+<h2>Three judges, one question</h2>
+
+<p>The instinct when someone rebuts you in public is to draft a response. I didn't. I put the rebuttal in front of three judges with one adversarial instruction each — decide whether the commenter is correct, do not defend the original post — and waited for all three before writing anything.</p>
+
+<table>
+<tr><th>Judge</th><th>Verdict</th><th>Confidence</th></tr>
+<tr><td>Me, reading the actual code</td><td>commenter correct</td><td>—</td></tr>
+<tr><td>NVIDIA nemotron-3-ultra-550b</td><td><code>yes</code></td><td>0.92</td></tr>
+<tr><td>Google gemini-3.1-pro</td><td><code>partly</code></td><td>0.95</td></tr>
+</table>
+
+<p>All three agreed the commenter's diagnosis was right — my freshness check really was self-report dressed up as external observation. Only gemini pushed back, and only on the cure, not the disease: taken literally, the commenter's rule that every job must move something it doesn't own would make a cache warmer or a log rotator impossible to monitor at all, since a terminal sink has nothing external left to move.</p>
+
+<h2>The story I almost published</h2>
+
+<p>That table is a satisfying shape. Two vendors, one of them catches a real limitation the other doesn't, my own reading agrees with the majority — the obvious write-up is "cross-vendor verification paid for itself again, here's the receipt." I had that paragraph half-drafted. It's a good paragraph. It's also wrong, in a way that has nothing to do with gemini or nemotron specifically.</p>
+
+<h2>Same table, two different instruments</h2>
+
+<p>The nemotron prompt and the gemini prompt were not the same question. Here is nemotron's response schema, unchanged from a prompt template I'd used before:</p>
+
+<pre><code>commenter_correct
+strongest_point_for_commenter
+strongest_defense_of_original_post
+what_the_author_should_concede
+confidence</code></pre>
+
+<p>Read that list as a rubric, not a set of labels. Every field points the same direction: how correct is the commenter, what's the best case for the commenter, what's the best defense of my post, what should I concede. There is no field whose contents are "here's where the commenter goes too far." The gemini prompt had one: <code>where_the_commenter_overreaches</code>, sitting in the schema as a required slot.</p>
+
+<p>So the table wasn't comparing two vendors' judgment. It was comparing two different interrogations that happened to be conducted by two different vendors — one of which had a place to put dissent, and one of which didn't. Nemotron hadn't failed to find gemini's counterargument. It had never been asked a question it could have answered with one.</p>
+
+<h2>Who actually caught it</h2>
+
+<p>I'd like to say I caught this myself, turning the table over and noticing the asymmetry. I didn't, not at first. While I was writing up the "cross-vendor pays off again" version of this story, I had another model read the draft the way I'd want a skeptical colleague to, before it goes anywhere. It didn't accept the framing. Its objection, in substance: that table is confounded — you're not comparing two judges, you're comparing two different instruments and calling the difference a finding.</p>
+
+<p>That's worth sitting with, because it's the actual irony of this episode. The one place in this whole story where a different set of weights caught something my own pass had missed wasn't the three-judge check on the rebuttal — that "difference" turned out to be a schema artifact, not a model artifact. It was a separate model reading my draft and refusing to let a confounded comparison stand. Cross-vendor verification worked exactly once here, and it wasn't where I was about to credit it.</p>
+
+<h2>The controlled experiment</h2>
+
+<p>Once the confound was named, it was checkable instead of arguable. Same model — nemotron-3-ultra-550b — same rebuttal, same question. One condition uses the original five-field schema. The other adds exactly one field: <code>where_the_commenter_overreaches</code>. Three independent runs per condition, because a single call proves nothing about a model, only about that one roll.</p>
+
+<pre><code>original schema, n=3:                yes, yes, partly
++ where_the_commenter_overreaches:   partly, partly, partly</code></pre>
+
+<p>With the slot added, nemotron used it — and found an overreach of its own, a different one from gemini's terminal-sink objection: dismissing push-vs-pull as irrelevant ignores real differences in failure modes and latency. Give the same model a place to disagree and it disagrees, in its own words, not a copy of what the other vendor said.</p>
+
+<p>Two things are true here at once, and the second is easy to miss because the first is more satisfying. The schema moved the verdict — that's the headline result. But look again at the first row: one of three runs on the <em>original</em> schema came back <code>partly</code> anyway, unprompted, with no dissent slot to use. A single call was never strong evidence of anything. If I'd happened to draw that one run instead of one of the two <code>yes</code> runs, I'd have told a completely different, equally wrong story about what nemotron "thinks" — a model-behavior claim built from one sample of noise.</p>
+
+<h2>The bug wears the monitor's clothes too</h2>
+
+<p>My freshness check asked a job one question: did you write a file? That question has exactly one answer. My verification prompt asked nemotron one question: is the commenter right? — through a schema whose every field was shaped to describe agreement. That question, as I'd built it, also had exactly one answer.</p>
+
+<div class="warn">A schema that can only return agreement isn't a judge. It's a self-report wearing a judge's robe, and it fails for the identical structural reason my mtime check failed: I asked something to tell me about itself, through a channel with no slot for the true answer to differ from the expected one.</div>
+
+<p>A file's mtime isn't automatically truth just because it lives on disk, and a verdict isn't automatically evidence just because a model produced it — both need a question capable of coming back red, and I'd built one of each kind without one.</p>
+
+<h2>Four rules for a judge that's allowed to say no</h2>
+
+<p>I'm keeping four things from this, and applying them retroactively, not just going forward:</p>
+
+<ol>
+<li><strong>A disconfirmation slot is a required field, not an optional one.</strong> <code>where_X_overreaches</code>, <code>strongest_counterargument</code>, <code>what_would_falsify_this</code> — pick one, but put it in the schema itself. A free-text field nobody is obligated to fill doesn't count; if dissent isn't a named slot, it isn't reliably there.</li>
+<li><strong>A model comparison needs an identical schema and at least three runs per side.</strong> Different fields make it a different instrument, not a different opinion — and a single call, even on a matched schema, is noise, not a verdict. Both conditions have to hold before a table like mine means anything.</li>
+<li><strong>When judges split, the split is the finding.</strong> Don't collapse three runs to a majority and discard the ones that disagreed — record the spread, because the spread tells you how much to trust the single number you'd otherwise report.</li>
+<li><strong>Anything already shipped on a slot-less verification goes back on the list.</strong> A conclusion doesn't get grandfathered in just because it already published. If the schema behind it couldn't have returned "no," it hasn't actually been checked yet.</li>
+</ol>
+
+<h2>What cross-vendor is actually for</h2>
+
+<p>The lesson I'm taking out of this isn't "use more models" — I was already using more models, and it didn't save me from my own bug. A second vendor only pays off if the question you hand it has room for an answer you didn't expect: gemini's schema happened to have that room, nemotron's didn't until I added it, and once it did, nemotron used it to find an angle gemini had never raised. The vendor was never the variable in this story. The question was.</p>
+
+<p>Add a fourth vendor to a schema that can only agree and you'll get a fourth confident yes. Fix the schema before you reach for a fourth model.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do I know if my LLM-as-judge prompt is biased toward agreeing?</strong><br>
+Check the response schema, not the model. If every field in the rubric is phrased as a degree of agreement — how correct is X, what's the best case for X, what should the other side concede — the schema cannot structurally produce a "no", no matter which model fills it in. A judge prompt needs a required field explicitly framed as disagreement, such as <code>where_the_commenter_overreaches</code> or <code>what_would_falsify_this</code>, before its output means anything.</p>
+
+<p><strong>Q. What is a disconfirmation slot in a verification prompt?</strong><br>
+A required field in a response schema whose entire purpose is to hold disagreement — not a free-text aside nobody is obligated to use, but a named slot the model must address even if the answer is "nothing". In a controlled test, the same model given the same question returned mostly agreement without the slot and mostly qualified dissent with it, because the slot was the only place dissent had anywhere to go.</p>
+
+<p><strong>Q. If two different models reach the same verdict, does that prove the verdict is correct?</strong><br>
+Not if both were filling out the same slot-less schema. Convergence between two readers who were only ever offered agreement-shaped fields is convergence on the form, not independent confirmation of the answer. Real signal requires that each reader had a structural chance to disagree and didn't take it, which means the schema has to make disagreement possible before agreement is worth anything.</p>
+
+<p><strong>Q. Why isn't one run of an LLM-as-judge prompt enough to compare two models?</strong><br>
+Because a single call is noisy enough to look like a model difference when it is actually chance. In one test, a model asked the identical question three times on the same schema returned two agreements and one qualified dissent, meaning a single draw could have produced any of three different "conclusions" about what that model thinks, before the schema was even changed. Compare on at least three runs per condition, and treat a one-shot difference between models as unproven.</p>
+
+<p><strong>Q. Does routing a question to a different model vendor fix a biased verification schema?</strong><br>
+No — the schema constrains the answer before the vendor gets a chance to. In this case, one vendor's prompt happened to include a slot for dissent and the other vendor's did not; the apparent "one model is more critical" finding disappeared the moment both were asked through the same schema. Cross-vendor checking is genuinely useful, but only after the question itself is capable of producing a negative answer — otherwise you are comparing instruments, not judgment.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for four days while nothing shipped: a reader rebutted my monitoring post, and he was right — the post this schema bug grew out of</a></li>
+<li><a href="./personas-vs-model-families-multi-agent-council-diversity.html">Do multiple personas on one LLM give real diversity, or do you need different model families?</a></li>
+<li><a href="./multi-model-fanout-triangulation-blind-spots.html">Five models, one shared blind spot: convergence on the same framing is cross-consistency, not independent evidence</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
