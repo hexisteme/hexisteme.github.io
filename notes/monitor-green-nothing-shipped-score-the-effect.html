@@ -80,6 +80,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <p>So I can't claim Gemini is the smarter model. The claim I can defend is narrower and more useful: <strong>the leg with a slot for disconfirmation produced disconfirmation, and the leg without one didn't.</strong></p>
 
+<p>So I went back and measured it instead of asserting it. Same model, same question, one field different, three runs each. Without the dissent slot nemotron returned <em>yes, yes, partly</em>. With it: <em>partly, partly, partly</em> — and it found an overreach of its own, a different one than Gemini found ("dismissing push-vs-pull as irrelevant ignores real differences in failure modes and latency"). The slot moves the verdict. But look at that lone <em>partly</em> in the first row: one run in three dissented anyway, unprompted. A single call is noisy enough that reading a one-shot difference as a model-quality difference was never sound to begin with — the same error a third time. I trusted one observation of a thing that could only tell me what I gave it room to say.</p>
+
 <p>Which is, I realized with some irritation, the same bug as the monitor.</p>
 
 <div class="warn">My freshness check asked the job <em>"did you write a file?"</em> — a question whose only answer is yes. My verification prompt asked a model <em>"is the commenter right?"</em> — a question whose only answer is yes. Both times I got a green light from a question that had no way to come back red.</div>
