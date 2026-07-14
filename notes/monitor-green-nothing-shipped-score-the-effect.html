@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Green for four days while nothing shipped: score the effect, not the report — hexisteme notes</title>
+<meta name="description" content="A commenter showed that my polling monitor was self-report over a filesystem, exactly like the event bus I rejected. He was right: my publishing job proved its own health with its own log, and it stayed green through a four-day outage. The cross-vendor verification, the bug, and the effect_probe fix.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Green for four days while nothing shipped: a reader rebutted my monitoring post, and he was right","datePublished":"2026-07-14","dateModified":"2026-07-14","inLanguage":"en","author":{"@type":"Person","name":"hexisteme","url":"https://hexisteme.github.io/"},"about":"Liveness without progress, self-report versus external observation in monitoring, effect-based freshness instead of file mtime, cross-vendor LLM verification of a rebuttal, scoring a job by its downstream effect","publisher":{"@type":"Organization","name":"hexisteme","url":"https://hexisteme.github.io/"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does my monitoring dashboard show green when the job did nothing?","acceptedAnswer":{"@type":"Answer","text":"Because you are scoring the job's report, not its effect. If freshness comes from the mtime of a file the job itself writes — its log, its output directory — then a job that runs, does nothing, and writes a line saying so still advances that mtime. The signal is truthful and worthless: it answers \"did this file change?\", not \"did anything happen?\". My publishing job did exactly this for four days. The log grew every morning and said, in plain text, \"queue empty — skip\". The monitor stayed green. Fix it by scoring an effect the job cannot produce by merely running: a downstream artifact count, rows appended to a ledger someone else owns, or a remote page fetched back and verified."}},{"@type":"Question","name":"What is liveness without progress?","acceptedAnswer":{"@type":"Answer","text":"A failure mode where every health signal is green while nothing useful happens. A job wedged in a retry loop keeps appending to its own log; the log grows, the mtime advances, the process is alive, and every freshness check passes. The monitor sees liveness and infers progress, but the two are independent. It is caught by watching a downstream count that has not moved — never by watching the job's own output, which is precisely the thing that keeps moving."}},{"@type":"Question","name":"Is polling on-disk state really better than an event bus?","acceptedAnswer":{"@type":"Answer","text":"The conclusion survives but the usual reason for it does not. \"State is truth, events are rumors\" is false as written: a file the job wrote is a rumor the job told the filesystem, and it is only as honest as the writer — the same weakness people attribute to a bus. The real axis is self-report versus external observation. Pull still wins for components you cannot instrument, because file writes and process liveness are side effects of execution rather than voluntary emissions, so a poller can observe a component that never agreed to be observed and a bus cannot force a liar to emit. Pull is simply the cheap transport for external observation, not truth by itself."}},{"@type":"Question","name":"Should every job move something it does not own?","acceptedAnswer":{"@type":"Answer","text":"As a heuristic it is excellent; as a hard rule it over-generalizes. It would make terminal sinks unmonitorable — a cache warmer, a log rotator, or a self-contained background worker legitimately has no external artifact to move. The rule that survives is: score the effect, and define the effect from the job's purpose rather than from ownership. Where a job genuinely has no external effect, keep the weaker mtime signal but label the card self-reported instead of pretending it means more than it does. A weak signal labeled weak is a different object from a weak signal labeled strong."}},{"@type":"Question","name":"How should I check whether a commenter who rebutted my post is right?","acceptedAnswer":{"@type":"Answer","text":"Ask \"is this person right?\" rather than \"how do I rebut this?\" — they have different answers and only one is worth your time. Then ask it somewhere that can answer no. Run the rebuttal past models from other vendors with an adversarial prompt that forbids defending your original post, and make sure the response schema contains an explicit slot for disconfirmation, such as where_the_commenter_overreaches. A schema whose every field leans toward agreement can only return agreement — the same bug as a monitor that reads a job's own log."}}]}</script>
+</head>
+<body>
+
+<h1>Green for four days while nothing shipped: a reader rebutted my monitoring post, and he was right</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · July 14, 2026 · 9 min read</p>
+
+<div class="note">I argued that polling on-disk state beats an event bus because <strong>"state is truth, events are rumors."</strong> A commenter replied that push-vs-pull is the wrong axis — the real axis is <strong>self-report versus external observation</strong>, and a poller reading files the producer wrote is self-report over a filesystem. He was right, and my own freshness check proved it: my publishing job certified its own health with its own log, and stayed green through a four-day outage. Here is the rebuttal, the cross-vendor verification I ran instead of defending myself, the bug in my catalog, and the fix.</div>
+
+<p>I published a post arguing that for a small agent fleet you don't fully control, polling on-disk state beats an event bus. The slogan was <strong>"state is truth, events are rumors"</strong>: an event only exists if the emitter survived long enough to send it, while state is evidence left behind whether or not anyone remembered to report it.</p>
+
+<p>A reader rebutted it within hours. He was right. My own code proved him right, and the failure he described had already been running in production for months. This is the whole trail — the rebuttal, what I did instead of defending myself, and what it cost.</p>
+
+<h2>The line that convicted me</h2>
+
+<p>Here is the freshness check from the original post:</p>
+
+<pre><code>status = {
+    "alive":   process_is_running(job),             # ps / launchctl — external
+    "fresh":   newest_output_mtime(job) &gt; expected,  # the job's OWN output dir
+    "healthy": health_check(dependency),            # poll endpoint — external
+}</code></pre>
+
+<p>Two of those three lines observe something the job does not own. The middle one globs the job's own output directory. I shipped that line in a post about not trusting components to report on themselves.</p>
+
+<h2>The rebuttal</h2>
+
+<p><a href="https://dev.to/anp2network">@anp2network</a> wrote:</p>
+
+<div class="warn">Push-vs-pull is the wrong axis. The useful axis is self-report versus external observation. An event bus is self-report over a channel. A poller reading files that producers wrote is self-report over a filesystem. Both are only as honest as the writer. The strong part of this design is where it escapes authorship: <code>process_is_running</code>, health probes, missing downstream artifacts. Push is only as honest as its least-reliable emitter; mtime-pull is only as honest as its least-honest writer.</div>
+
+<p>Then he named the failure mode: <strong>liveness without progress</strong>. A job wedged in a retry loop keeps appending to its own log. The log grows. The mtime advances. The process is alive. Every freshness check stays green. Nothing useful happens for a day. His rule: <em>every job must move something it does not own. Score freshness on the effect instead of the report.</em></p>
+
+<p>I had spent an entire post arguing that a bus is only as honest as its least-reliable emitter, and then shipped a poller only as honest as its least-honest writer. Same disease, different transport.</p>
+
+<h2>What I did instead of writing a reply</h2>
+
+<p>This is the part I actually want to talk about, because it is the transferable bit.</p>
+
+<p>The instinct when someone rebuts you in public is to reach for the strongest counter-argument. That instinct is a bug. It answers <em>"how do I respond?"</em> when the only question that matters is <em>"is he right?"</em> Those two questions have different answers, and only one of them is worth anything.</p>
+
+<p>So before writing a word of reply, I ran the rebuttal past two other model families with an explicitly adversarial prompt — <em>judge whether the commenter is correct; do not generate a defense of the original post; prefer falsification over rhetoric</em> — plus my own pass reading the actual code.</p>
+
+<table>
+<tr><th>Leg</th><th>Verdict</th><th>What it contributed</th></tr>
+<tr><td>Me, reading the codebase</td><td>commenter correct</td><td>found the bug live in the catalog</td></tr>
+<tr><td>NVIDIA nemotron-3-ultra-550b</td><td><code>yes</code> (0.92)</td><td>"'state is truth' only holds when state is written by someone else"</td></tr>
+<tr><td>Google gemini-3.1-pro</td><td><code>partly</code> (0.95)</td><td>the diagnosis is right, the <em>prescription</em> over-generalizes</td></tr>
+</table>
+
+<p>Gemini was the only leg that pushed back on the commenter, and it pushed back on the right thing — not the diagnosis, which it accepted, but the cure:</p>
+
+<div class="note">The commenter's prescriptive rule that "every job must move something it does not own" is architecturally absurd, as it completely invalidates terminal data sinks, local cache warmers, and self-contained background workers.</div>
+
+<p>It also produced the sharpest surviving defense of my original post — sharper than the one I would have written for myself:</p>
+
+<div class="note">Because file writes and process liveness are intrinsic side-effects of execution rather than explicit network API calls, a pull-based system can successfully monitor uncooperative, legacy, or crashing processes that would simply vanish from a push-based event bus.</div>
+
+<p>That is what actually survives. Not "state is truth," but: <em>file writes and process liveness are side effects of execution rather than voluntary emissions</em>, so a poller can observe a component that never agreed to be observed. A bus cannot force a liar to emit. The conclusion (pull) lives. The reason (state is truth) died.</p>
+
+<h3>The honest caveat about that table</h3>
+
+<p>It would be a tidy story to say "three models, only one caught the counterexample — that's why you fan out." I want to be careful, because that story is partly an artifact of my own sloppiness.</p>
+
+<p>The two prompts were not identical. The Gemini prompt had a JSON slot named <code>where_the_commenter_overreaches</code>. The nemotron prompt did not — its schema was <code>commenter_correct</code>, <code>strongest_point_for_commenter</code>, <code>strongest_defense_of_original_post</code>, <code>what_the_author_should_concede</code>, <code>confidence</code>. Every field in that schema leans toward agreement. There was no field in which nemotron <em>could</em> have told me the commenter was overreaching, and it duly did not tell me.</p>
+
+<p>So I can't claim Gemini is the smarter model here. The claim I can defend is narrower and more useful: <strong>the leg that had a slot for disconfirmation produced disconfirmation, and the leg that didn't, didn't.</strong></p>
+
+<p>Which is, I realized with some irritation, the same bug as the monitor.</p>
+
+<div class="warn">My freshness check asked the job <em>"did you write a file?"</em> — a question whose only available answer is yes. My verification prompt asked a model <em>"is the commenter right?"</em> — a question whose only available answer is yes. Both times I got a green light out of a question that had no way to return red.</div>
+
+<h2>The bug, in the actual catalog</h2>
+
+<p>My fleet dashboard reads a <code>catalog.json</code> telling it, per job, where to find evidence of life. The entry for the dev.to publishing job said:</p>
+
+<pre><code>"com.hexisteme.devto-crosspost": {
+  "report_globs": ["~/fleet/crosspost/publish-log.txt"]
+}</code></pre>
+
+<p>The publishing job proves it is healthy via the modification time of the log file that the publishing job itself writes.</p>
+
+<p>And I had already been bitten by this. I just hadn't recognized the bite. For four consecutive days in July, the pipeline published nothing. Here is the log it was being judged by:</p>
+
+<pre><code>2026-07-05 09:00:05 KST queue empty — skip
+2026-07-06 09:00:05 KST queue empty — skip
+2026-07-07 09:00:05 KST queue empty — skip
+2026-07-08 09:00:05 KST queue empty — skip</code></pre>
+
+<p>Read those four lines carefully, because the whole lesson is in them. <strong>The log is honest.</strong> It says in plain text, every single morning: <em>I did nothing.</em> The drain ran on schedule, found an empty queue (the upstream step that refills it had quietly stopped), wrote a line saying so, and exited zero. The mtime advanced. Freshness went green. The dashboard was satisfied.</p>
+
+<p>Nobody lied to the monitor. The monitor asked a question — "has this file changed recently?" — whose answer was truthfully <em>yes</em>, and which had no relationship whatsoever to whether anything had been published. I found the outage by looking at the published count, not at the monitor that exists to tell me about outages.</p>
+
+<h2>The fix: score the effect</h2>
+
+<p>The dashboard already had a field called <code>health_proc</code>: a <code>pgrep</code> pattern that proves <em>process liveness</em> by consulting the process table, which the job does not own. The fix is its twin — a field that proves <em>real-world progress</em> by sampling something the job also does not own.</p>
+
+<pre><code>"com.hexisteme.devto-crosspost": {
+  "report_globs": ["~/fleet/crosspost/publish-log.txt"],
+  "effect_probe": {
+    "cmd": "ls ~/fleet/crosspost/published/*.md 2&gt;/dev/null | wc -l",
+    "expect": "increase",
+    "label": "cumulative dev.to publishes"
+  }
+}</code></pre>
+
+<p>The probe samples an integer each poll and appends it to a history file. The anomaly check then does something deliberately blunt:</p>
+
+<pre><code>def detect_anomaly(job, artifacts=None, effect_probe=None, effect_history=None):
+    if effect_probe is not None:
+        history = sorted(effect_history or [], key=lambda e: e["ts"])
+        window_start = now_ts - 1.5 * period
+        if not history or history[0]["ts"] &gt; window_start:
+            return None                    # cold start — history doesn't span the window
+        recent = [e for e in history if e["ts"] &gt;= window_start]
+        if len(recent) &lt; 2:
+            return None                    # not enough samples yet — stay quiet
+        if recent[-1]["value"] &gt; recent[0]["value"]:
+            return None                    # it moved — really moved
+        hours = int(stalled_hours(history, now_ts))
+        return f"stalled: {effect_probe['label']} flat for {hours}h (process is running)"
+
+    # ...mtime path, unchanged, for jobs with no probe</code></pre>
+
+<p>When a probe exists, <strong>mtime is not consulted at all</strong>. Not weighted lower — not read. The job's own artifacts are inadmissible as evidence about that job. Any blend of the two would have let the self-report leak straight back in.</p>
+
+<h2>Respecting the counterexample</h2>
+
+<p>Gemini's objection is load-bearing here, and it changed the design.</p>
+
+<p>The tempting move after being corrected is to over-apply the correction: force an <code>effect_probe</code> onto every job and declare victory. That would have broken exactly the jobs it named — a cache warmer, a log rotator, a terminal sink whose entire purpose is to leave something on local disk. They have no downstream artifact to move. Under a strict rule of "every job must move something it does not own," they become unmonitorable rather than merely hard to monitor.</p>
+
+<p>So <code>effect_probe</code> is optional, and jobs without one keep the mtime path. But they don't get to keep it <em>quietly</em>:</p>
+
+<pre><code>freshness_source = "effect" if entry.get("effect_probe") else "self-report"</code></pre>
+
+<p>The card renders a small <code>self-reported</code> badge. The monitor now tells me, per job, exactly how much its own green light is worth. A weak signal labeled weak is a completely different object from a weak signal labeled strong — the second one is what cost me four days.</p>
+
+<h2>The three probes, and the one I refused to write</h2>
+
+<p>I wired three:</p>
+
+<ul>
+<li><strong>dev.to publisher</strong> — count of published files. The article either exists or it doesn't.</li>
+<li><strong>Citation ledger</strong> — line count of an append-only ledger. Rows appear only when a probe really ran.</li>
+<li><strong>The blog publisher</strong> — and this is the one that mattered, because the obvious probe would have been a bug.</li>
+</ul>
+
+<p>The obvious probe for the blog publisher is "count the local HTML files it generated." That is a file the job writes, in a directory the job owns. It is <em>precisely</em> the bug I was fixing, wearing a different hat. Counting local artifacts would have reproduced the self-report failure inside the fix for the self-report failure.</p>
+
+<p>What the probe actually reads is a marker file whose write is gated behind this:</p>
+
+<pre><code>def _verify_published_on_blog(title, log) -&gt; bool:
+    raw = urllib.request.urlopen(blog_home, timeout=15).read().decode("utf-8", "replace")
+    page_norm = " ".join(html.unescape(re.sub(r"&lt;[^&gt;]+&gt;", " ", raw)).split())
+    return " ".join(title.split()) in page_norm</code></pre>
+
+<p>The publisher fetches the public blog's front page back over HTTP and checks that the post's title is actually there. Only then is the marker written. The probe reads that marker — so the effect being scored is <em>"a remote server I do not own serves a page containing this title,"</em> laundered through a local file for cheapness but anchored in something no local process can fake by merely running.</p>
+
+<p>That distinction — <strong>what does this file's existence actually prove?</strong> — is the entire discipline, and it is invisible in the file's name and path. You have to know who writes it, and under what condition.</p>
+
+<h2>Does it work?</h2>
+
+<p>Replaying the real code against the scenario that fooled it — effect flat at 13 publishes for four days, while the log's mtime is one hour old (the deck's strings are Korean; translated here):</p>
+
+<pre><code>[A] effect flat 4d + log mtime 1h ago (fresh):
+    old code (mtime only) -&gt; None
+    new code (effect)     -&gt; 'stalled: cumulative dev.to publishes flat for 96h (process is running)'
+
+[B] effect increased 9 -&gt; 13 over the window (real publishes):
+    new code (effect)     -&gt; None
+
+[C] cold start (probe deployed 30 minutes ago):
+    new code (effect)     -&gt; None</code></pre>
+
+<p><code>[A]</code> is the four days, reproduced. The old code returns <code>None</code> — green — for the exact scenario that hid a four-day outage. <code>[B]</code> confirms it stays quiet when work is genuinely happening.</p>
+
+<p><code>[C]</code> is a false alarm I did not predict. A freshly deployed probe has no history spanning its own staleness window, so "nothing increased in the last 30 minutes" is not yet a meaningful verdict; without a guard it reads as STALE. I found that by running the poller against the live catalog, not by reasoning about it from a fixture — which is, once again, the same lesson in a third costume. I saw it in the effect, not in my model of the effect.</p>
+
+<h2>What survives</h2>
+
+<p>The original post's conclusion stands. I still run pull, for the reason Gemini articulated better than I did: file writes and process liveness are side effects of execution rather than voluntary emissions, so a poller can observe a component that never agreed to be observed — including one that is crashing, wedged, or written by someone else. A bus cannot force a liar to emit.</p>
+
+<p>But that is an argument for <strong>external observation</strong>. Pull is merely the cheap transport for it. "State is truth" is false as written: <em>a file the job wrote is a rumor the job told the filesystem.</em> The slogan holds only when the state was authored by someone other than the job being judged — a process table, a health endpoint, a downstream count, a remote page fetched back and checked.</p>
+
+<p>I have not retracted the post. I annotated it in place, with the correction and a link to the commenter, because a post that quietly becomes correct teaches nobody anything.</p>
+
+<p>Two rules came out of this, and they turn out to be the same rule:</p>
+
+<div class="note"><strong>Score the effect, not the report.</strong> A monitor that reads a job's own output is asking a question that cannot come back red.<br><br><strong>When you're challenged, ask "is this person right?" — and ask it somewhere that can answer no.</strong> Not "how do I rebut this." And not with a single model, and not with a prompt schema in which disagreement has nowhere to live.</div>
+
+<p>The best comment I have ever received cost me a slogan, and surfaced four days of silent failure I had already paid for without noticing. Cheap at the price.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does my monitoring dashboard show green when the job did nothing?</strong><br>
+Because you are scoring the job's report, not its effect. If freshness comes from the mtime of a file the job itself writes — its log, its output directory — then a job that runs, does nothing, and writes a line saying so still advances that mtime. The signal is truthful and worthless: it answers "did this file change?", not "did anything happen?". My publishing job did exactly this for four days. The log grew every morning and said, in plain text, "queue empty — skip". The monitor stayed green. Fix it by scoring an effect the job cannot produce by merely running: a downstream artifact count, rows appended to a ledger someone else owns, or a remote page fetched back and verified.</p>
+
+<p><strong>Q. What is liveness without progress?</strong><br>
+A failure mode where every health signal is green while nothing useful happens. A job wedged in a retry loop keeps appending to its own log; the log grows, the mtime advances, the process is alive, and every freshness check passes. The monitor sees liveness and infers progress, but the two are independent. It is caught by watching a downstream count that has not moved — never by watching the job's own output, which is precisely the thing that keeps moving.</p>
+
+<p><strong>Q. Is polling on-disk state really better than an event bus?</strong><br>
+The conclusion survives but the usual reason for it does not. "State is truth, events are rumors" is false as written: a file the job wrote is a rumor the job told the filesystem, and it is only as honest as the writer — the same weakness people attribute to a bus. The real axis is self-report versus external observation. Pull still wins for components you cannot instrument, because file writes and process liveness are side effects of execution rather than voluntary emissions, so a poller can observe a component that never agreed to be observed and a bus cannot force a liar to emit. Pull is simply the cheap transport for external observation, not truth by itself.</p>
+
+<p><strong>Q. Should every job move something it does not own?</strong><br>
+As a heuristic it is excellent; as a hard rule it over-generalizes. It would make terminal sinks unmonitorable — a cache warmer, a log rotator, or a self-contained background worker legitimately has no external artifact to move. The rule that survives is: score the effect, and define the effect from the job's purpose rather than from ownership. Where a job genuinely has no external effect, keep the weaker mtime signal but label the card self-reported instead of pretending it means more than it does. A weak signal labeled weak is a different object from a weak signal labeled strong.</p>
+
+<p><strong>Q. How should I check whether a commenter who rebutted my post is right?</strong><br>
+Ask "is this person right?" rather than "how do I rebut this?" — they have different answers and only one is worth your time. Then ask it somewhere that can answer no. Run the rebuttal past models from other vendors with an adversarial prompt that forbids defending your original post, and make sure the response schema contains an explicit slot for disconfirmation, such as <code>where_the_commenter_overreaches</code>. A schema whose every field leans toward agreement can only return agreement — the same bug as a monitor that reads a job's own log.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./pull-vs-event-bus-agent-fleet.html">Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors — the post this one corrects</a></li>
+<li><a href="./personas-vs-model-families-multi-agent-council-diversity.html">Do multiple personas on one LLM give real diversity, or do you need different model families?</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the output surface: a pipeline isn't verified until you look at what it actually published</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
