@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deterministic Tool Adoption Gates: Score It, Don't Vibe It — hexisteme notes</title>
+<meta name="description" content="I ran a new public Claude Code skills repo through my adoption CLI's five deterministic gates instead of vibing on it, landing at 64/100 and a TRIAL verdict. This is the score, the auto-derived kill conditions, and why I refused to log an outcome on day zero.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Deterministic Tool Adoption Gates: Score It, Don't Vibe It", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Scoring a real open-source tool adoption decision with five deterministic gates, provenance-tagged inputs, and auto-derived falsifiers", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I decide whether to adopt a new library or dev tool?", "acceptedAnswer": {"@type": "Answer", "text": "Score it on a small number of deterministic gates instead of going by feel: maturity, dependency footprint, platform fit, policy and documentation stability, and trajectory. Add the gate scores, compare the total against fixed thresholds, and let the number set the verdict instead of how promising the README sounds. Evaluating the mattpocock/skills repo on 2026-07-14 this way produced a score of 64 out of 100 and a TRIAL verdict, on a repo I would otherwise have installed from in the first ten minutes."}}, {"@type": "Question", "name": "What is a falsifier for a tool-adoption decision?", "acceptedAnswer": {"@type": "Answer", "text": "A concrete, observable condition that would prove the adoption was a mistake, written down before you use the tool in anger rather than after something breaks. In this example, five were auto-derived from the same evaluation inputs: 180 days of inactivity, a major version bump from 1 to 2, the maintainer count dropping to zero, an official deprecation notice, or three or more breaking-fix patches needed on my own side after adoption. The decision becomes 'adopted until one of these fires,' not 'adopted and done.'"}}, {"@type": "Question", "name": "How should assumptions be scored in a deterministic evaluation?", "acceptedAnswer": {"@type": "Answer", "text": "Tag every input with its provenance as fact, inference, or assumption, and when an input has no machine-checkable source, give it a conservative default instead of an optimistic guess. In this evaluation, the breaking-changes-per-year input had no available source, so a conservative default was applied instead of assuming stability, and that single assumption cost the tool its entire stability sub-score. Scoring only tagged inputs, and defaulting conservatively where a source doesn't exist, is what keeps a deterministic score from laundering vibes through a formula."}}, {"@type": "Question", "name": "Why shouldn't I record an adoption outcome immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Because an outcomes ledger is the denominator that future decisions get calibrated against, and a success logged at zero days elapsed with no falsifier yet observed isn't a measurement, it's an opinion recorded as if it were data. Writing it anyway pollutes every base rate computed from that table afterward. The discipline is not in collecting the data, it is in knowing which table you are not yet allowed to write to."}}, {"@type": "Question", "name": "What does a TRIAL verdict mean?", "acceptedAnswer": {"@type": "Answer", "text": "It means adopt in isolation, verify, then widen: not good, not bad, an instruction about scope. A TRIAL profile typically scores strong on trajectory and low-baggage dimensions like dependencies, and weak on track record, simply because not enough time has passed to build one. For a young public open-source project, a TRIAL verdict is not a criticism of the work, it is an honest description of how much history exists to evaluate yet."}}]}
+</script>
+</head>
+<body>
+
+<h1>Deterministic Tool Adoption Gates: Score It, Don't Vibe It</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">A new public repo of Claude Code agent skills (mattpocock/skills, MIT) showed up on 2026-07-14, tempting enough to just start installing. Instead I ran it through my adoption CLI's five deterministic gates, which scored it 64/100 and landed on a TRIAL verdict — maxed out on trajectory and dependency footprint, weak on maturity, with the one unresolved input covered by a conservative default rather than an optimistic guess. The same inputs auto-derived five falsifiers — kill conditions that would prove the adoption wrong — and, separately, I adopted exactly one skill from the repo in isolation, a decision that converged with the gate score without either seeing the other. I did not log an outcome in the adoption ledger on day zero, because a table that future decisions calibrate against shouldn't be fed a measurement made before there was anything to measure.</div>
+
+<p>A new public repo showed up on 2026-07-14: <a href="https://github.com/mattpocock/skills">mattpocock/skills</a>, an MIT-licensed collection of Claude Code agent skills. It's the kind of thing that's easy to fall for in the first ten minutes — skim the READMEs, install the ones that sound useful, move on. I didn't do that. I ran it through the five deterministic gates in my adoption CLI, the same gates every Swift package and npm dependency in my stack has had to clear, extended for the first time to cover a Claude skill.</p>
+
+<p>The reason I bother with this at all: adoption decisions rot when they're vibes. "This looks solid" is not a claim you can revisit in six months and check whether you were right about. A score is. So is a pre-registered condition for when you'd bail on it. The rest of this post is what that machinery produced on a real decision, not a hypothetical one.</p>
+
+<h2>Five gates, one score</h2>
+
+<p>The CLI scores any candidate — package, library, or now, skill — on five gates: maturity (how long has this actually existed), dependency footprint (what does adopting it drag in), platform fit (native or third-party, and documented or not), policy and developer experience (documentation quality plus release stability), and trajectory (is it actively maintained right now). Each gate contributes points toward a 100-point total, and fixed thresholds turn that total into a verdict: ADOPT at 80 or above, TRIAL at 60 or above, HOLD at 40 or above, reject below that. No gate is a gut check — every one resolves to a number from a query I can rerun.</p>
+
+<p>Here's what mattpocock/skills scored, evaluated as of 2026-07-14:</p>
+
+<table>
+<thead><tr><th>Gate</th><th>Score</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>G1 Maturity</td><td>4/20</td><td>First release 2026-06-17 — 27 days old at evaluation time. The repo itself was only created 2026-02-03, so the project as a whole is five months old.</td></tr>
+<tr><td>G2 Dependency footprint</td><td>20/20</td><td>Zero runtime dependencies. Skills are markdown prompt files — structurally, there's nothing to depend on.</td></tr>
+<tr><td>G3 Platform fit</td><td>10/20</td><td>Third-party, not built into the platform, but documented. Not demoted further — the low-documentation penalty never triggered.</td></tr>
+<tr><td>G4 Policy &amp; DX</td><td>10/20</td><td>Full marks on documentation, zero on stability. One assumed input (breaking changes per year) had no source, so a conservative default of 4/year was applied instead — and that zeroed this half of the gate.</td></tr>
+<tr><td>G5 Trajectory</td><td>20/20</td><td>Four releases in the last year, and the last commit landed one day before I ran the evaluation.</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>64/100</strong></td><td>Thresholds: ADOPT ≥ 80, TRIAL ≥ 60, HOLD ≥ 40. Verdict: <strong>TRIAL</strong>.</td></tr>
+</tbody>
+</table>
+
+<p>None of the six hard gates fired — the kind of automatic disqualifier that overrides the score outright — so the raw and final verdicts agree: TRIAL, no demotion.</p>
+
+<p>Read as a shape instead of a table, the profile says something legible: young but alive and light. Trajectory and dependency footprint are maxed out. Maturity is on the floor, because there simply hasn't been time to accumulate any. That's not a knock on the repo — it's a public, MIT-licensed project four weeks into its first release, already on its second release. TRIAL is exactly what a shape like that should produce, and TRIAL has a specific meaning: adopt in isolation, verify, then widen. Not "good." Not "bad." An instruction about scope.</p>
+
+<h2>Nine facts, one assumption</h2>
+
+<p>The gate math only means something if the inputs feeding it are honest about how they were obtained. The CLI tags every signal as FACT, INFERENCE, or ASSUMPTION, and it computes scores only from what's tagged — nothing gets to influence a "deterministic" gate by feel.</p>
+
+<p>This evaluation ran on ten signals: nine FACT, one ASSUMPTION. The nine facts — first release date, latest release, releases in the last year, last commit, major version, maintainer count, whether the project is platform-native, whether official docs exist, dependency count — all came from real queries against GitHub's API, not a recollection of what the repo probably looks like. The docs signal, for what it's worth, resolved true off an actual README fetch that came back at 14,573 bytes, not an assumption that it probably has decent docs.</p>
+
+<p>The tenth signal, breaking changes per year, had no machine-checkable source at all. The honest move there isn't to guess a flattering number — it's to apply a conservative default and eat the cost. The system defaulted it to 4 breaking changes per year, and that single assumption is the entire reason G4 lost its stability half: full marks on documentation, zero on stability, net 10 out of 20. If this project accumulates enough release history that the real number becomes observable, that's a fact I can plug in and rerun the evaluation with — but I'm not going to assume stability just because assuming it would make the score prettier.</p>
+
+<p>Two smaller judgment calls are worth naming, because a gate that hides them isn't trustworthy. First: the maintainer count came back as 3 from the raw API, and I filtered one of those out — a release bot that opens changeset PRs, not a person — to get 2. But 2 human accounts isn't the same as 2 active ones: it's 296 commits from the repo owner against 8 from the second contributor, a bus factor of roughly 1 in practice. The gate's hard trigger for that only fires at 1 or below, so 2 doesn't trip it. I wrote the caveat down anyway, because a gate not tripping isn't the same as the risk not existing. Second: I could have widened the list of hosts the system treats as "official docs" to upgrade a borderline signal to a stronger tag. I didn't, because that's gaming the gate, not scoring the repo — I used the path I actually queried and left the classification where the evidence put it.</p>
+
+<h2>Five ways this could die</h2>
+
+<p>The same tagged inputs that produced the score also auto-derive kill conditions — falsifiers, pre-registered before I've used the thing in anger, not written after something breaks. For this evaluation, the system produced five:</p>
+
+<table>
+<thead><tr><th>Kind</th><th>Observable</th><th>Threshold</th><th>Check</th></tr></thead>
+<tbody>
+<tr><td>TIME</td><td>No commits or releases for 180 days</td><td>2027-01-09</td><td>VCS API</td></tr>
+<tr><td>EVENT</td><td>Major version goes from 1 to 2</td><td>2.0</td><td>Registry API</td></tr>
+<tr><td>EVENT</td><td>Maintainer count drops from 2 to 0</td><td>0.0</td><td>VCS API</td></tr>
+<tr><td>EVENT</td><td>An official deprecation or archive notice appears</td><td>—</td><td>Official docs</td></tr>
+<tr><td>EVENT</td><td>3 or more breaking-fix patches needed on my side after adoption</td><td>3.0</td><td>Self-observed</td></tr>
+</tbody>
+</table>
+
+<p>None of these required me to sit down and imagine how this could go wrong — they fell out mechanically from the same signals that produced the 64. The decision this produces isn't "adopted, done." It's "adopted until one of these five fires."</p>
+
+<h2>A decision that didn't need the other to agree</h2>
+
+<p>Separately from the gate score, I went through the repo's skill list by hand — 28 active skills once you set aside the deprecated and in-progress ones — checking each against what I already run. Twenty-six overlapped with tooling I already had: code review, TDD loops, research, spec-writing, triage. Adopting them would mean maintaining two ways to do the same job, which is its own tax. One didn't overlap with anything: a prototyping skill for building structurally different variants when a design decision won't converge in words. That's the one I adopted, installed in isolation, its two core files untouched. A second skill, an orchestration and spec-writing tool, looked appealing but duplicated ground I already cover — I held it, not rejected it, pending a case where I'm actually missing a map rather than just curious about one.</p>
+
+<p>Here's the part I like: the gate score and this decision were arrived at without either one seeing the other. The five gates didn't know I was going to adopt exactly one skill in isolation. My decision to adopt exactly one skill in isolation didn't know the gates had landed on TRIAL, which by definition means the same thing. Two independent processes, same conclusion. That's not proof either one is right — but it's a much stronger signal than either alone, and a lot stronger than "this looks solid."</p>
+
+<h2>The table I didn't write to</h2>
+
+<p>The adoption ledger has an outcomes table, and it's not decorative — it's the denominator every future decision's base rate gets computed against. Log enough outcomes, and a new evaluation stops being a cold guess and starts being informed by what actually happened the last N times a repo scored like this one.</p>
+
+<p>Which is exactly why I didn't write to it on day zero. Zero days had elapsed. None of the five falsifiers had had any time to fire, or not fire. Logging "success" at that point wouldn't be a measurement — it would be an opinion wearing a data structure, and it would sit in that table forever, quietly corrupting every base rate pulled from it afterward. The discipline in a system like this isn't the part where you collect the data. It's the part where you know which table you're not allowed to write to yet.</p>
+
+<h2>What TRIAL bought me</h2>
+
+<p>The skill adopted in isolation — the prototyping one — got its first real use a few days later, on a mascot redesign for one of my apps. Three structurally different variants, rendered and looked at instead of argued about, and the first render caught a bug no code review would ever have found: the arms rendered as legs because a rotation anchor was pinned to the wrong end. <a href="./ai-cant-see-what-it-drew.html">That's its own story</a>, worth reading on its own — but the short version is that the one thing this evaluation said yes to earned its place inside a week.</p>
+
+<h2>A checklist for the next tempting repo</h2>
+
+<p>The mechanics generalize past this one decision:</p>
+
+<ul>
+<li>Score the candidate on fixed gates — maturity, dependencies, platform fit, policy and stability, trajectory — and let a threshold, not a feeling, set the verdict.</li>
+<li>Tag every input FACT, INFERENCE, or ASSUMPTION, and compute the score only from what's tagged.</li>
+<li>When an input has no real source, give it a conservative default, not an optimistic guess. Let it cost points.</li>
+<li>Let the same tagged inputs auto-derive kill conditions, so the falsifiers exist before you need them, not after something breaks.</li>
+<li>If the verdict is TRIAL, adopt the smallest useful unit, in isolation, and verify before widening.</li>
+<li>Don't write to the outcomes table until enough time has actually passed for a falsifier to have had a chance to fire.</li>
+</ul>
+
+<p>None of this makes the decision faster. It makes it one I can revisit in six months and check whether I was right — about the repo, and about myself.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do I decide whether to adopt a new library or dev tool?</strong><br>
+Score it on a small number of deterministic gates instead of going by feel: maturity, dependency footprint, platform fit, policy and documentation stability, and trajectory. Add the gate scores, compare the total against fixed thresholds, and let the number set the verdict instead of how promising the README sounds. Evaluating the mattpocock/skills repo on 2026-07-14 this way produced a score of 64 out of 100 and a TRIAL verdict, on a repo I would otherwise have installed from in the first ten minutes.</p>
+
+<p><strong>Q. What is a falsifier for a tool-adoption decision?</strong><br>
+A concrete, observable condition that would prove the adoption was a mistake, written down before you use the tool in anger rather than after something breaks. In this example, five were auto-derived from the same evaluation inputs: 180 days of inactivity, a major version bump from 1 to 2, the maintainer count dropping to zero, an official deprecation notice, or three or more breaking-fix patches needed on my own side after adoption. The decision becomes 'adopted until one of these fires,' not 'adopted and done.'</p>
+
+<p><strong>Q. How should assumptions be scored in a deterministic evaluation?</strong><br>
+Tag every input with its provenance as fact, inference, or assumption, and when an input has no machine-checkable source, give it a conservative default instead of an optimistic guess. In this evaluation, the breaking-changes-per-year input had no available source, so a conservative default was applied instead of assuming stability, and that single assumption cost the tool its entire stability sub-score. Scoring only tagged inputs, and defaulting conservatively where a source doesn't exist, is what keeps a deterministic score from laundering vibes through a formula.</p>
+
+<p><strong>Q. Why shouldn't I record an adoption outcome immediately?</strong><br>
+Because an outcomes ledger is the denominator that future decisions get calibrated against, and a success logged at zero days elapsed with no falsifier yet observed isn't a measurement, it's an opinion recorded as if it were data. Writing it anyway pollutes every base rate computed from that table afterward. The discipline is not in collecting the data, it is in knowing which table you are not yet allowed to write to.</p>
+
+<p><strong>Q. What does a TRIAL verdict mean?</strong><br>
+It means adopt in isolation, verify, then widen: not good, not bad, an instruction about scope. A TRIAL profile typically scores strong on trajectory and low-baggage dimensions like dependencies, and weak on track record, simply because not enough time has passed to build one. For a young public open-source project, a TRIAL verdict is not a criticism of the work, it is an honest description of how much history exists to evaluate yet.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./falsifier-driven-ai.html">Falsifier-Driven AI Decisions</a> — the general rule this evaluation is one instance of: no claim without an explicit falsification condition.</li>
+<li><a href="./rdu-reusable-decision-units.html">Reusable Decision Units</a> — why a judgment like this gets encoded as a re-runnable rule instead of trusted to memory.</li>
+<li><a href="./ai-cant-see-what-it-drew.html">The AI Can't See What It Drew</a> — what the one adopted skill was used for, days later.</li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
