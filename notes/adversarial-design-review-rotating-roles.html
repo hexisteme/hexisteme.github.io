@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rotating the Hostile Seat: A Six-Round Adversarial Design Review Before Hardening an Agent — hexisteme notes</title>
+<meta name="description" content="Before hardening a new tech-adoption decision agent, I ran its design through six rounds of adversarial review, rotating three roles — question, defend, attack — through three reviewer groups in every possible assignment. It caught a doc-code mismatch, a hidden non-determinism default, a near-miss security fix, and one accepted fix a later round overturned as unsafe.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Rotating the Hostile Seat: A Six-Round Adversarial Design Review Before Hardening an Agent", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A case study running a new tech-adoption decision agent's design through six rounds of adversarial review, rotating three roles — question, defend, attack — through three reviewer groups in every permutation, so no single group is ever the fixed judge and every group also has to defend its own design and also attack it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is a rotating-role adversarial design review?", "acceptedAnswer": {"@type": "Answer", "text": "A design review where three roles — asking questions, defending the design, and adversarially attacking it — are assigned to three separate reviewer groups, and the assignment rotates through every possible combination before the review starts. Three roles and three groups gives six rounds, and every group ends up questioning, defending, and attacking exactly twice each."}}, {"@type": "Question", "name": "Why rotate the verifier instead of using one fixed reviewer?", "acceptedAnswer": {"@type": "Answer", "text": "A fixed reviewer has one blind spot forever — whatever it structurally can't see, nobody sees. A designer who is also the sole judge of their own fix has no incentive to find its flaws either. Rotating means the group that proposed and defended a fix later has to sit in the seat whose only job is to attack it, which is exactly what reversed one accepted fix in this review, one round after two other groups had already agreed on it."}}, {"@type": "Question", "name": "How many defects does adversarial review find before coding?", "acceptedAnswer": {"@type": "Answer", "text": "In this one case, six rounds against eight review targets turned up seven confirmed defects, one claim that got checked and found correct, and several accusations a second party disproved outright. That is not a universal rate — it is one system at one point in its life, with zero recorded outcomes yet and 677 lines of existing tests. Treat it as one data point, not a formula."}}, {"@type": "Question", "name": "When is a 6-round review overkill?", "acceptedAnswer": {"@type": "Answer", "text": "For anything small and easily reversible — a copy edit, a config default you can flip back, a UI tweak nothing downstream depends on. Eighteen individual passes across six rounds is a real cost, and it only pays for itself on code other automated decisions will trust later without a human re-checking it: type invariants, scoring gates, anything feeding a calibration loop."}}, {"@type": "Question", "name": "What if my verification tools go down mid-review?", "acceptedAnswer": {"@type": "Answer", "text": "In round one of this review, an external verification tool did not respond, and its intended replacement also failed from an expired API key — the round only produced findings after a second fallback, to a local model plus a symbolic-math engine. The review did not stop or wait; it substituted, logged what it substituted and why, and kept going. A verification setup that only works when every tool is available is not resilient, it just has not failed yet."}}]}
+</script>
+</head>
+<body>
+
+<h1>Rotating the Hostile Seat: A Six-Round Adversarial Design Review Before Hardening an Agent</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">I ran a new agent's design through six rounds of adversarial review before hardening it, rotating three roles — question, defend, attack — through three groups (my own fleet agents, my main coding assistant, and an external multi-model verification pool) in every one of the six possible assignments, so no group was ever the permanent judge and every group also had to defend the design and also had to attack it. It caught seven confirmed defects, including one fix that two groups had already agreed on and a later round reversed as unsafe, plus a verification pool that had to fall back three layers deep in round one alone — and the review just kept going.</div>
+
+<p>I was about to harden a new agent whose whole job is to turn "should I adopt this library, model, or tool" into a deterministic, auditable verdict instead of a vibe — gates, grades, falsifiers, a learning ledger. Before trusting it with that job, I wanted a design review nobody could dodge. My default pattern was "ask my main coding assistant to look it over," which has the same structural problem as a same-family writer reviewing its own writing: builder and checker share the same blind spots. So this time three roles — <strong>Questioner</strong>, <strong>Answerer</strong>, and adversarial <strong>Verifier</strong> — rotated through three reviewer groups in every possible assignment, across six rounds. Three roles into three groups is exactly six permutations, and I used all of them, so no group ever sat as the permanent judge.</p>
+
+<h2>The setup: eight targets, six dimensions, three groups</h2>
+
+<p>The system under review had eight discrete pieces worth judging, pulled from its own codebase rather than picked after the fact: identity and boundaries (what separates a verdict-making agent from a plain fact-gathering one), four type-level invariants blocking an unverified claim from being laundered into a confirmed fact, five deterministic scoring gates that only score fact-labeled evidence, the grade decision and hard-gate demotion logic built on those gates, automatic derivation of the conditions that would prove a verdict wrong, a provenance parser with a host whitelist for fact-grade sources, a learning ledger checking whether its own confidence is honestly calibrated, and the CLI/bus/config surface a human touches. Each got judged on six dimensions: interesting to judge, useful downstream, complete against its own spec, coherent with its docs and siblings, reliable — reproducible, tested, falsifiable — and actually serving the system's purpose.</p>
+
+<p>Going in: eight open verdicts on record, zero recorded outcomes, 677 lines of tests. Zero outcomes matters more than it sounds — a learning ledger with nothing in it yet is the cheapest moment to catch a calibration bug, since every future outcome joins against whatever's already sitting in there.</p>
+
+<p>Three groups reviewed: my own fleet of other agents — a coordination hub plus domain workers I normally run for research, narrative, and real-estate decisions, borrowed here purely as reviewers; my main coding assistant, reasoning directly with no tool fan-out; and an external multi-model verification pool — a cross-model proxy reaching several independent model families, including a large open-weight model, plus a symbolic-math engine, a theorem prover, and a couple of code-analysis tools.</p>
+
+<h2>Why rotate instead of picking a reviewer</h2>
+
+<p>Three roles times three groups gives six possible assignments, and I fixed all six before round one — nobody learned their next assignment as they went; the full table existed up front. That's what stops a group from steering later rounds toward a friendlier seat.</p>
+
+<table>
+<tr><th>Round</th><th>Question</th><th>Defend</th><th>Attack</th></tr>
+<tr><td>R1</td><td>fleet agents</td><td>coding assistant</td><td>verification pool</td></tr>
+<tr><td>R2</td><td>fleet agents</td><td>verification pool</td><td>coding assistant</td></tr>
+<tr><td>R3</td><td>coding assistant</td><td>fleet agents</td><td>verification pool</td></tr>
+<tr><td>R4</td><td>coding assistant</td><td>verification pool</td><td>fleet agents</td></tr>
+<tr><td>R5</td><td>verification pool</td><td>fleet agents</td><td>coding assistant</td></tr>
+<tr><td>R6</td><td>verification pool</td><td>coding assistant</td><td>fleet agents</td></tr>
+</table>
+
+<p>Across the six rounds, each group asks the questions twice, defends twice, and attacks twice. That's the whole mechanism. A fixed reviewer has one failure mode: whatever it can't see, nobody sees, forever. A designer grading its own fix has another: no incentive to find its own flaws. <strong>Rotating fixes both</strong> — not by being smarter, but by guaranteeing the seat most likely to catch a mistake is eventually filled by someone who didn't make it, and whichever group designed a fix later sits in the chair whose only job is to attack it.</p>
+
+<h2>What it actually caught</h2>
+
+<p>Six rounds against eight targets produced seven confirmed defects, one claim checked and found correct (a symbolic-math engine confirmed a worried-about scoring formula was just the standard Beta-binomial posterior mean, no fix needed), and several accusations a second party disproved outright, including one hallucinated claim about a counter that didn't exist anywhere in the code. The defects that generalize past this one codebase:</p>
+
+<table>
+<tr><th>Defect</th><th>What was wrong</th><th>Caught in</th></tr>
+<tr><td>F1</td><td>Governance doc listed 3 hard-gate demotion rules; code enforced 6 — missing a machine-verification check, a fact-count check, a missing-core-fields check</td><td>Round 1</td></tr>
+<tr><td>F3</td><td>The evaluate command defaulted to today's date when none was given, so the same candidate could score differently by day, violating the system's own no-hidden-nondeterminism rule</td><td>Round 1</td></tr>
+<tr><td>F5</td><td>A URL parser treated a scheme-less address as the whole hostname, wrongly demoting trustworthy evidence on a common typo (reason logged, not hidden)</td><td>R1; R2 found the obvious fix was worse</td></tr>
+<tr><td>F6</td><td>Two consistency checks disagreed on thresholds — a record could be hard-demoted under one while status still read "done" under the other</td><td>R1; agreed R2-3; reversed R4</td></tr>
+<tr><td>F7</td><td>Re-evaluating an already-graded item same-day silently overwrote its definition, while a recorded outcome stayed attached to the new one</td><td>R1's attack seat</td></tr>
+<tr><td>F8</td><td>A freshness check existed on the evidence model with a real default threshold — nothing ever called it</td><td>R2's question seat, exceeding its mandate</td></tr>
+</table>
+
+<p>F1's twin, F2: the scoring gates' coefficients — multipliers, day-count normalizers, dependency and breaking-change weights — lived only in code, undocumented and unreproducible by hand.</p>
+
+<p><strong>F6</strong> is worth slowing down on — it's the whole thesis in miniature. Round 1 flagged the mismatch. Rounds 2 and 3, different groups in different seats, converged on a fix: when the hard-demotion threshold fires, quietly promote status to "partial" and expose the reason. That direction was proposed, selected, and cross-checked across three rounds. Round 4 put my own fleet agents in the attack seat, specifically to break whatever had just been agreed — and it did: promoting a hard demotion to "partial" dresses up a loud failure (a fatal input defect) as a valid partial pass, close to the opposite of what a demotion means. Inside that round, one internal viewpoint tried to back its case with simulated percentages, and the group's own fabrication check caught them as invented and kept them out. The three-round consensus got reversed; what shipped instead was smaller and safer — expose the demotion reason on the result, leave status alone.</p>
+
+<p><strong>F7</strong> and <strong>F8</strong> share a quieter lesson. F7 — a bug that would have silently corrupted the learning ledger's calibration data — surfaced because round 1's attack seat went looking for exactly this instead of confirming what the defend seat claimed. F8 came from a different overreach: round 2 assigned my research worker to the question-asking seat only, and instead of asking, it grepped the code for evidence first — which is how a freshness check that looked implemented but was never called got caught. Nobody wrote a rule requiring the questioner to verify its own questions; rotating it into a seat with something to prove was enough.</p>
+
+<h2>The verification pool needed its own degrade path</h2>
+
+<p>Round 1's attack seat was supposed to include the external multi-persona council tool I normally reach for in verification rounds. It didn't respond. Falling back to a cross-model proxy should have been simple, except its usual route — an API aggregator reaching a newer hosted model — also failed with an expired key. What produced round 1's findings was a second fallback: a local runner reaching a large open-weight model, gpt-oss 120B, plus a symbolic-math engine for the one claim needing computation instead of judgment. Three layers deep before anything answered, in the very first round.</p>
+
+<div class="warn">The review didn't pause to fix the verification stack. It substituted, logged what it substituted and why, and kept going. A review process that only works when every tool in it is up isn't resilient, it's just untested. The degrade path is part of the design, not an incident.</div>
+
+<p>The same pattern recurred later: whenever a round needed that external council tool and it wasn't available, my own fleet agents' coordination hub substituted for it directly rather than stalling. Verification infrastructure going down mid-review was routine enough to need a designed fallback, not a one-off workaround.</p>
+
+<h2>Honest costs: six rounds is a lot of turns</h2>
+
+<p>I won't pretend this is free. Six rounds, three participants swapping seats each time, is eighteen passes over the same eight targets before anything gets fixed — a real cost for a solo builder, and running it on every change would be its own kind of dysfunction. It's overkill for anything small and reversible: a copy edit, a config default that's easy to flip back, a UI tweak nothing downstream depends on. If being wrong costs you one revert, a full rotation is theater, not rigor.</p>
+
+<p>It paid for itself here because of what this system is: type invariants, scoring gates, and a calibration ledger everything downstream trusts without re-checking. F7 is the clearest argument for the expense — a silent ledger corruption wouldn't announce itself, it would just make every future verdict's confidence a little more dishonest, untraceable to a same-day re-evaluation months earlier. F6 makes the same case differently: a demotion that quietly reads as a partial pass is exactly the bug a consumer only discovers by trusting the wrong field, possibly after acting on it. The rule I'm taking forward: spend the rotation on code other automated decisions will trust unchecked, skip it on anything a human looks at first.</p>
+
+<h2>The recipe</h2>
+
+<p>What I'd actually reuse from this, stripped of the specifics:</p>
+
+<pre><code>1. Enumerate the review targets and judging dimensions up front —
+   pulled from the real code, not decided as you go.
+2. Fix the full role x group permutation before round one. If it
+   can change, someone finds a way to dodge the hostile seat.
+3. Log every round append-only, including refuted suspicions — a
+   rejected accusation is still evidence the check happened.
+4. Run at least one attack round AFTER a fix has multiple groups'
+   agreement, not only before — that's the round most designs never
+   get, and the one that caught an accepted fix that was wrong.
+5. Convert confirmed defects into surgical fixes and regression
+   tests before writing anything new. Log what's deliberately not
+   fixed yet, and why.</code></pre>
+
+<p>It needs the schedule decided before the review starts, and a standing refusal to let the group that built something also be the last word on whether it's safe.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What is a rotating-role adversarial design review?</strong><br>
+A design review where three roles — asking questions, defending the design, and adversarially attacking it — are assigned to three separate reviewer groups, and the assignment rotates through every possible combination before the review starts. Three roles and three groups gives six rounds, and every group ends up questioning, defending, and attacking exactly twice each.</p>
+
+<p><strong>Q. Why rotate the verifier instead of using one fixed reviewer?</strong><br>
+A fixed reviewer has one blind spot forever — whatever it structurally can't see, nobody sees. A designer who is also the sole judge of their own fix has no incentive to find its flaws either. Rotating means the group that proposed and defended a fix later has to sit in the seat whose only job is to attack it, which is exactly what reversed one accepted fix in this review, one round after two other groups had already agreed on it.</p>
+
+<p><strong>Q. How many defects does adversarial review find before coding?</strong><br>
+In this one case, six rounds against eight review targets turned up seven confirmed defects, one claim that got checked and found correct, and several accusations a second party disproved outright. That is not a universal rate — it is one system at one point in its life, with zero recorded outcomes yet and 677 lines of existing tests. Treat it as one data point, not a formula.</p>
+
+<p><strong>Q. When is a 6-round review overkill?</strong><br>
+For anything small and easily reversible — a copy edit, a config default you can flip back, a UI tweak nothing downstream depends on. Eighteen individual passes across six rounds is a real cost, and it only pays for itself on code other automated decisions will trust later without a human re-checking it: type invariants, scoring gates, anything feeding a calibration loop.</p>
+
+<p><strong>Q. What if my verification tools go down mid-review?</strong><br>
+In round one of this review, an external verification tool did not respond, and its intended replacement also failed from an expired API key — the round only produced findings after a second fallback, to a local model plus a symbolic-math engine. The review did not stop or wait; it substituted, logged what it substituted and why, and kept going. A verification setup that only works when every tool is available is not resilient, it just has not failed yet.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./cross-family-llm-audit-shared-blind-spots.html">Cross-Vendor Audit: What It Caught in My Own Model's Writing, and What It Got Wrong</a></li>
+<li><a href="./personas-vs-model-families-multi-agent-council-diversity.html">Do Multiple Personas on One LLM Give Real Diversity, or Do You Need Different Model Families?</a></li>
+<li><a href="./challenge-triggered-reverification.html">Your AI Agent Folds When You Push Back: Measured Sycophancy and a Challenge-Triggered Verification Gate</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
