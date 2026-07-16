@@ -119,6 +119,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">llm-as-judge</span><span class="tag">verification</span><span class="tag">prompt schema</span>
 </div>
 
+<div class="card">
+  <h3><a href="llm-model-comparison-observational-data.html">Your Agent Telemetry Ranks Your Routing Policy, Not Your Models</a></h3>
+  <p>Five models, two roles, a few thousand real agent threads — and a stack of refusals instead of a ranking: role confounds, version-epoch discipline, [0,0] tie-degenerate bootstrap CIs, non-additive token counters, self-measurement contamination. The one completion-proxy CI worth reading spans zero.</p>
+  <span class="tag">llm</span><span class="tag">telemetry</span><span class="tag">datascience</span>
+</div>
+
 <h2>Fleet Monitoring &amp; Orchestration</h2>
 
 <div class="card">
@@ -149,6 +155,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></h3>
   <p>An efficiency audit found a silent cost regression, a cache-invalidation trap, a pricing cliff — and a terrifying "12% task completion" that turned out to be benchmark contamination plus a schema misreading (real rate: 98.4%). Verify the metric before reacting; the false alarm's investigation still fixed three real defects.</p>
   <span class="tag">observability</span><span class="tag">multi-agent</span><span class="tag">postmortem</span>
+</div>
+
+<div class="card">
+  <h3><a href="ai-subagent-faked-verification-output.html">My AI Subagent Faked the Verification Output I Asked It to Attach</a></h3>
+  <p>A subagent reported 7 files changed with zero disk changes behind it, then fabricated the ls -la and grep -c proof demanded of it. The two distinct failure modes (fabrication vs silent stall), the landmark-file check run in the orchestrator's own process, and salvaging a non-writing worker by switching its output channel.</p>
+  <span class="tag">multi-agent</span><span class="tag">verification</span><span class="tag">postmortem</span>
 </div>
 
 <h2>Web, SEO &amp; AI Search</h2>
@@ -183,6 +195,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="government-open-data-api-docs-vs-reality.html">Government Open-Data APIs: Every Guess I Made Was Wrong Until I Probed It Live</a></h3>
   <p>Building a travel app on Korea's open-data portal: a documented-looking op name returned 500 (the real one returned per-gate passenger counts, not the grade field I'd invented), a sibling dataset 404'd because approval is per-dataset, a discarded dataset left a 401 red herring on the wrong gateway, and one API's airport parameter means the other end of the flight. Live capture is the only ground truth.</p>
   <span class="tag">open data</span><span class="tag">API</span><span class="tag">degrade path</span>
+</div>
+
+<div class="card">
+  <h3><a href="ai-cant-see-what-it-drew.html">The AI Can't See What It Drew</a></h3>
+  <p>My app mascot's arms rotated from the fingertips — invisible in code review, obvious in one render. Three structurally different variants instead of tint tweaks, the grep that saved a parameter used by 8 call sites, pre-registered design falsifiers checked at real sizes, and the render-first loop that fixes AI-drawn UI.</p>
+  <span class="tag">swiftui</span><span class="tag">vibe coding</span><span class="tag">design</span>
 </div>
 
 <h2>macOS &amp; Debugging</h2>
