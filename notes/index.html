@@ -125,6 +125,18 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">llm</span><span class="tag">telemetry</span><span class="tag">datascience</span>
 </div>
 
+<div class="card">
+  <h3><a href="deterministic-tool-adoption-gates.html">Deterministic Tool Adoption Gates: Score It, Don't Vibe It</a></h3>
+  <p>A new skills repo scored 64/100 → TRIAL across five gates (maturity, dependencies, platform fit, policy, trajectory) on provenance-tagged inputs (9 FACT / 1 ASSUMPTION, conservative defaults for assumptions), with five auto-derived kill conditions — and a refusal to log a day-zero outcome that would pollute the ledger's own base rates.</p>
+  <span class="tag">adoption</span><span class="tag">falsifier</span><span class="tag">decision</span>
+</div>
+
+<div class="card">
+  <h3><a href="adversarial-design-review-rotating-roles.html">Rotating the Hostile Seat: A Six-Round Adversarial Design Review Before Hardening an Agent</a></h3>
+  <p>Three roles — question, defend, attack — rotated through three reviewer groups in all six permutations, so no group was ever the permanent judge. Seven confirmed defects before hardening, including a fix two groups had agreed on that a later hostile seat reversed as unsafe, and a verification pool that fell back three layers deep in round one.</p>
+  <span class="tag">adversarial review</span><span class="tag">multi-agent</span><span class="tag">verification</span>
+</div>
+
 <h2>Fleet Monitoring &amp; Orchestration</h2>
 
 <div class="card">
@@ -201,6 +213,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="ai-cant-see-what-it-drew.html">The AI Can't See What It Drew</a></h3>
   <p>My app mascot's arms rotated from the fingertips — invisible in code review, obvious in one render. Three structurally different variants instead of tint tweaks, the grep that saved a parameter used by 8 call sites, pre-registered design falsifiers checked at real sizes, and the render-first loop that fixes AI-drawn UI.</p>
   <span class="tag">swiftui</span><span class="tag">vibe coding</span><span class="tag">design</span>
+</div>
+
+<div class="card">
+  <h3><a href="app-store-connect-api-hard-limits.html">Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</a></h3>
+  <p>A 20-minute JWT cap that 401s perfectly valid signatures, one app version in flight (409 STATE_NOT_SUITABLE), and a 2-in-flight/5-total review-submission ceiling with undeletable orphans (DELETE 403, PATCH 409 — web UI cancel or 7-day expiry only). The two-call pre-flight that avoids all three.</p>
+  <span class="tag">App Store Connect</span><span class="tag">iOS</span><span class="tag">API</span>
 </div>
 
 <h2>macOS &amp; Debugging</h2>
