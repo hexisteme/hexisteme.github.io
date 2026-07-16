@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence — hexisteme notes</title>
+<meta name="description" content="Three hard limits in the App Store Connect API that only surface once you automate a fast release cadence — a 20-minute JWT cap whose error blames your credentials instead of your clock, a one-version-in-flight rule, and a 2-in-flight/5-total review-submission ceiling with an orphan the API itself won't let you delete. A two-call pre-flight catches all three before they cost a release.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A solo builder's account of three hard limits in the App Store Connect API that only surface when automating a fast release cadence: a JWT expiry cap at exp minus iat under 1200 seconds whose 401 error blames credentials instead of the clock, a rule allowing only one app version in flight, and a review-submission ceiling with a 2-in-flight counter and a separate 5-total counter that includes READY_FOR_REVIEW orphans the API itself refuses to delete. Includes the two-call pre-flight used to check for both before a release script runs.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does App Store Connect API return 401 NOT_AUTHORIZED when my JWT signature is valid?", "acceptedAnswer": {"@type": "Answer", "text": "Because the JWT's exp is more than 1200 seconds (20 minutes) past iat. ASC API enforces that gap as a hard cap regardless of signature validity — a token with exp at iat + 1201 or later gets 401 NOT_AUTHORIZED — Authentication credentials are missing or invalid even with a perfectly valid ES256 signature. Set exp to iat + 1200 or less (e.g. iat + 1180, leaving clock-skew margin) and the same signature works."}}, {"@type": "Question", "name": "Why does a 30-minute JWT fail on the ASC API?", "acceptedAnswer": {"@type": "Answer", "text": "A 1800-second (30-minute) token exceeds the 1200-second hard cap, so every call made with it fails with 401, and in a batch of calls the whole batch fails together. This cap is specific to the ASC API — Apple's other JWTs (DeviceCheck, App Attest, Apple Pay) use different expiry policies, so a 30-minute token that works fine elsewhere in Apple's stack is not fine here."}}, {"@type": "Question", "name": "What causes 409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED?", "acceptedAnswer": {"@type": "Answer", "text": "An app has a hard ceiling of 5 total reviewSubmissions — WAITING_FOR_REVIEW + IN_REVIEW + READY_FOR_REVIEW combined. POST /v1/reviewSubmissions returns this error once that total is reached, even if only two submissions are actually in review; the rest can be READY_FOR_REVIEW orphans that were created but never submitted. This is a separate counter from the 2-in-flight limit (WAITING_FOR_REVIEW + IN_REVIEW), which returns MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED instead."}}, {"@type": "Question", "name": "How do I delete a READY_FOR_REVIEW orphan review submission?", "acceptedAnswer": {"@type": "Answer", "text": "You can't, through the API. DELETE on the submission returns 403, and PATCH canceled=true returns 409 — both are rejected. The only ways to clear it are a manual cancel in the App Store Connect web UI, or waiting for the 7-day auto-expiry (verified as of 2026)."}}, {"@type": "Question", "name": "Can I bundle CPP and PPO into one review submission?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. A single reviewSubmission can include appStoreVersion, appCustomProductPageVersion (CPP), appStoreVersionExperiment (PPO), and appEvent together — all four item types can ride in the same submission. Bundling CPP variants and PPO experiments into the same submission as the version update, instead of filing each separately, keeps them from consuming extra slots against the 5-total ceiling."}}]}
+</script>
+</head>
+<body>
+
+<h1>Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">Three hard limits in the App Store Connect API only surface once you're automating a fast release cadence, each hit and verified live against my own apps: a JWT expiry hard cap at exp minus iat under 1200 seconds, whose 401 error blames your credentials instead of your clock; a rule allowing exactly one app version in flight at a time; and a review-submission ceiling built from two separate counters — 2 in-flight, 5 total — where the orphan that pushes you over the total can't be deleted through the API at all. A two-call pre-flight catches all three before they cost a release.</div>
+
+<p>I shipped seven versions of my apps in thirty days by scripting the App Store Connect API end to end — build metadata, screenshots, submission, the works. Somewhere in that cadence I ran into three completely independent hard limits in the ASC API, each one verified live against my own apps on 2026-06-13. None of the three error messages point at their actual cause. One blames your credentials for what's really a clock problem. One tells you the app is in "the current state" without saying which state, or why that matters. One just says a count is over budget and leaves you to discover, the hard way, that the same API that created the excess item won't let you delete it either. Here's what each wall looks like, and the two-call pre-flight that catches all three before a script finds out about them for you.</p>
+
+<h2>The JWT 20-minute cap</h2>
+
+<p>Every call to the ASC API runs on a JWT you sign yourself — issuer ID, key ID, ES256 private key. What isn't obvious until you hit it: Apple enforces <code>exp - iat &lt;= 1200</code> seconds (20 minutes) as a hard cap on that token, no matter how far out you set <code>exp</code>. Set <code>exp</code> to <code>iat + 1200</code> exactly and the token works. Set it to <code>iat + 1201</code> — one second past the cap — and every call made with that token fails, even with a perfectly valid ES256 signature:</p>
+
+<pre><code>401 NOT_AUTHORIZED — Authentication credentials are missing or invalid</code></pre>
+
+<p>The message talks about credentials. The actual defect is the clock. Nothing in that string points at <code>exp</code>.</p>
+
+<table>
+<tr><th>exp setting</th><th>Result</th></tr>
+<tr><td>iat + 1200 (exactly 20 min)</td><td>Works</td></tr>
+<tr><td>iat + 1180 (as in the example below)</td><td>Works — margin for clock skew</td></tr>
+<tr><td>iat + 1201 or more</td><td>401 NOT_AUTHORIZED, valid signature or not</td></tr>
+<tr><td>iat + 1800 (30 min)</td><td>401 — whole batch fails</td></tr>
+</table>
+
+<div class="warn"><strong>ASC-specific:</strong> this cap applies only to the ASC API. Apple's other JWTs — DeviceCheck, App Attest, Apple Pay — use different expiry policies, which is exactly why habits carried over from those bite here: a token lifetime that's perfectly fine for one Apple API is a silent 401 on this one.</div>
+
+<pre><code>import jwt, time
+
+iat = int(time.time())
+payload = {
+    "iss": ISSUER_ID,
+    "iat": iat,
+    "exp": iat + 1180,  # stay under 1200; leaves clock-skew margin
+    "aud": "appstoreconnect-v1"
+}
+token = jwt.encode(payload, PRIVATE_KEY, algorithm="ES256",
+                   headers={"kid": KEY_ID})</code></pre>
+
+<p>The place this actually costs you time is a batch — uploading a full screenshot set is easily 12+ sequential calls. "Some calls succeeded, then the rest started failing with 401" isn't a flaky network or a rate limit; it's this cap expiring mid-batch, on a token that was perfectly valid when the batch started. Two fixes, pick one: re-issue a fresh token per request, or size the batch so it finishes inside the 20-minute window measured from the first <code>iat</code>.</p>
+
+<h2>One app version in flight</h2>
+
+<p>ASC allows exactly one app version in progress at a time. If a version is sitting in <code>PREPARE_FOR_SUBMISSION</code>, <code>WAITING_FOR_REVIEW</code>, or <code>IN_REVIEW</code> — any one of the three — trying to create a second fails:</p>
+
+<pre><code>POST /v1/appStoreVersions
+409 STATE_NOT_SUITABLE
+"You cannot create a new version of the App in the current state"</code></pre>
+
+<p>Which state, though? The error doesn't say — you have to go query it yourself. Fix: finish the in-flight version by letting it complete review, or developer-cancel it with <code>PATCH developerRejected=true</code>, then create the next one.</p>
+
+<h2>The review-submission ceiling</h2>
+
+<p>This is the one that actually stopped my automation, because it's two separate counters wearing one error-shaped costume, and I'd only budgeted for one of them.</p>
+
+<p>In-flight max 2 — <code>WAITING_FOR_REVIEW</code> and <code>IN_REVIEW</code> combined. Go over and you get <code>MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED</code>. Total max 5 — the same two states, plus every <code>READY_FOR_REVIEW</code> submission sitting around unsubmitted. Go over that and <code>POST /v1/reviewSubmissions</code> returns <code>CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code>.</p>
+
+<table>
+<tr><th>Limit</th><th>States counted</th><th>Error on exceed</th></tr>
+<tr><td>in-flight, max 2</td><td>WAITING_FOR_REVIEW + IN_REVIEW</td><td><code>MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED</code></td></tr>
+<tr><td>total, max 5</td><td>above two + READY_FOR_REVIEW orphans</td><td><code>CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code> (on <code>POST /v1/reviewSubmissions</code>)</td></tr>
+</table>
+
+<div class="warn"><strong>The orphan trap:</strong> a <code>READY_FOR_REVIEW</code> submission — created but never actually submitted — counts toward the 5-total ceiling, and there is no API path to remove it. <code>DELETE</code> returns 403. <code>PATCH canceled=true</code> returns 409. The only ways out are a manual cancel in the ASC web UI, or the 7-day auto-expiry (verified as of 2026). If a script creates a reviewSubmission and then dies, hangs, or gets killed before it submits, that orphan sits there burning one of your five slots for up to a week unless a human goes and clicks cancel.</div>
+
+<p>There's a slot-saving move buried in the same API, though: one reviewSubmission can bundle more than one item type — <code>appStoreVersion</code>, <code>appCustomProductPageVersion</code> (CPP), <code>appStoreVersionExperiment</code> (PPO), and <code>appEvent</code> can all ride in the same submission. Folding CPP variants and PPO experiments into the version's submission, instead of filing each as its own reviewSubmission, is the direct way to stop the 5-total budget from disappearing into things that aren't your actual app update.</p>
+
+<h2>The two-command pre-flight</h2>
+
+<p>Before any release automation touches the API, two GET calls tell you whether you're clear to proceed:</p>
+
+<pre><code>GET /v1/apps/{id}/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION,WAITING_FOR_REVIEW,IN_REVIEW
+GET /v1/reviewSubmissions?filter[state]=READY_FOR_REVIEW</code></pre>
+
+<p>The first tells you if a version is already in flight (limit two). The second counts the orphans eating your 5-total budget (limit three). If the second call returns any rows, cancel them in the ASC web UI first — the API that would let a script do it doesn't exist. If both come back clear, proceed.</p>
+
+<p>This checklist exists because I shipped seven versions in thirty days and found all three limits the hard way before I had it. Now it's the first thing that runs, before a single POST.</p>
+
+<h2>Why the errors all point the wrong way</h2>
+
+<p>None of the three error messages name the constraint that's actually biting you. <code>401 NOT_AUTHORIZED</code> blames your credentials for a clock problem. <code>409 STATE_NOT_SUITABLE</code> names a state without saying which one. <code>409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED</code> tells you a count is over budget without telling you the count includes an item the same API won't let you delete. All three are learnable exactly once — after that, the pre-flight above catches them before they cost a release. None of them are obvious from outside; I only got the exact numbers, error strings, and workarounds by hitting each wall against my own apps.</p>
+
+<p>I wrote each of these up in more detail, in Korean, as I hit them: <a href="https://hexisteme.github.io/dev-notes/asc-jwt-20min-cap.html">the JWT cap</a> and <a href="https://hexisteme.github.io/dev-notes/asc-in-flight-limits.html">the in-flight limits</a>.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does App Store Connect API return 401 NOT_AUTHORIZED when my JWT signature is valid?</strong><br>
+Because the JWT's exp is more than 1200 seconds (20 minutes) past iat. ASC API enforces that gap as a hard cap regardless of signature validity — a token with exp at iat + 1201 or later gets 401 NOT_AUTHORIZED — Authentication credentials are missing or invalid even with a perfectly valid ES256 signature. Set exp to iat + 1200 or less (e.g. iat + 1180, leaving clock-skew margin) and the same signature works.</p>
+
+<p><strong>Q. Why does a 30-minute JWT fail on the ASC API?</strong><br>
+A 1800-second (30-minute) token exceeds the 1200-second hard cap, so every call made with it fails with 401, and in a batch of calls the whole batch fails together. This cap is specific to the ASC API — Apple's other JWTs (DeviceCheck, App Attest, Apple Pay) use different expiry policies, so a 30-minute token that works fine elsewhere in Apple's stack is not fine here.</p>
+
+<p><strong>Q. What causes 409 CONCURRENT_REVIEW_SUBMISSION_LIMIT_EXCEEDED?</strong><br>
+An app has a hard ceiling of 5 total reviewSubmissions — WAITING_FOR_REVIEW + IN_REVIEW + READY_FOR_REVIEW combined. POST /v1/reviewSubmissions returns this error once that total is reached, even if only two submissions are actually in review; the rest can be READY_FOR_REVIEW orphans that were created but never submitted. This is a separate counter from the 2-in-flight limit (WAITING_FOR_REVIEW + IN_REVIEW), which returns MAX_IN_REVIEW_SUBMISSIONS_PER_PLATFORM_LIMIT_REACHED instead.</p>
+
+<p><strong>Q. How do I delete a READY_FOR_REVIEW orphan review submission?</strong><br>
+You can't, through the API. DELETE on the submission returns 403, and PATCH canceled=true returns 409 — both are rejected. The only ways to clear it are a manual cancel in the App Store Connect web UI, or waiting for the 7-day auto-expiry (verified as of 2026).</p>
+
+<p><strong>Q. Can I bundle CPP and PPO into one review submission?</strong><br>
+Yes. A single reviewSubmission can include appStoreVersion, appCustomProductPageVersion (CPP), appStoreVersionExperiment (PPO), and appEvent together — all four item types can ride in the same submission. Bundling CPP variants and PPO experiments into the same submission as the version update, instead of filing each separately, keeps them from consuming extra slots against the 5-total ceiling.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./government-open-data-api-docs-vs-reality.html">Government Open-Data APIs: Every Guess I Made Was Wrong Until I Probed It Live</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./why-your-vibe-coded-app-looks-worse.html">Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
