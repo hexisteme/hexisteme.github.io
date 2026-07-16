@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Agent Telemetry Ranks Your Routing Policy, Not Your Models — hexisteme notes</title>
+<meta name="description" content="I built a per-turn measurement pipeline over a few thousand real agent sessions and finally had the model-comparison table everyone asks for. It turned out to measure my own routing rules, not the models. Here is the walkthrough, plus a checklist for reading your own AI usage logs.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Agent Telemetry Ranks Your Routing Policy, Not Your Models", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why observational agent telemetry portrays your routing policy rather than model quality, and how to read your own AI usage logs honestly.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I rank LLM models from my own usage logs?", "acceptedAnswer": {"@type": "Answer", "text": "Not if you routed the work yourself. Observational usage logs reflect your dispatch policy — which model you sent which tasks to — so any gap is entangled with task difficulty, project, and timing. Without random assignment the comparison is association-only: it can describe differences but cannot attribute them to the models. Use it to generate hypotheses, then run a randomized test on the cells that look interesting."}}, {"@type": "Question", "name": "Why do bootstrap confidence intervals collapse to [0,0] on agent telemetry?", "acceptedAnswer": {"@type": "Answer", "text": "Because most cells are zero-inflated: tool errors and re-edits are rare, so the median and interquartile range are both zero. When almost every value is an identical zero, every bootstrap resample returns zero and the interval collapses to [0, 0]. That is tie-degeneracy, not precision — the data is nearly constant and the method has nothing to resample. Do not report it as a tight result."}}, {"@type": "Question", "name": "Why should model version epochs never be pooled?", "acceptedAnswer": {"@type": "Answer", "text": "Because a model name is not a stable treatment. After a relaunch, config change, or silent update, the same label can describe different behavior. Pooling turns from before and after averages two treatments into a blend you cannot reason about. Split each model at its version boundaries into epochs and compare epochs, not names."}}, {"@type": "Question", "name": "What is an association-only comparison?", "acceptedAnswer": {"@type": "Answer", "text": "It is a comparison where the groups were not randomly assigned, so observed differences are confounded with whatever decided the assignment. In agent telemetry, your routing rules decide which model runs which task, so the model column is tangled with difficulty, project, and time. Association-only tables can describe and monitor for drift, but they cannot establish cause."}}, {"@type": "Question", "name": "How do I compare AI models honestly?", "acceptedAnswer": {"@type": "Answer", "text": "Refuse five things: cross-comparing populations you route differently; pooling a model across version epochs; reading a [0, 0] interval as precision; summing counters that are not additive, like re-sent input tokens; and calling association causal. What survives those refusals is usually a hypothesis worth testing with a randomized experiment, not a ranking."}}]}
+</script>
+</head>
+<body>
+
+<h1>Your Agent Telemetry Ranks Your Routing Policy, Not Your Models</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">I built a per-turn measurement pipeline over a few thousand real agent sessions and got the model-comparison table everyone asks for — output tokens, tool errors, completion proxies across five models and two roles. This walks through why that table portrays my own routing policy rather than model quality, the traps I had to code around (role confounds, version epochs, [0, 0] confidence intervals, non-additive token counters, self-measurement), the single interval that still spanned zero, and a five-item checklist for reading your own AI usage logs without fooling yourself.</div>
+
+<p>I run a small fleet of Claude-family agents on one Mac. Every session gets logged — the long interactive ones I drive by hand, and the short subagent runs those main sessions spawn. A while ago I built a measurement pipeline (I call it PAMSL) that reads those transcripts into SQLite and attributes every single turn to the model that produced it. A few thousand real agent threads later, I had the thing people keep asking me for: a table comparing the models on actual workload telemetry. Tool error rate. Re-edit rate. Output tokens. A rough "did the task finish" proxy. Five models, two roles.</p>
+
+<p>The honest deliverable was a stack of refusals to conclude. This note is the walkthrough, because every trap in it applies to anyone reading their own AI usage logs.</p>
+
+<h2>The table everyone asks for</h2>
+<p>Here is the seductive row. On my main interactive sessions, median output tokens per thread:</p>
+<table>
+<thead><tr><th>model (main sessions)</th><th>median output tokens</th></tr></thead>
+<tbody>
+<tr><td>Claude Opus 4.8</td><td>404,080</td></tr>
+<tr><td>Claude Sonnet 5</td><td>27,616</td></tr>
+</tbody>
+</table>
+<p>That is nearly a 15x gap. Read naively, it says one model burns fifteen times more tokens than the other for the same work. People see a number like that and immediately want to rewrite their whole setup.</p>
+<p>It is not a fact about the models. It is a photograph of my dispatch rules.</p>
+
+<h2>It measures my routing, not the models</h2>
+<p>I deliberately send big, open-ended jobs to Opus main sessions and route quick, mechanical work to cheaper tiers. The models never got assigned to tasks at random. So that 15x is exactly what my own routing policy was built to produce: the expensive tier is where I <em>put</em> the expensive work.</p>
+<p>This is what "association-only" means. Every difference in the table is entangled with task difficulty, project, and time-of-week — because those are the very things I use to decide where each job goes. Nothing here is randomized, so every confounder is wide open. The table can describe. It cannot explain. I marked the whole thing Grade C, exploratory, and meant it.</p>
+<p>Once you accept that, the job stops being "rank the models" and becomes "list every way this table will lie to you." Here are the ones I had to code around.</p>
+
+<h2>Trap 1: main and sidechain are different populations</h2>
+<p>Main sessions are long, interactive, and I stay in the loop. Sidechain subagent runs are usually one-shot: fire, produce, exit. Those are two different populations with different length and structure. Cross-comparing them measures the harness, not the model, so I keep the two roles strictly separate and never put them in the same comparison.</p>
+<p>The sharpest version of this bit me on the completion proxy — a heuristic that guesses whether a thread "finished" from how its last line looks. One model's sidechains scored terribly: 92 of 99 ended on a <code>tool_result</code> line, which the heuristic read as "stopped mid-work." But that is just a harness logging convention for how subagent transcripts terminate. The work was fine. The metric was measuring log formatting. I threw sidechains out of the completion comparison entirely and kept it to main threads only.</p>
+
+<h2>Trap 2: a model name is not a stable treatment</h2>
+<p>In early July I relaunched one of the models after a change to its setup. The name on the label was identical before and after. The behavior was not. If I pool those turns under one name, I am averaging two different treatments and calling the blend "the model."</p>
+<p>So I split every model at its version boundaries into epochs — the pre-relaunch epoch and the post-relaunch epoch are separate rows, never summed. Epoch boundaries are calendar dates, fixed in advance. A model name is marketing. A version epoch is the thing you can actually reason about.</p>
+
+<h2>Trap 3: zero-inflated cells fake their own precision</h2>
+<p>Most cells in the table have a median of 0 and an interquartile range of 0 to 0 — tool errors are rare, re-edits in one-shot runs are rare, so the modal thread scores zero on almost everything. When I ran percentile bootstrap confidence intervals on those cells, they came back as [0, 0].</p>
+<p>A [0, 0] interval looks like breathtaking precision. It is the opposite. It is tie-degeneracy: so many identical zeros that every resample returns zero. The interval is not telling you the effect is pinned down to nothing; it is telling you the data is almost constant and the method has nothing to chew on. If you report those intervals as confidence, you are laundering a tie into a result.</p>
+
+<h2>The one interval worth reading</h2>
+<p>After discarding the degenerate cells and the cross-role comparisons, plenty of contrasts still qualified for an interval — but every one of them was a process-or-volume measure: token totals, tool-error rates, re-edit rates, recovery sequences. Gaps there mostly restate my dispatch decisions. Exactly one qualifying contrast measured whether the work actually finished rather than how big or bumpy it was: the completion proxy, main sessions, older flagship versus the relaunched model:</p>
+<ul>
+<li>Opus 4.8: 0.8793 completed (n=116)</li>
+<li>the relaunched model: 0.9211 completed (n=38)</li>
+<li>difference: -0.0417, 95% CI [-0.1375, 0.0712]</li>
+</ul>
+<p>The interval spans zero. The tempting headline — "the newer model finishes more of its tasks" — dies right there, in the one place I actually had the data to test it. That is the whole essay in three numbers: the cleanest comparison I could build still refused to separate the two.</p>
+
+<h2>Two more traps: token math and measuring myself</h2>
+<p><strong>Only output tokens add up.</strong> My pipeline stores input-token and cache-read totals per turn. Summing them across a thread looks reasonable and is wrong: every turn re-sends the same growing context, so those totals are the same tokens counted over and over, duplicates and all. Only output tokens are genuinely additive. Comparing "input token totals" across models compares context re-send patterns, not usage. I let only output tokens into the comparison.</p>
+<p><strong>I was inside my own corpus.</strong> The sessions where I built and audited this very pipeline are logged like any other work — and they land in the project stratum for the pipeline's own project, distorting exactly the numbers I was most tempted to read. Self-measurement contaminates itself. I flagged it, and the next iteration gets a dedicated exclusion stratum so the observer stops standing in the frame.</p>
+
+<h2>Why keep the pipeline if it concludes nothing?</h2>
+<p>Two reasons, both real.</p>
+<p>First, <strong>drift monitoring.</strong> Even without causal claims, a stable per-turn baseline tells me when something <em>moves</em> — when error rates or completion proxies shift after a relaunch or a harness change. You do not need identified causation to notice a regression.</p>
+<p>Second, and more useful: an association table tells you <strong>where randomization would pay.</strong> The cells that look interesting but are hopelessly confounded are a shopping list for the experiment worth actually running. I pre-registered a <a href="https://hexisteme.github.io/notes/randomized-experiment-unanalyzable-missing-join.html">separate randomized dispatch experiment</a> aimed at precisely the cells this table lit up. Observational telemetry is a hypothesis generator, not a verdict. Its job is to point at the question, not to answer it.</p>
+<p>That is also why I keep the pipeline honest about being a <a href="https://hexisteme.github.io/notes/pamsl-model-or-method-agent-behavior-science-lab.html">measurement lab, not a scoreboard</a>.</p>
+
+<h2>How to read your own AI telemetry without lying to yourself</h2>
+<p>Five refusals I now apply to any table pulled from usage logs:</p>
+<ol>
+<li><strong>Refuse to cross-compare populations you route differently.</strong> Interactive and one-shot, main and sidechain, cheap tier and expensive tier — if a rule sends work there, the split is your policy talking, not the model.</li>
+<li><strong>Refuse to pool a model across version epochs.</strong> Same name before and after a change is two treatments. Split at the boundary.</li>
+<li><strong>Refuse to read [0, 0] as precision.</strong> On zero-inflated data a collapsed interval is a tie, not an answer.</li>
+<li><strong>Refuse to sum counters that are not additive.</strong> Only output tokens add up; input and cache-read totals are the same context re-sent.</li>
+<li><strong>Refuse to call association causal.</strong> Nothing was randomized, so the table generates questions and settles none — and throw out any stratum your own tooling sessions polluted.</li>
+</ol>
+<p>None of this ranks the models. That was the point. The most honest thing my measurement pipeline produced was a precise account of what it could not yet know.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Can I rank LLM models from my own usage logs?</strong><br>
+Not if you routed the work yourself. Observational usage logs reflect your dispatch policy — which model you sent which tasks to — so any gap is entangled with task difficulty, project, and timing. Without random assignment the comparison is association-only: it can describe differences but cannot attribute them to the models. Use it to generate hypotheses, then run a randomized test on the cells that look interesting.</p>
+
+<p><strong>Q. Why do bootstrap confidence intervals collapse to [0,0] on agent telemetry?</strong><br>
+Because most cells are zero-inflated: tool errors and re-edits are rare, so the median and interquartile range are both zero. When almost every value is an identical zero, every bootstrap resample returns zero and the interval collapses to [0, 0]. That is tie-degeneracy, not precision — the data is nearly constant and the method has nothing to resample. Do not report it as a tight result.</p>
+
+<p><strong>Q. Why should model version epochs never be pooled?</strong><br>
+Because a model name is not a stable treatment. After a relaunch, config change, or silent update, the same label can describe different behavior. Pooling turns from before and after averages two treatments into a blend you cannot reason about. Split each model at its version boundaries into epochs and compare epochs, not names.</p>
+
+<p><strong>Q. What is an association-only comparison?</strong><br>
+It is a comparison where the groups were not randomly assigned, so observed differences are confounded with whatever decided the assignment. In agent telemetry, your routing rules decide which model runs which task, so the model column is tangled with difficulty, project, and time. Association-only tables can describe and monitor for drift, but they cannot establish cause.</p>
+
+<p><strong>Q. How do I compare AI models honestly?</strong><br>
+Refuse five things: cross-comparing populations you route differently; pooling a model across version epochs; reading a [0, 0] interval as precision; summing counters that are not additive, like re-sent input tokens; and calling association causal. What survives those refusals is usually a hypothesis worth testing with a randomized experiment, not a ranking.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./randomized-experiment-unanalyzable-missing-join.html">The randomized dispatch experiment this table pointed to</a></li>
+<li><a href="./pamsl-model-or-method-agent-behavior-science-lab.html">The pipeline as a measurement lab, not a scoreboard</a></li>
+<li><a href="./llm-judge-schema-bias-controlled-experiment.html">Catching schema bias with a controlled LLM-judge experiment</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
