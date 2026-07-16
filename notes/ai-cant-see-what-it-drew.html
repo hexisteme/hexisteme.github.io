@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The AI Can't See What It Drew — hexisteme notes</title>
+<meta name="description" content="In a mascot redesign for my trip expense-splitting app, the arms rendered as legs while the code read perfectly. An AI cannot see what it drew, so render structural variants first and look before you argue.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The AI Can't See What It Drew", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Rendering UI variants before reviewing AI-written SwiftUI code", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does AI-generated UI code look wrong even when the code reviews clean?", "acceptedAnswer": {"@type": "Answer", "text": "Because an AI writing UI code cannot see the picture that code produces, and neither can a human scanning the diff. Rendering happens at runtime while a review only sees source, so syntactically fine, type-checked SwiftUI can still draw the wrong thing. The only reliable check is to render the interface and look at it, not to read the code more carefully."}}, {"@type": "Question", "name": "How many design variants should I prototype, and how different should they be?", "acceptedAnswer": {"@type": "Answer", "text": "Three, and structurally different rather than palette swaps. Variants that differ only in color teach you almost nothing, while variants with different silhouettes, anatomy, and identity devices force a real decision. Render them side by side and choose by looking, not by arguing."}}, {"@type": "Question", "name": "How do I stop an AI refactor from breaking a parameter that is used elsewhere?", "acceptedAnswer": {"@type": "Answer", "text": "Grep every call site before you change or remove a parameter. A parameter's name is only a guess about its meaning, but its call sites are its real contract. I nearly deleted a parameter I assumed was a facial expression, and the call sites showed it was actually a screen-context badge used in eight places."}}, {"@type": "Question", "name": "What is a falsifier for a design decision?", "acceptedAnswer": {"@type": "Answer", "text": "It is a concrete, observable outcome you write down in advance that would prove the choice wrong. Instead of saying you like a design, you pre-register something like 'if the mascot is unreadable below 32pt, this was the wrong pick,' and then check it at real sizes. Liking a render is not evidence, but a falsifier that survives or fires is."}}, {"@type": "Question", "name": "Why did a SwiftUI rotation anchor make the arms look like legs?", "acceptedAnswer": {"@type": "Answer", "text": "The arm's rotation anchor was set to the fingertip end with anchor: .bottom instead of the shoulder, so the arm swung around the hand and read as a leg. The value looks perfectly ordinary in source and is invisible in a review, and it only becomes obvious when you render the animation and watch it move."}}]}
+</script>
+</head>
+<body>
+
+<h1>The AI Can't See What It Drew</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">My trip expense-splitting app's mascot was a tinted circle showing up in twenty-plus places, and no amount of discussion could pin down what to change — a fidelity problem, not an information one. So I rendered three structurally different variants, and the first render exposed a bug no code review could catch: the arms rotated from the fingertips (<code>anchor: .bottom</code>) and read as legs. This is the sequel to why your vibe-coded app looks worse, and the fix that worked — render and look before you argue, grep call sites before you touch a contract, and pre-register what would prove the choice wrong.</div>
+
+<p>A while back I wrote about <a href="./why-your-vibe-coded-app-looks-worse.html">why your vibe-coded app looks worse</a> than you expect. That post diagnosed the cause. This one is the fix that actually worked, on a real job: redesigning the mascot in my trip expense-splitting app.</p>
+
+<p>The mascot is the face of the app. It shows up in more than twenty places — onboarding, settings, the stats screen, the map, the diary, the settlement report, and five little mini-games. And it was nothing. One circle did double duty as head and body. No legs. No hands. No eyebrows. One X for an eye. Visually its identity was zero: a tinted circle. I knew it was bad. What I could not do was say what to change.</p>
+
+<h2>Words don't converge on a picture</h2>
+
+<p>I kept talking myself in circles about it, and so did the AI I was pairing with. Rounder? Add a hat? Bigger eyes? Every sentence sounded reasonable and none of them moved the decision. At some point I noticed what was actually going on: this was not a shortage of information. Nobody needed to go fetch a fact. It was a shortage of <em>fidelity</em>. A visual decision cannot converge in prose, because prose is not the medium the decision lives in.</p>
+
+<p>That is the tell. When a discussion loops and more words don't help, you don't need more analysis — you need a picture. So I stopped arguing and built prototypes.</p>
+
+<h2>Three variants, not more tints</h2>
+
+<p>The rule I gave myself: make variants that are <em>structurally</em> different, not palette swaps. Different silhouette, different anatomy, a different device carrying the identity. Repainting the same shape in different colors teaches you nothing. Three genuinely different creatures force a real choice.</p>
+
+<p>I built three and rendered every one as an action sheet so I could look at them side by side:</p>
+
+<ul>
+<li><strong>A, a jelly bean.</strong> The safe evolution of what I already had. It slots into the UI cleanly, but its whole identity hangs on a single coin floating over its head. Shrink it and it's just a round blob again.</li>
+<li><strong>B, a wallet.</strong> Object personification: a wallet body with a flap, a snap button, stitching, banknotes peeking out the top, and stubby limbs, with the face on the wallet's front. Emotion gets a second channel — the banknotes pop up higher when the mood is up.</li>
+<li><strong>C, a cat.</strong> Maximum facial expressiveness, which is great for the games. But "treasurer" is carried only by a scarf, and the link to the travel and money context is thin.</li>
+</ul>
+
+<p>Then I looked. Not at the code — at the pictures.</p>
+
+<h2>The bug a code review cannot catch</h2>
+
+<p>The first render of the wallet had a problem you would never find by reading the diff: the arms read as legs. The little guy looked like it had four legs and no arms.</p>
+
+<p>The cause was one line. The arm's rotation anchor was set to <code>anchor: .bottom</code> — the fingertip end — so the arm rotated around the hand instead of the shoulder. The shoulder was swinging around a pinned fingertip. In code that is a completely ordinary, plausible-looking value. <code>.bottom</code> is a normal anchor. Nothing about the source says "this will look like a leg." You cannot see it by reading. You can only see it by rendering.</p>
+
+<p>This is the whole point, and it is why the essay is called what it's called. The AI that wrote that line could never have seen the result. It emitted syntactically fine SwiftUI, the type checker was happy, a human scanning the diff would nod it through — and the thing on screen was wrong. An AI writing UI code is blind to its own output. So are you, in a review. The only cure is to render and look.</p>
+
+<h2>Grep before you touch a contract</h2>
+
+<p>While I was in there, I nearly caused a regression. The mascot's initializer takes an <code>expression</code> parameter, and I assumed <code>expression</code> meant <em>facial expression</em>. Since I was rebuilding the face anyway, I went to delete it.</p>
+
+<p>Before I did, I grepped the call sites. <code>expression</code> was not the face at all. It was a screen-context badge channel — a small marker for language, map, stats, diary, spend, or Pro — and eight call sites were passing it. Deleting it would have silently broken a feature in eight places that had nothing to do with the face I was changing.</p>
+
+<p>The lesson is boring and it keeps paying rent: read every call site before you change a parameter's contract. A name is a guess about meaning; the call sites are the meaning. I kept the badge, and decoupled it from the body's wobble so both read more clearly.</p>
+
+<h2>Why the wallet won</h2>
+
+<p>I picked B, the wallet. The reason is one sentence: the silhouette alone says "money app," and for a mascot on an expense app, saying what the app is <em>is the whole job</em>. A tinted circle said nothing. A wallet says it before you've read a single word.</p>
+
+<p>Emotion ended up with three independent channels: the face (a <code>MascotMood</code> type with seven states — eyebrows, eyes with a highlight for a bit of life, mouth, a cheek touch), the banknotes popping with the mood, and squash-and-stretch on the whole body. The old mascot had one channel, a mouth shape.</p>
+
+<p>The part I'm quietly happy about: it dropped in with the interface unchanged. The initializer is still <code>AnimatedMascot(tint:direction:action:size:expression:speed:externalPhase:)</code>. All twenty-plus call sites stayed exactly as they were, and the build went straight to <code>BUILD SUCCEEDED</code>. A redesign that reads as a rewrite from the outside but touches one file on the inside.</p>
+
+<p>Here is the before and after:</p>
+
+<table>
+<thead><tr><th></th><th>Old</th><th>Wallet</th></tr></thead>
+<tbody>
+<tr><td>Silhouette</td><td>one circle (head = body)</td><td>wallet + flap + banknotes + limbs</td></tr>
+<tr><td>Legs and hands</td><td>none</td><td>present (walk actually walks)</td></tr>
+<tr><td>Expression</td><td>mouth only, no eyebrows</td><td>seven-state mood with eyebrows</td></tr>
+<tr><td>Eyes</td><td>white plus pupil</td><td>plus a highlight</td></tr>
+<tr><td>Identity</td><td>none</td><td>wallet = money</td></tr>
+<tr><td>Emotion channels</td><td>one</td><td>three</td></tr>
+</tbody>
+</table>
+
+<h2>Pre-register what would prove you wrong</h2>
+
+<p>Liking a render is not proof. Before I committed, I wrote down what I would <em>observe</em> if the choice were wrong — falsifiers — and then went and checked them in the real app: built and run on the simulator (iPhone 17 Pro Max, iOS 26.3) for the big screens, plus a headless size ladder rendering the production mascot at 28, 36, 44, 64, and 96pt across idle, wave, stunned, and laugh.</p>
+
+<ul>
+<li><strong>"The wallet is unreadable at small sizes and looks like a rectangle."</strong> Did not fire. The wallet is clearly readable at 36 and 44pt — flap, banknotes, stitching, and limbs all identifiable. List rows are 44pt, so they're safe. Only at 28pt does it degrade to a coral blob, and 28pt appeared in exactly one spot, a single game accent. I bumped that one to 36pt.</li>
+<li><strong>"Emotions are illegible in the mini-games."</strong> Partly true. Emotions are clear at 64pt and up, and the shared defeat mascot is 72pt, so the big moment is fine. But small 28–36pt game accents do blur taunt versus laugh versus stunned — the face is small relative to the body. That was a pre-registered risk, and I accepted it with a planned size bump.</li>
+<li><strong>"The travel context is lost."</strong> Still open. A wallet says money, not travel. For now the onboarding and header copy carry the travel context in text, and I'm leaving this one for real user feedback rather than guessing.</li>
+</ul>
+
+<p>Two of three either didn't fire or were survivable, and the one that's open is open honestly, with a stated plan. That's a decision I can defend later, because I wrote down in advance what would sink it.</p>
+
+<h2>Even the verification surface needs verifying</h2>
+
+<p>One more thing, because it's a good reminder. While checking all this in the simulator, every emoji rendered as a tofu box — the little "?" rectangle. My first instinct was that I'd shipped a bug.</p>
+
+<p>I hadn't. A grep showed zero custom fonts anywhere; every emoji goes through a plain <code>Text</code> on the system font. That means on a real device it falls back to Apple Color Emoji and renders fine. The tofu was an iOS simulator runtime artifact — the emoji font simply wasn't loaded in that build of the simulator — not a product bug. The mascot itself, being pure SwiftUI shapes, was fine at every size.</p>
+
+<p>The lesson: the surface you verify on can <a href="./verify-the-output-surface.html">lie to you too</a>. One render told me the truth about the arms and a different render told me a falsehood about the emoji. You have to know which surface you're looking at.</p>
+
+<h2>The loop that works for visual decisions</h2>
+
+<p>Stripped down, here's the loop that came out of this:</p>
+
+<ol>
+<li><strong>Diagnose fidelity versus information.</strong> If the discussion loops and more words don't help, you have a fidelity problem. Render — don't debate.</li>
+<li><strong>Build three structural variants, not more tints.</strong> Different silhouette and anatomy, not different colors.</li>
+<li><strong>Render and look before you review the code.</strong> The AI can't see what it drew and neither can you in a diff. Screenshots are ground truth; source is not.</li>
+<li><strong>Grep the call sites before touching a contract.</strong> A parameter's name is a guess; its uses are the meaning.</li>
+<li><strong>Pre-register what would prove the choice wrong, and check it at real sizes.</strong> Liking a picture isn't proof.</li>
+</ol>
+
+<p>The prequel explained why vibe-coded UI comes out worse than you'd think. This is the answer: stop reviewing code you can't see, and start rendering pictures you can.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does AI-generated UI code look wrong even when the code reviews clean?</strong><br>
+Because an AI writing UI code cannot see the picture that code produces, and neither can a human scanning the diff. Rendering happens at runtime while a review only sees source, so syntactically fine, type-checked SwiftUI can still draw the wrong thing. The only reliable check is to render the interface and look at it, not to read the code more carefully.</p>
+
+<p><strong>Q. How many design variants should I prototype, and how different should they be?</strong><br>
+Three, and structurally different rather than palette swaps. Variants that differ only in color teach you almost nothing, while variants with different silhouettes, anatomy, and identity devices force a real decision. Render them side by side and choose by looking, not by arguing.</p>
+
+<p><strong>Q. How do I stop an AI refactor from breaking a parameter that is used elsewhere?</strong><br>
+Grep every call site before you change or remove a parameter. A parameter's name is only a guess about its meaning, but its call sites are its real contract. I nearly deleted a parameter I assumed was a facial expression, and the call sites showed it was actually a screen-context badge used in eight places.</p>
+
+<p><strong>Q. What is a falsifier for a design decision?</strong><br>
+It is a concrete, observable outcome you write down in advance that would prove the choice wrong. Instead of saying you like a design, you pre-register something like 'if the mascot is unreadable below 32pt, this was the wrong pick,' and then check it at real sizes. Liking a render is not evidence, but a falsifier that survives or fires is.</p>
+
+<p><strong>Q. Why did a SwiftUI rotation anchor make the arms look like legs?</strong><br>
+The arm's rotation anchor was set to the fingertip end with anchor: .bottom instead of the shoulder, so the arm swung around the hand and read as a leg. The value looks perfectly ordinary in source and is invisible in a review, and it only becomes obvious when you render the animation and watch it move.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./why-your-vibe-coded-app-looks-worse.html">Why Your Vibe-Coded App Looks Worse</a> — the prequel that diagnosed the cause.</li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface</a> — when the thing you check on can lie to you.</li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Monitor Green, Nothing Shipped: Score the Effect</a> — judging work by its result, not its logs.</li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
