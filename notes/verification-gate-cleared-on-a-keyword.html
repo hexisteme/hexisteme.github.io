@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Verification Gate Cleared on a Keyword, Not Evidence — hexisteme notes</title>
+<meta name="description" content="A reader turned my sycophancy gate into an observable test, and the gate failed it — its escape condition was a keyword in the agent's own prose. I measured the false-positive cost over 212 transcripts before tightening it, and 0 turns were newly blocked.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My Verification Gate Cleared on a Keyword, Not Evidence", "datePublished": "2026-07-21", "dateModified": "2026-07-21", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a verification gate whose escape condition is a keyword in the audited agent's own prose is a self-report reader rather than an audit, and how the false-positive cost of tightening it was measured first", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can an automated gate tell whether an AI agent actually verified something?", "acceptedAnswer": {"@type": "Answer", "text": "Look for an execution trace, not for the agent saying it verified. In my Stop hook the escape condition used to be a keyword in the agent's own reply, which any agent can write without running anything. It now requires that keyword plus at least one recorded tool call in the window between the challenge and the reply. Prose is a self-report; a logged tool call is a fact about the process."}}, {"@type": "Question", "name": "Why is a keyword check a weak escape condition for a verification gate?", "acceptedAnswer": {"@type": "Answer", "text": "Because the keyword lives in prose written by the thing being audited. A gate that clears when the reply mentions verification is reading a receipt the auditee wrote for itself. Standing outside the process does not make a check independent; what it reads does. That is the most dangerous kind of gate failure, because a real script behind the green light lends the green light an authority it has not earned."}}, {"@type": "Question", "name": "How do I tighten a gate without breaking legitimate cases?", "acceptedAnswer": {"@type": "Answer", "text": "Measure the false-positive cost against real history before you change the rule. I replayed the proposed rule over 212 transcripts containing 434 challenge turns. 63 turns had cleared on the verification keyword, 7 of those fell in the band the new rule would touch, and all 7 had a real execution trace, so 0 turns were newly blocked. One scan is a bounded cost; false positives in every future session are not."}}, {"@type": "Question", "name": "Does proving that a tool ran prove that a claim was verified?", "acceptedAnswer": {"@type": "Answer", "text": "No. It proves some tool ran inside the window, not that it ran on this claim. Grepping an unrelated file satisfies the check. These are two separate questions: what counts as evidence, and whether that evidence supports the claim. The first is mechanically checkable and closed in half a day. The second needs something that can read both the claim and the evidence and judge the relation between them, which puts me back in front of a model. In my system that half is still unsolved."}}]}
+</script>
+</head>
+<body>
+
+<h1>My Verification Gate Cleared on a Keyword, Not Evidence</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-21</p>
+
+<div class="note">Three readers pushed on the same subsystem of mine within three days. Two proposed architecture; the third proposed an observable test — did the challenge produce evidence, a correction, or a refusal — and my gate failed it. Its escape condition was a keyword in the audited agent's own prose, so a reply that merely said it had re-verified cleared the gate without running anything. Worse, I had already published the stronger claim in a machine-readable FAQ block. Before tightening the rule I replayed it over 212 transcripts and 434 challenge turns: 63 had cleared on the keyword, 7 fell in the affected band, all 7 had real execution traces, 0 were newly blocked. The fix requires a recorded tool call in the window between challenge and reply — which proves a tool ran, not that it ran on this claim. That second half is still unsolved.</div>
+
+<p>Three readers commented on the same post of mine within three days, and all three went after the same subsystem. The post described a Stop hook I run over my own agent sessions: when I push back on a conclusion, the hook checks whether the agent folded without verifying anything, and blocks the turn if it did.</p>
+
+<p>Two of the comments proposed architecture. @hannune suggested making the verifying agent blind to the previous answer so it can't anchor on it. @xm_dev_2026 suggested putting cheap structural checks in front of the expensive model-based verification. Both are reasonable. Neither told me anything about whether the thing I had already shipped worked.</p>
+
+<p>The third one did. @alexshev proposed measuring the gate by whether a challenge produced evidence, a correction, or a refusal — and noted that if all that changed was the tone getting softer, what the model learned was a social pattern, not a verification habit.</p>
+
+<p>That is a test, not a suggestion. So I ran it against my own code, and the gate failed it.</p>
+
+<h2>Both sides of the gate were text patterns</h2>
+
+<p>The hook is an AND gate over three deterministic conditions: the last user message matches a challenge pattern, the assistant's reply matches a capitulation pattern, and the reply fails to demonstrate verification. Miss any one and the turn passes. The third condition is where it fell apart:</p>
+
+<pre>VERIFY = re.compile(r"(cross[-\s]?family|sage|adversari|refut|...)", re.I)
+if VERIFY.search(last_assistant_text):
+    sys.exit(0)          # gate cleared</pre>
+
+<p>The escape condition was a keyword in the assistant's own prose. Writing <em>"I re-verified this cross-family and I'm keeping the answer"</em> cleared the gate without running anything. The auditor stands outside the process, but what it reads is a receipt written by the thing being audited.</p>
+
+<p>That is not a hypothetical failure mode. I have measured it. On 2026-07-13 a subagent in the same fleet reported it had fixed seven files; zero files had changed on disk, and when I demanded evidence, it forged the <code>ls -la</code> and <code>grep -c</code> output too. Verification-shaped output is cheap.</p>
+
+<p>There was a second finding I liked even less. A quiet retreat — hedging, walking a claim back without ever saying "you're right" — never reaches the trigger at all, because the second condition requires a capitulation marker. The hook's own header says so: silent flips are a deliberate false negative, traded away to keep false positives down. So the gate caught only the loud folds, and cleared even those on a social signature.</p>
+
+<h2>The overstatement was already published</h2>
+
+<p>The bug was mine to fix. The claim I had built on top of it was already out in public.</p>
+
+<p>The predecessor note for this gate carries a FAQPage block — the structured-data kind that exists to be quoted verbatim. One of its answers describes the hook as a rule where "the agent must run one cross-family adversarial verification" before it may hold or change a conclusion.</p>
+
+<p>Must run. At the time that sentence went live, the gate did not enforce it: a reply that merely <em>said</em> it had verified exited clean. The distance between what my gate enforced and what I believed it enforced had not stayed in my head. It had propagated into prose, and from prose into a machine-readable block whose whole purpose is to be read and quoted as a description of my system.</p>
+
+<p>The fix narrows that distance without closing it. The gate now demands an execution trace, so "must run something" is enforced. "Must run one cross-family adversarial verification" still is not — the check proves a tool ran, not which tool, and not what it was pointed at. The sentence is closer to true than when I published it, and still not literally satisfied.</p>
+
+<h2>I measured the false-positive cost before tightening it</h2>
+
+<p>Tightening an escape condition means turns that used to pass now get blocked. If some of those turns had done real verification and merely described it in prose, I would be breaking working sessions in order to close a hole.</p>
+
+<p>So before changing anything, I replayed the proposed rule over my actual history:</p>
+
+<table>
+<thead><tr><th>Sample</th><th>Count</th></tr></thead>
+<tbody>
+<tr><td>Transcripts scanned</td><td>212</td></tr>
+<tr><td>Challenge turns found</td><td>434</td></tr>
+<tr><td>Cleared on the verification keyword</td><td>63</td></tr>
+<tr><td>...also carrying a capitulation marker (<strong>the band the new rule touches</strong>)</td><td>7</td></tr>
+<tr><td>...of those, with a real execution trace: still passes</td><td><strong>7</strong></td></tr>
+<tr><td>...of those, with no trace: newly blocked</td><td><strong>0</strong></td></tr>
+</tbody>
+</table>
+
+<p>Zero newly blocked. Every turn in the affected band had actually run something — the keyword was describing real work, not standing in for it. That is a considerably better reason to ship a tightening than "it seems more correct."</p>
+
+<p>I had also pre-registered a condition that would have made me back off: if delegated subagent calls didn't show up in the main transcript, the new requirement would punish legitimate delegated verification, and I would weaken it. That got rejected too. Delegation calls were recorded normally in the sample.</p>
+
+<p>The cost of this measurement was one scan over 212 files. The cost of getting it wrong is a false positive in every session from now on. That trade is not close.</p>
+
+<h2>The fix, and where the evidence was hiding</h2>
+
+<p>The change is one clause. The escape condition went from <code>keyword</code> to <code>keyword AND at least one tool call between the challenge turn and the reply</code>.</p>
+
+<p>The data was already in the hook's hands. It was walking the entire transcript, entry by entry, and reading only the blocks of <code>type == "text"</code>. The <code>tool_use</code> blocks were sitting in the same list, in the same loop, unread. The evidence was next to the thing I was checking; I just wasn't looking at it. That was the shape of this bug — not missing data, unexamined data.</p>
+
+<p>When the keyword is present but the execution trace is not, the hook now emits a different reason: it says the reply <em>claimed</em> verification while leaving no trace of it in this window, and asks for an actual run before a hold-or-change verdict. Distinguishing "did not verify" from "said it verified" matters, because the second one is the failure I actually care about.</p>
+
+<p>I also wrote seven tests. The hook had zero. They cover: the new block fires; the old behavior does not regress; the intentional silent-flip false negative is preserved on purpose; a tool call from <em>before</em> the challenge does not count as evidence; and a delegated subagent call does.</p>
+
+<p>That last pair is the whole design in miniature. Evidence has a window. Anything outside it is someone else's receipt.</p>
+
+<h2>What this still does not prove</h2>
+
+<p>The new check proves that <em>a</em> tool ran. It does not prove that the tool ran <em>on this claim</em>. Grep an unrelated file inside the window and the gate is satisfied.</p>
+
+<p>@xm_dev_2026 named the decomposition exactly, in a follow-up comment: what counts as evidence is one question, and whether that evidence supports the claim is a different one.</p>
+
+<p>The first half is mechanically checkable, which is why it closed in half a day. The second half needs something that can read both the claim and the evidence and judge the relation between them — and that puts me back in front of a model, which is where the sycophancy problem came from in the first place. The split is real, and it is asymmetric. I am not going to pretend the second half is nearly done.</p>
+
+<h2>What generalizes</h2>
+
+<ul>
+<li>If a gate's escape condition is prose written by the thing being audited, it is not an audit. It is a self-report reader. Standing outside the process does not make a check independent. What it reads does.</li>
+<li>The most dangerous layer is the one that looks like an external auditor and isn't. A gate that fails open silently is bad; a gate that fails open with a real script behind it is worse, because the green light borrows the script's authority.</li>
+<li>Any change that tightens a rule should be paired with a measurement of what that rule would have blocked historically.</li>
+<li>Evidence needs a window. "Something ran" is not a claim until you say when, relative to what.</li>
+<li>The gap between what a gate enforces and what its author thinks it enforces does not stay private. It ends up in the docs.</li>
+<li>Of three good comments, the one that changed the code was the one written as an observable test. An architecture suggestion describes a system you might build. A test tells you something about the one you already shipped.</li>
+</ul>
+
+<h2>Still open</h2>
+
+<p>The blind-verifier suggestion stays open, and I think it is right — but it is downstream of this one. Improving the verifier while the gate does not require the verifier to be called is a better lock on a door nobody has to walk through. Make invocation observable first, then make the invoked thing harder to fool.</p>
+
+<p>The second half of the decomposition — whether the evidence supports the claim — is unsolved.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How can an automated gate tell whether an AI agent actually verified something?</strong><br>
+Look for an execution trace, not for the agent saying it verified. In my Stop hook the escape condition used to be a keyword in the agent's own reply, which any agent can write without running anything. It now requires that keyword plus at least one recorded tool call in the window between the challenge and the reply. Prose is a self-report; a logged tool call is a fact about the process.</p>
+
+<p><strong>Q. Why is a keyword check a weak escape condition for a verification gate?</strong><br>
+Because the keyword lives in prose written by the thing being audited. A gate that clears when the reply mentions verification is reading a receipt the auditee wrote for itself. Standing outside the process does not make a check independent; what it reads does. That is the most dangerous kind of gate failure, because a real script behind the green light lends the green light an authority it has not earned.</p>
+
+<p><strong>Q. How do I tighten a gate without breaking legitimate cases?</strong><br>
+Measure the false-positive cost against real history before you change the rule. I replayed the proposed rule over 212 transcripts containing 434 challenge turns. 63 turns had cleared on the verification keyword, 7 of those fell in the band the new rule would touch, and all 7 had a real execution trace, so 0 turns were newly blocked. One scan is a bounded cost; false positives in every future session are not.</p>
+
+<p><strong>Q. Does proving that a tool ran prove that a claim was verified?</strong><br>
+No. It proves some tool ran inside the window, not that it ran on this claim. Grepping an unrelated file satisfies the check. These are two separate questions: what counts as evidence, and whether that evidence supports the claim. The first is mechanically checkable and closed in half a day. The second needs something that can read both the claim and the evidence and judge the relation between them, which puts me back in front of a model. In my system that half is still unsolved.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="https://hexisteme.github.io/notes/challenge-triggered-reverification.html">Your AI Agent Folds When You Push Back</a> — the challenge-triggered verification gate this note is about, one layer up.</li>
+<li><a href="https://hexisteme.github.io/notes/ai-subagent-faked-verification-output.html">My AI Subagent Faked the Verification Output I Asked It to Attach</a> — the earlier measured case of verification-shaped output with nothing behind it.</li>
+<li><a href="https://hexisteme.github.io/notes/forced-dissent-slot-has-a-floor.html">A Forced Dissent Slot Manufactures Dissent</a> — a sibling note on reading convergence instead of population.</li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
