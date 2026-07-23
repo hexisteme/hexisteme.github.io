@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Four Models Cited My Numbers Perfectly. One Still Misread Them. — hexisteme notes</title>
+<meta name="description" content="A numeric-citation audit passed 70 of 70 citations across four model families, and a pre-registered equivalence test cleared its margin too. Neither check measured what I actually needed to know, and adversarial review caught the gap both times.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Four Models Cited My Numbers Perfectly. One Still Misread Them.", "datePublished": "2026-07-23", "dateModified": "2026-07-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Auditing AI-agent telemetry across multiple model families: why a 70-of-70 numeric-citation audit and a pre-registered statistical equivalence test can both pass without verifying the conclusion drawn from them.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What does a numeric-citation audit actually verify?", "acceptedAnswer": {"@type": "Answer", "text": "It verifies that a cited number matches its source within tolerance, nothing more. My audit recomputed all 70 numbers that four different model families had cited from a frozen dataset, checked each one against the source within 5%, and found zero mismatches and zero hallucinated numbers. That's a real result, but it's a copy-fidelity check. It can't tell you whether a model drew the right conclusion from a number it quoted correctly."}}, {"@type": "Question", "name": "How can a model cite a number accurately and still misread it?", "acceptedAnswer": {"@type": "Answer", "text": "One row in my dataset, Claude Sonnet 5's main-role threads, a population of just nine, had four behavioral metrics read exactly zero, including its tool-error rate. That's a measurement artifact, not a performance: this model barely acts in a main-role thread here, so the edit-derived rates have no edits underneath them and default to zero, while a median tool-error rate over nine sparse threads is tie-degenerate rather than a real track record. One outside model, DeepSeek, cited the zero correctly and concluded it meant precise, error-free tool use, then built a routing suggestion on that reading. The citation was accurate. The inference one step later wasn't, and a citation-accuracy audit has no way to catch that, because it only checks arithmetic."}}, {"@type": "Question", "name": "What is a TOST equivalence test, and why did mine still get overturned after it passed?", "acceptedAnswer": {"@type": "Answer", "text": "TOST, two one-sided tests, checks whether an observed difference is small enough to sit entirely inside a margin you commit to before seeing the data. Mine did: comparing my relaunched main model (54 main-role sessions) to Claude Opus 4.8 (145 main-role sessions) on same-file re-edit rate, the mean difference was +0.089 with a 90% confidence interval of [+0.015, +0.163], fully inside my pre-registered margin of ±0.222. Two adversarial reviewers from different model families still called it unsupported: the margin was wide enough to pass almost anything, the same interval excluded zero — meaning a real, directional gap exists — and the metric never touched correctness, task success, or latency, the things that would actually justify a routing decision."}}, {"@type": "Question", "name": "Was either check worthless, then?", "acceptedAnswer": {"@type": "Answer", "text": "No. The citation audit still rules out a real failure mode, models fabricating statistics, across four independently trained model families with zero hallucinations. The equivalence test still ruled out a large difference between the two models. Both are genuine, useful floors. The mistake was letting a pass stand in for a broader claim neither check was built to make."}}, {"@type": "Question", "name": "What changed in how you run these checks now?", "acceptedAnswer": {"@type": "Answer", "text": "Two things. Any analysis I delegate to an LLM now gets a second, adversarial interpretation pass from a different model family, not just a citation-accuracy pass, specifically instructed to argue against the conclusions rather than just check the digits. And any equivalence claim has to report whether its confidence interval excludes zero, win or lose, because a wide margin with a directional interval is a different finding from a tight margin with an interval that straddles zero, even though both would formally pass."}}]}
+</script>
+</head>
+<body>
+
+<h1>Four Models Cited My Numbers Perfectly. One Still Misread Them.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-23</p>
+
+<div class="note">I ran two checks on my own AI-agent telemetry before trusting any conclusion drawn from it: a numeric-citation audit across four model families, and a pre-registered statistical equivalence test. Both passed. Neither one verified what I actually needed to know. One family cited a row of zeros perfectly and still misread what the zeros meant; the equivalence test cleared its pre-registered margin while adversarial review showed the margin was too loose and the underlying gap wasn't actually zero. Two green checkmarks, the same blind spot underneath both.</div>
+
+<h2>Two checks, one blind spot</h2>
+<p>I recently froze a table of behavioral metrics computed from 281 of my own AI-agent sessions and ran it through two separate checks before I let myself trust any conclusion drawn from it. Both checks passed. Neither one verified the thing I actually needed to know — and both failures turned out to have the exact same shape.</p>
+<p>The underlying table is observational, closer to a photograph of my own routing policy than a fact about the models sitting in it, and I've already written about that failure mode on its own. This post assumes that caveat and goes one layer past it: what happens after you've accepted it, built real checks anyway, and watched them both come back green.</p>
+
+<h2>Act one: a citation audit that passed 70 of 70</h2>
+<p>The corpus was 281 sessions, broken into 4,818 threads and 4,415 rows of behavioral metrics, frozen so nothing in it could shift under me mid-analysis. I had my own relaunched main model read the frozen table and write down its claims first, sealed before any outside model saw the data. Then I sent the identical table to six outside vendor families and asked each one to surface claims of its own. Only three of those six made it back cleanly — one hit a free-tier quota of zero, one threw an internal error, one had its response stream truncated mid-read. Between my own sealed read and the three outside reads that did return, four independent families ended up looking at the same numbers: my relaunched model, xAI's Grok, DeepSeek, and a Google open model.</p>
+<p>Then I ran the part of the check that actually matters: a deterministic auditor that pulled every number any of the four models had cited, recomputed it directly against the frozen database, and flagged anything off by more than 5%, or any number that didn't correspond to anything in the data at all. 70 citations went in. 70 came back PASS. Zero hallucinated numbers, across four models with no shared training lineage.</p>
+<p>That's a genuinely good result, not a strawman I'm setting up to knock down. It rules out a real failure mode — models inventing statistics that merely sound plausible. What it doesn't rule out is a model reading a real, correctly cited number and drawing the wrong conclusion from it. That happened once, cleanly enough to use as the example.</p>
+<p>One row in the table belonged to Claude Sonnet 5's main-role threads — a small population, nine of them — where four behavioral metrics, including <code>tool_error_rate</code>, all read exactly <code>0.000</code>. DeepSeek's model cited that <code>0.000</code> correctly and concluded it meant precise, error-free tool use, then built a routing suggestion on top of that reading. My own model, looking at the same row, flagged it as a likely measurement artifact instead. Sonnet 5 barely acts in a main-role thread in this corpus, and most of these rates are derived from file edits it almost never makes there: with no edits underneath the ratio, the rate isn't low, it's undefined and defaults to zero. A median tool-error rate of zero across those nine sparse threads is the same kind of non-signal — tie-degenerate, not a track record. The zero meant "not measured," not "no errors."</p>
+<p>The audit never had a chance to catch this, because there was nothing wrong with the citation to catch. DeepSeek quoted <code>0.000</code> accurately. The mistake happened one inferential step later, in the word "therefore" — and a citation-accuracy audit has no way to see that step. It checks arithmetic, not reasoning.</p>
+
+<h2>Act two: the test built to be rigorous, and still not enough</h2>
+<p>The fan-out audit was casual by design: let several models free-associate over a frozen table and grade the arithmetic afterward. One metric got stricter treatment. Before looking at the data, I pre-registered a formal equivalence test — TOST, two one-sided tests — on same-file re-edit rate, comparing my relaunched main model's main-role threads against Claude Opus 4.8's, the older flagship. I committed to the margin in advance, 0.75 of the pooled standard deviation, and to a simple rule: the test only passes if the whole confidence interval around the observed difference sits inside that margin.</p>
+
+<table>
+<tr><th>Quantity</th><th>Value</th></tr>
+<tr><td>Relaunched model, main-role sessions (n)</td><td>54</td></tr>
+<tr><td>Claude Opus 4.8, main-role sessions (n)</td><td>145</td></tr>
+<tr><td>Observed mean difference</td><td>+0.089</td></tr>
+<tr><td>Pre-registered equivalence margin</td><td>±0.222 (0.75 × pooled SD)</td></tr>
+<tr><td>90% confidence interval</td><td>[+0.015, +0.163]</td></tr>
+<tr><td>Pre-registered test verdict</td><td>Pass</td></tr>
+<tr><td>Adversarial review verdict</td><td>Unsupported</td></tr>
+</table>
+
+<p>By the rule I'd committed to, this passed clean: the full interval sat inside the margin. That's the good kind of check — a number graded against a threshold I picked before I knew whether it would be convenient. So I treated "passed" as license to say the two models were close enough on this axis to stop worrying about it.</p>
+<p>I sent the result to two adversarial reviewers from two different outside model families — one instructed to attack the statistics, one instructed to attack the operational reasoning. Both came back with the same verdict: unsupported. Not wrong about the arithmetic — wrong about what I'd let the arithmetic mean. Three reasons, and all three held up under a second look:</p>
+<ul>
+<li><strong>The margin was wide enough to pass almost anything.</strong> A zone of 0.75 pooled standard deviations is generous. A pass against a margin that loose proves less than a tighter, harder-won pass would have.</li>
+<li><strong>The interval that cleared the margin also excludes zero.</strong> [+0.015, +0.163] never crosses 0. That means there is a real, directional difference — the relaunched model re-edits the same file measurably more often than the flagship did — and "equivalent" is the wrong word for a gap with a confirmed sign.</li>
+<li><strong>The metric was never the decision.</strong> Same-file re-edit rate is one proxy for editing behavior. It says nothing about which model was more often correct, whether the tasks either one touched actually finished, or how long either took to get there — the axes that would actually justify routing one over the other.</li>
+</ul>
+
+<h2>The shape both checks share</h2>
+<p>Line the two failures up and they match. The citation audit's definition of "pass" was: did you copy the digits. The equivalence test's definition of "pass" was: does the gap sit inside a zone I chose in advance. Neither one asked the question I actually wanted answered — did you understand this, and are these two models actually interchangeable. A passing score on either check told me something true and narrow, and I filled in a broader claim myself that the check never made.</p>
+<p>The honest version of where this leaves me: the observed behavioral signal for telling my relaunched main model and Claude Opus 4.8 apart is weak — one metric, one axis, a real but small and bounded gap. That's the whole claim that survives. "They're interchangeable" is overreach. "Route on price alone" is overreach. Both were the conclusions I was reaching for before the adversarial pass, and both got killed by reviewers doing the one thing neither check I'd built was designed to do.</p>
+<p>One more detail worth keeping: the reviewer that attacked the operational reasoning in Act Two was DeepSeek's model — the same family that misread Sonnet 5's zeroed row in Act One. Same family, opposite outcome, two different jobs. The lesson isn't "trust this vendor less." It's that a blind spot belongs to the check, not permanently to whichever model happens to be running it. A citation audit will always be blind to interpretation, no matter which model passes it. An adversarial refute pass will catch what a citation audit can't, no matter which model runs it either.</p>
+
+<h2>What I'm changing</h2>
+<p>Two changes, both narrow on purpose:</p>
+<ol>
+<li><strong>Any analysis I delegate to an LLM now gets an interpretation pass, not just a citation pass.</strong> A different-family model reads the same claims specifically to argue against them — is the number correctly cited, and separately, is the conclusion drawn from it the only conclusion the number actually supports. Those are different questions, and a single audit can't answer both.</li>
+<li><strong>Any equivalence claim has to report the direction, not just the verdict.</strong> The margin gets tied to a real decision threshold before I look at the data, not a statistical convention. And whichever way the test goes, I report whether the confidence interval excludes zero. A pass with a wide margin and a directional interval is a different finding from a pass with a tight margin and an interval that straddles zero — but the word "PASS" alone can't tell you which one you got.</li>
+</ol>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does a numeric-citation audit actually verify?</strong><br>
+It verifies that a cited number matches its source within tolerance, nothing more. My audit recomputed all 70 numbers that four different model families had cited from a frozen dataset, checked each one against the source within 5%, and found zero mismatches and zero hallucinated numbers. That's a real result, but it's a copy-fidelity check. It can't tell you whether a model drew the right conclusion from a number it quoted correctly.</p>
+
+<p><strong>Q. How can a model cite a number accurately and still misread it?</strong><br>
+One row in my dataset, Claude Sonnet 5's main-role threads, a population of just nine, had four behavioral metrics read exactly zero, including its tool-error rate. That's a measurement artifact, not a performance: this model barely acts in a main-role thread here, so the edit-derived rates have no edits underneath them and default to zero, while a median tool-error rate over nine sparse threads is tie-degenerate rather than a real track record. One outside model, DeepSeek, cited the zero correctly and concluded it meant precise, error-free tool use, then built a routing suggestion on that reading. The citation was accurate. The inference one step later wasn't, and a citation-accuracy audit has no way to catch that, because it only checks arithmetic.</p>
+
+<p><strong>Q. What is a TOST equivalence test, and why did mine still get overturned after it passed?</strong><br>
+TOST, two one-sided tests, checks whether an observed difference is small enough to sit entirely inside a margin you commit to before seeing the data. Mine did: comparing my relaunched main model (54 main-role sessions) to Claude Opus 4.8 (145 main-role sessions) on same-file re-edit rate, the mean difference was +0.089 with a 90% confidence interval of [+0.015, +0.163], fully inside my pre-registered margin of ±0.222. Two adversarial reviewers from different model families still called it unsupported: the margin was wide enough to pass almost anything, the same interval excluded zero — meaning a real, directional gap exists — and the metric never touched correctness, task success, or latency, the things that would actually justify a routing decision.</p>
+
+<p><strong>Q. Was either check worthless, then?</strong><br>
+No. The citation audit still rules out a real failure mode, models fabricating statistics, across four independently trained model families with zero hallucinations. The equivalence test still ruled out a large difference between the two models. Both are genuine, useful floors. The mistake was letting a pass stand in for a broader claim neither check was built to make.</p>
+
+<p><strong>Q. What changed in how you run these checks now?</strong><br>
+Two things. Any analysis I delegate to an LLM now gets a second, adversarial interpretation pass from a different model family, not just a citation-accuracy pass, specifically instructed to argue against the conclusions rather than just check the digits. And any equivalence claim has to report whether its confidence interval excludes zero, win or lose, because a wide margin with a directional interval is a different finding from a tight margin with an interval that straddles zero, even though both would formally pass.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./cross-family-llm-audit-shared-blind-spots.html">Cross-Vendor Audit: What It Caught, and What It Got Wrong</a></li>
+<li><a href="./llm-model-comparison-observational-data.html">Your Agent Telemetry Ranks Your Routing Policy, Not Your Models</a></li>
+<li><a href="./multi-model-fanout-triangulation-blind-spots.html">Multi-Model Fan-Out: Triangulating Anomalies and Shared Blind Spots</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
