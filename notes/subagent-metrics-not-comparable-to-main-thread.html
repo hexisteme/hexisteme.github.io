@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics — hexisteme notes</title>
+<meta name="description" content="In my agent fleet, role moves the metrics more than the model does — and the role mix differs per model, so pooled comparisons measure the dispatcher.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics", "datePublished": "2026-07-27", "dateModified": "2026-07-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Stratified comparison of AI agent telemetry by execution role (main thread vs sub-agent) and the mix, construct-validity and bootstrap traps it exposes", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why can sub-agent metrics not be compared to main-thread metrics?", "acceptedAnswer": {"@type": "Answer", "text": "Because they are different populations doing different jobs. A main thread is a long interactive session that iterates on files and recovers from errors; a sub-agent is a one-shot run that produces output and exits. In my fleet the median output tokens per thread differ by 77x between the two roles for the same model, and behavioural metrics such as same-file re-edit rate have a median of exactly 0 in the sub-agent stratum for six of seven model-versions. A contrast across those roles measures the harness, not the model."}}, {"@type": "Question", "name": "What goes wrong if I pool roles and compare models?", "acceptedAnswer": {"@type": "Answer", "text": "The role mix differs per model, so a pooled average is a weighted average with different weights per treatment. In my snapshot one model had 1.5% main-thread rows and another had 36.1%. Pooling made model C look like it emitted 3.6x the output tokens of model A, while inside each stratum C was 0.83x A on main threads and 1.02x A on sub-agent runs. A 3.6x headline built out of two within-stratum ratios near 1 is an amalgamation effect: the composition is doing the work, not the model. Note this is not textbook Simpson's paradox, which needs every stratum to point the same way; here one stratum reverses and the other is a near-tie."}}, {"@type": "Question", "name": "Is stratifying by role enough to make the comparison valid?", "acceptedAnswer": {"@type": "Answer", "text": "No. Two problems survive stratification. First, a metric can measure a different construct in each stratum: my completion proxy read a thread's last logged line, and in one model's sub-agent threads 92 of 99 ended on a tool-result line because of a harness logging convention, so the metric scored the logger rather than the agent. Second, the role gap is not a constant multiplier you can adjust away - it ranged from 1.2x to 135x and flipped sign in thin cells. Stratification gives you a list of licensed comparisons, not a correction factor."}}, {"@type": "Question", "name": "Why did my bootstrap confidence interval come back as [0, 0]?", "acceptedAnswer": {"@type": "Answer", "text": "Almost certainly tie degeneracy rather than precision. On a near-constant metric the median takes the same value in nearly every resample, so the percentile interval collapses onto a point. In my validation-run counts the medians were 0 for every model while the means ranged from 0.60 to 4.11, and all six pairwise intervals were [0, 0]. A guard that skips a pair only when both cells look constant is not enough - check whether the statistic is constant across resamples, and report the share of tied values next to any median-based interval."}}, {"@type": "Question", "name": "What should I check before comparing treatments in an agent fleet?", "acceptedAnswer": {"@type": "Answer", "text": "Print the stratum by treatment cross-tab before any metric, set a minimum cell size in advance and mark thin cells as not comparable, pre-register cross-stratum comparison as forbidden rather than merely discouraged, ask per stratum whether the metric measures the same construct, refuse to read a zero-width interval as a result, and publish the pooled and stratified numbers together whenever they disagree."}}]}
+</script>
+</head>
+<body>
+
+<h1>Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-27</p>
+
+<div class="note">In an agent fleet the same model runs in two very different roles: the long interactive main thread, and the short one-shot sub-agent a main thread spawns. Across a few thousand real threads, that role split moved my metrics by up to 135x and flattened several of them to a constant zero in the sub-agent stratum. Worse, the role mix differed per model, from 1.5% main-thread rows to 71.4% - so pooled per-model averages were weighted averages with different weights - one pair showed a 3.6x pooled gap that exists in neither stratum. This note works through the reversal, then through the two traps that survive stratification: metrics whose meaning changes per stratum, and bootstrap intervals that collapse to [0, 0] on tied data.</div>
+
+<p>I run a small fleet of coding agents on one machine. Every thread ends up in a log, and a measurement pipeline reads those logs into a database, attributing each turn to the model that produced it. After a few thousand threads I had the table people keep asking for: seven model-versions, five behavioural metrics, real workload rather than a benchmark.</p>
+
+<p>Then I printed one cross-tab I had been skipping, and most of that table stopped meaning what I thought it meant. The cross-tab was <strong>role by model</strong>. A model here is either the <strong>main thread</strong> I drive by hand, or a <strong>sub-agent</strong> that a main thread spawns, runs once, and discards. Same model, same weights, two completely different jobs.</p>
+
+<p>Model names are replaced with letters on purpose: the point of this note is that these numbers are not a model ranking, and printing the names invites exactly that misreading. Every figure is real, from one snapshot of one fleet.</p>
+
+<h2>The role gap is an order-of-magnitude thing</h2>
+
+<p>Median output tokens per thread, same model, split by role:</p>
+
+<table>
+<tr><th>model</th><th>main n</th><th>main median</th><th>sub-agent n</th><th>sub-agent median</th><th>main / sub</th></tr>
+<tr><td>A</td><td>200</td><td>478,238</td><td>2,761</td><td>6,212</td><td>77x</td></tr>
+<tr><td>C</td><td>88</td><td>427,838</td><td>156</td><td>8,784</td><td>49x</td></tr>
+<tr><td>D</td><td>11</td><td>185,534</td><td>122</td><td>1,371</td><td>135x</td></tr>
+<tr><td>G</td><td>21</td><td>128,415</td><td>18</td><td>11,358</td><td>11x</td></tr>
+<tr><td>B</td><td>20</td><td>16,432</td><td>1,338</td><td>14,157</td><td>1.2x</td></tr>
+<tr><td>F</td><td>15</td><td>4,194</td><td>6</td><td>51,562</td><td>0.08x</td></tr>
+</table>
+
+<p>The behavioural metrics are worse than lopsided. In the sub-agent stratum the same-file re-edit rate has a median of exactly 0 for six of seven model-versions, and so does the error-recovery count; validation runs are 0 for all seven. In the main stratum those same metrics carry real spread - re-edit medians of 0.40, 0.44, 0.50 and 0.53, recovery medians of 1 and 2.</p>
+
+<p>The four-model qualifier is load-bearing, so let me not hide behind it: the other three model-versions sit at a median of 0 in main too - two genuinely, one because its main cell holds 2 rows and is marked not comparable. Main is where between-model signal can live, not where it always does.</p>
+
+<p>Still, the pattern is not a subtle covariate. A main thread iterates: read, edit, re-edit the same file, hit a failure, recover, run a check. A sub-agent does its one job and exits, so it rarely touches a file twice and rarely has a failure to recover from. The metric is structurally near-zero there. Which means the sub-agent stratum carries no between-model signal at all on those metrics - the median is a constant. All the signal lives in the main-thread stratum, which is 7% of my rows.</p>
+
+<h2>The mix is different for every model</h2>
+
+<table>
+<tr><th>model</th><th>main rows</th><th>sub-agent rows</th><th>main share</th></tr>
+<tr><td>E</td><td>2</td><td>132</td><td>1.5%</td></tr>
+<tr><td>B</td><td>20</td><td>1,338</td><td>1.5%</td></tr>
+<tr><td>A</td><td>200</td><td>2,761</td><td>6.8%</td></tr>
+<tr><td>D</td><td>11</td><td>122</td><td>8.3%</td></tr>
+<tr><td>C</td><td>88</td><td>156</td><td>36.1%</td></tr>
+<tr><td>G</td><td>21</td><td>18</td><td>53.8%</td></tr>
+<tr><td>F</td><td>15</td><td>6</td><td>71.4%</td></tr>
+</table>
+
+<p>Across the attributed corpus, 4,533 of 4,890 rows - 92.7% - are sub-agent rows. So a pooled number is mostly a description of sub-agents. But how mostly ranges from 1.5% to 71.4% main, a 48-fold spread in composition.</p>
+
+<p>The reason is not random sampling: it is the delegation policy. Orchestration rules send mechanical fan-out work to cheaper tiers, so those models accumulate sub-agent rows by the thousand, while models I drive by hand accumulate main rows. Model A spawned 1,788 sub-agents that were also A and 730 that were B; model C spawned 393 that were B. Role is assigned by the same policy that assigns the model, so the confounder is baked into the architecture rather than introduced by chance. Anything with an orchestration layer has this shape - retry tiers, canary versus steady-state traffic, batch versus interactive queues, free versus paid users.</p>
+
+<h2>The pooled number can reverse</h2>
+
+<p>Pooling A and C across roles, weighted by row counts - which is exactly what a GROUP BY model query gives you:</p>
+
+<pre>A:  (200 x 684,639  +  2,761 x 13,691) / 2,961  =  59,010
+C:  ( 88 x 565,678  +    156 x 13,913) /   244  = 212,910</pre>
+
+<p>Pooled, C burns 3.6x the output tokens of A. Inside each stratum the picture inverts:</p>
+
+<table>
+<tr><th>stratum</th><th>A mean</th><th>C mean</th><th>C / A</th></tr>
+<tr><td>main</td><td>684,639</td><td>565,678</td><td>0.83x</td></tr>
+<tr><td>sub-agent</td><td>13,691</td><td>13,913</td><td>1.02x</td></tr>
+</table>
+
+<p>Within each stratum the two models are close. C is lower than A on main threads (0.83x) and 1.6% higher on sub-agent runs - a near-tie that happens to lean the same way as the pooled number, just nowhere near its size. Neither ratio comes close to 3.6x. The 3.6x is manufactured by the weights: main threads carry 40-50x the mean output of a sub-agent run, and 36.1% of C's rows are main threads against A's 6.8%, so C's average is dragged toward the expensive stratum and A's is not.</p>
+
+<p>Worth being precise about the name. This is <em>not</em> textbook Simpson's paradox, which needs every stratum to point one way while the pooled number points the other; here one stratum reverses and the other is a near-tie. Arguably that is the more dangerous shape - there is no meaningful within-stratum effect in either direction, and pooling still produced a 3.6x headline out of nothing. Call it an amalgamation effect: a difference in composition, amplified into an apparent difference in the metric.</p>
+
+<p>The reason to walk it out is that it never announces itself. Nobody sets out to pool - pooling is what the obvious query does. The number arrives looking like a model comparison and is in fact a weighted average with different weights per model. What you measured was your dispatcher.</p>
+
+<h2>Stratifying is step one, not the answer</h2>
+
+<p><strong>A metric may not mean the same thing in each stratum.</strong> My completion proxy - a heuristic that reads whether a thread finished from the shape of its last logged line - collapsed on sub-agent threads, where one model had 92 of 99 threads ending on a tool-result line purely as a harness logging convention. I unpacked that particular failure in <a href="./llm-model-comparison-observational-data.html">an earlier note</a>; what matters here is what it implies for stratification.</p>
+
+<p>It implies stratification is not a repair. A metric whose value is set by logging convention in one stratum is not a <em>noisier</em> measurement there - it is a <em>different</em> measurement, and averaging it separately does not make it comparable. So the question after asking whether you stratified is whether the metric measures the same construct in every stratum. Construct validity is per stratum, not per metric. Where the answer is no, drop that stratum for that metric and say so in the output.</p>
+
+<p>There is a quieter version of the same problem: the unit can change between metrics. My behavioural metrics are per-turn attribution rows; the completion proxy is thread-level, with a purity filter and a censoring rule (threads whose snapshot was cut right after a user turn count as missing, not as failures). Model A has 200 main attribution rows and 154 usable main threads for the proxy. Two counts named n in the same report, meaning different things.</p>
+
+<p><strong>The role gap is not a constant you can adjust away.</strong> It is 77x for A, 135x for D, 11x for G, 1.2x for B, and in two thin cells the sign flips outright. If role were a fixed multiplier you could divide it out. It is not; it interacts with the model. Partly that is because a stratum holding 1.5% of a model's rows is not a random 1.5% - whatever rare circumstance put that model in that role is also selecting the kind of work it did there. Stratification buys you a list of licensed comparisons, not a correction factor.</p>
+
+<h2>A [0, 0] confidence interval is not precision</h2>
+
+<p>Validation-run counts, main threads only. Every model's median is 0. The means are not: A 4.11, C 2.38, G 1.67, B 0.60. Percentile bootstrap on all six model pairs returned a median difference of 0 with a 95% interval of [0, 0] every time - a roughly 7x difference in means, reported as exactly zero with zero width.</p>
+
+<p>Both statements are arithmetically correct. The median really is 0 in each cell, and it is 0 in nearly every resample, so the bootstrap distribution is a spike and the percentile interval collapses onto it. That is tie degeneracy, not precision: the interval is not saying the effect is pinned down, it is saying the statistic cannot move. Read as confidence, it launders a tie into a finding, in the most persuasive possible format - a narrow interval.</p>
+
+<p>My pipeline already had a guard: skip a pair if both cells have median 0 and an interquartile range of 0 to 0. Necessary and insufficient. A's range here is 0 to 4 and B's is 0 to 0, so the pair sails through the filter and degenerates anyway. The right condition is not that both inputs look constant but that the statistic is constant across resamples, which you can only check on the resample distribution itself.</p>
+
+<h2>What I run before any fleet comparison now</h2>
+
+<ol>
+<li><strong>Print the stratum by treatment cross-tab first</strong>, before a single metric. If composition differs across treatments, every pooled number is a mix effect until proven otherwise.</li>
+<li><strong>Set the comparability threshold in advance.</strong> Mine is n at least 5 to appear at all, n at least 20 on both sides to earn an interval. Thinner cells print as NOT_COMPARABLE rather than as a small number.</li>
+<li><strong>Pre-register cross-stratum comparison as forbidden</strong> - a written prohibition in the spec, enforced by the pair filter, not a caution someone relitigates at 1am.</li>
+<li><strong>Ask per stratum whether the metric measures the same construct.</strong> If a stratum's value is set by logging convention, drop that stratum for that metric and record why.</li>
+<li><strong>Never read a degenerate interval as a result.</strong> Zero width on tied data is coverage failure. Report the share of tied values next to any median-based interval.</li>
+<li><strong>When pooled and stratified disagree, publish both</strong> and name the mix that separates them. The disagreement is the finding.</li>
+</ol>
+
+<h2>What this still cannot tell you</h2>
+
+<p>Routing was never randomized, so none of this is causal - the model each thread got was chosen by policy, entangled with task difficulty, project and week. That argument has its own note, linked below; everything here is association under a fixed dispatch policy, and the role finding does not rescue it.</p>
+
+<p>Role is also not the only stratum. Split model A's main threads by project and the re-edit median runs 0.34, 0.45, 0.53 and 0.70 across four projects - a 2x spread inside a single model-and-role cell, while the same model's sub-agent value is 0 in every project. The re-edit metric also cannot tell healthy iteration from thrash; it counts both. And the sessions in which I built and audited this pipeline are logged like any other work, so the observer is standing inside the frame; the next iteration gets an explicit exclusion stratum.</p>
+
+<p>This is one snapshot, one operator, one harness, and the constants will not transfer. The procedure does: cross-tab first, threshold in advance, construct validity per stratum, and no faith in narrow intervals over tied data. Before you compare treatments, check whether they are running in the same role, in the same proportion. In an agent fleet the answer is almost always no, and nothing downstream survives that going unasked.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why can sub-agent metrics not be compared to main-thread metrics?</strong><br>
+Because they are different populations doing different jobs. A main thread is a long interactive session that iterates on files and recovers from errors; a sub-agent is a one-shot run that produces output and exits. In my fleet the median output tokens per thread differ by 77x between the two roles for the same model, and behavioural metrics such as same-file re-edit rate have a median of exactly 0 in the sub-agent stratum for six of seven model-versions. A contrast across those roles measures the harness, not the model.</p>
+
+<p><strong>Q. What goes wrong if I pool roles and compare models?</strong><br>
+The role mix differs per model, so a pooled average is a weighted average with different weights per treatment. In my snapshot one model had 1.5% main-thread rows and another had 36.1%. Pooling made model C look like it emitted 3.6x the output tokens of model A, while inside each stratum C was 0.83x A on main threads and 1.02x A on sub-agent runs. A 3.6x headline built out of two within-stratum ratios near 1 is an amalgamation effect: the composition is doing the work, not the model. Note this is not textbook Simpson's paradox, which needs every stratum to point the same way; here one stratum reverses and the other is a near-tie.</p>
+
+<p><strong>Q. Is stratifying by role enough to make the comparison valid?</strong><br>
+No. Two problems survive stratification. First, a metric can measure a different construct in each stratum: my completion proxy read a thread's last logged line, and in one model's sub-agent threads 92 of 99 ended on a tool-result line because of a harness logging convention, so the metric scored the logger rather than the agent. Second, the role gap is not a constant multiplier you can adjust away - it ranged from 1.2x to 135x and flipped sign in thin cells. Stratification gives you a list of licensed comparisons, not a correction factor.</p>
+
+<p><strong>Q. Why did my bootstrap confidence interval come back as [0, 0]?</strong><br>
+Almost certainly tie degeneracy rather than precision. On a near-constant metric the median takes the same value in nearly every resample, so the percentile interval collapses onto a point. In my validation-run counts the medians were 0 for every model while the means ranged from 0.60 to 4.11, and all six pairwise intervals were [0, 0]. A guard that skips a pair only when both cells look constant is not enough - check whether the statistic is constant across resamples, and report the share of tied values next to any median-based interval.</p>
+
+<p><strong>Q. What should I check before comparing treatments in an agent fleet?</strong><br>
+Print the stratum by treatment cross-tab before any metric, set a minimum cell size in advance and mark thin cells as not comparable, pre-register cross-stratum comparison as forbidden rather than merely discouraged, ask per stratum whether the metric measures the same construct, refuse to read a zero-width interval as a result, and publish the pooled and stratified numbers together whenever they disagree.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./llm-model-comparison-observational-data.html">Your Agent Telemetry Ranks Your Routing Policy, Not Your Models</a></li>
+<li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid</a></li>
+<li><a href="./numeric-fidelity-is-not-interpretation-fidelity.html">Four Models Cited My Numbers Perfectly. One Still Misread Them.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
