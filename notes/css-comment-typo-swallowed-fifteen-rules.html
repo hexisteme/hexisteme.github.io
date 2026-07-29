@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSS Doesn't Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet — hexisteme notes</title>
+<meta name="description" content="A mistyped comment closer swallowed 15 lines of CSS while 481 tests stayed green. CSS has no fatal errors by design, so guard the failure class, not the typo.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CSS Doesn't Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Silent failure in CSS: why an unclosed comment swallows rules with no error, warning, or failing test, and how to guard the whole failure class with two assertions instead of fixing one typo.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why doesn't CSS report an unclosed comment as an error?", "acceptedAnswer": {"@type": "Answer", "text": "Because CSS has no fatal parse errors by design. The syntax specification says a comment consumes everything up to and including the first */, or up to the end of the file, and CSS 2.1 requires user agents to close all open constructs at the end of a stylesheet. Reaching end of file inside a comment is flagged as a parse error, but every parse error in CSS has defined recovery behavior, so nothing halts and nothing is logged. The spec gives the rationale: new syntax looks like an error to an old parser, so the parser throws away the minimum and keeps going rather than breaking the page."}}, {"@type": "Question", "name": "How do I find a comment that is swallowing my CSS rules?", "acceptedAnswer": {"@type": "Answer", "text": "Count the delimiters. Run grep -c for the opening and closing comment tokens and compare the two numbers. In my case the file had 49 openers and 48 closers, which pinned the problem to exactly one comment. The tell that sends you there is a specific contradiction: the rule is present in the file when you grep for it, and absent from the rendered page. If the text exists and the rule does not apply, you have a parser-level problem, not a logic problem."}}, {"@type": "Question", "name": "Will stylelint or a CSS linter catch this?", "acceptedAnswer": {"@type": "Answer", "text": "Not this one. The comment was closed, just seventeen lines later than intended, so the file parses cleanly and no linter complains. Linters catch specific enumerated instances of this failure family - stylelint ships no-invalid-double-slash-comments for JS-style // comments in CSS, for example - but there is no rule for a comment being longer than you meant it to be. That is why the guard has to be written at the level of the class rather than borrowed from a rule list."}}, {"@type": "Question", "name": "What is the cheapest test that prevents this class of bug?", "acceptedAnswer": {"@type": "Answer", "text": "Two assertions over the stylesheet text: that the count of /* equals the count of */, and that no template-language comment syntax such as {# or #} appears in a CSS file. No new dependencies, and it runs inside a test suite you already have. A stronger tier is to parse the stylesheet with a real CSS parser and assert that the selectors your layout depends on are present in the parsed result, which catches anything that removes a rule from the parse rather than from the file."}}, {"@type": "Question", "name": "Why do code reviews, human or AI, miss this?", "acceptedAnswer": {"@type": "Answer", "text": "Because the damage is not in the changed line. A diff shows one edited comment closer, which looks ordinary in a repository that also contains template files. The fifteen lines that stopped working sit below it and did not change, so they never appear in the review at all. Reviewing source cannot surface a rendering outcome. The risk is higher when an agent writes the code, because one session moves between Python, templates, CSS, and JavaScript, and comment syntax is different in every one of them."}}]}
+</script>
+</head>
+<body>
+
+<h1>CSS Doesn't Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">A layout fell apart in a small internal dashboard while all 481 tests stayed green and the missing rules were sitting in the CSS file, correctly written. A comment had been closed with Jinja's <code>#}</code> instead of <code>*/</code>, so the parser kept consuming to the next real <code>*/</code> seventeen lines down and swallowed 15 lines of rules on the way. Nothing errored, because CSS has no fatal parse errors by design. The fix that mattered was not the typo — it was two assertions that guard the entire failure class.</div>
+
+<h2>Every test green, the page in pieces</h2>
+<p>I was rebuilding a small internal dashboard — FastAPI on the back, Jinja2 templates, hand-written CSS, no build step — and the layout had come apart. Timeline rows had unstacked into a vertical column. Status dots floated free of the rows they belonged to. Log group labels overlapped each other. It looked exactly like a page whose stylesheet had failed to load.</p>
+<p>The stylesheet had loaded. All 481 tests in the suite were green. And when I grepped the CSS file for the rules that were obviously not being applied, they were sitting right there on disk, correctly written.</p>
+<p>The cause was a comment closer. Somewhere in the middle of the file, a <code>/*</code> had been closed with <code>#}</code> — Jinja's comment terminator — instead of <code>*/</code>. Muscle memory, from switching back and forth between <code>.html</code> templates and <code>.css</code>. CSS then did precisely what the specification tells it to do: it kept reading. The comment ran on and swallowed the next 15 lines of rules — the timeline-row grid, the feed, the bucket layout, the dot alignment — until it hit the next real <code>*/</code>, seventeen lines down. No error, no console warning, no failing test. The rules were present in the file and absent from the page at the same time.</p>
+
+<h2>Why nothing complained: CSS has no fatal errors</h2>
+<p>The CSS Syntax specification defines comment consumption like this: on seeing <code>/*</code>, consume everything "up to and including the first <code>*/</code>, or up to an EOF code point." There is no notion of a comment being too long, no heuristic about blank lines or braces, no upper bound. First <code>*/</code> wins. A comment closed seventeen lines later than intended is not a malformed comment — it is a well-formed comment that happens to be seventeen lines long.</p>
+<p>Even if the comment had run to the end of the file you would not get an exception. Reaching EOF inside a comment <em>is</em> flagged as a parse error in the spec, but a parse error in CSS is not a failure: error handling is defined for every one of them, and CSS 2.1 goes further, requiring that user agents "must close all open constructs (for example: blocks, parentheses, brackets, rules, strings, and comments) at the end of the style sheet."</p>
+<p>This is deliberate, and the rationale in the spec explains the whole design: "When errors occur in CSS, the parser attempts to recover gracefully, throwing away only the minimum amount of content before returning to parsing as normal. This is because errors aren't always mistakes — new syntax looks like an error to an old parser, and it's useful to be able to add new syntax to the language without worrying about stylesheets that include it being completely broken in older UAs."</p>
+<p>That is a good trade — it is why a stylesheet using a new property still renders in an older browser instead of blanking the page. The price is that CSS cannot tell you it failed, because from the parser's point of view nothing failed. "Ignore," in the spec's own words, means the user agent "parses the illegal part (in order to find its beginning and end), but otherwise acts as if it had not been there." Acting as if it had not been there is exactly the behavior that leaves no trace.</p>
+<p>Put languages on a spectrum. JSON, YAML, and JavaScript throw: bad input produces a loud, located error. CSS and HTML recover: bad input produces a silently different document. In a recovery-by-design language, the absence of an error signal carries no information whatsoever. The same failure class has other quiet members:</p>
+<ul>
+<li><strong><code>//</code> used as a comment in plain CSS.</strong> It is not a comment. The parser reads it as the start of a selector, consumes until it finds a <code>{...}</code> block, decides the whole qualified rule is invalid, and drops it — so the <em>next</em> rule silently disappears.</li>
+<li><strong>A stray or missing <code>}</code>.</strong> Everything until the braces rebalance is either nested into the wrong rule or thrown away.</li>
+<li><strong>Any comment terminator borrowed from a neighboring language:</strong> Jinja's <code>#}</code>, Handlebars' <code>--}}</code>, a JSX <code>*/}</code>.</li>
+</ul>
+
+<h2>Why grep lied and the parser told the truth</h2>
+<p>I had two facts that could not both be true under my working assumption. The render was broken, and <code>grep</code> showed the rules in the file, intact. If the rules exist and are not applied, then either the browser is not reading this file, or the browser is reading it and not seeing those rules as rules.</p>
+<p>The first suspect is caching, and it cost me time: the same project hit a stale-stylesheet problem on the same day, so my first theory was that the browser was serving an old CSS file. It was — partly. I busted the cache, some of the layout came back, and the rest was still broken. That mattered, because it eliminated the first suspect and left only the second: the rules are in the text but not in the parse. Which reframes the search completely. You stop reading rules and start counting delimiters.</p>
+<pre>grep -c '/\*' style.css   # 49
+grep -c '\*/' style.css   # 48</pre>
+<p>Forty-nine openers, forty-eight closers. Exactly one comment in that file never closed where it was supposed to. Finding which one took one more grep, fixing it took one edit, and the whole page came back.</p>
+<p>The generalization worth keeping: <strong>text presence is not rule presence.</strong> <code>grep</code> sees bytes; the browser sees a parsed stylesheet. Every diagnostic you run against the raw file answers a different question from the one you care about, and when those two answers disagree you are looking at a parser-level problem — a swallowed region, an unbalanced delimiter, an encoding issue — not a logic problem.</p>
+
+<h2>Why humans and AI reviewers both miss it</h2>
+<p>Read the offending line as it appeared in the file. It ends a comment with <code>#}</code>. In a repository full of Jinja templates that is a completely ordinary-looking token. Some editors will color the following lines as a comment and give you a visual hint, but that hint is easy to miss in a long file and absent entirely from a diff view, which shows the lines that changed and not what they did to the fifteen lines below them.</p>
+<p>A human reviewing the diff sees one changed line. An AI reviewing the diff sees the same one changed line. Neither is looking at the thing that broke, because the thing that broke is fifteen lines further down and <em>did not change</em>. A diff is a poor representation of an edit whose blast radius is defined by the parser rather than by the edit.</p>
+<p>There is an extra wrinkle when the code is written with an AI agent. An agent working through a feature routinely edits Python, templates, CSS, and JavaScript inside one session. Comment syntax is one of the highest-frequency, lowest-attention tokens in any of those files, and it is different in every one: <code>#</code>, <code>{# #}</code>, <code>/* */</code>, <code>//</code>. The probability of syntax bleed rises with the number of language switches per unit of work, and every language switch is an opportunity for one to bleed across. It is the same problem as <a href="./ai-cant-see-what-it-drew.html">an AI not being able to see what it drew</a>, one layer down: the model emitted a token that was locally plausible in another file in the same session, and neither it nor I could see the consequence without rendering the page.</p>
+<p>The conclusion is not "review harder." Review is the wrong instrument for a failure that is invisible in the artifact being reviewed.</p>
+
+<h2>Guard the failure class, not the typo</h2>
+<p>The mistake I nearly made was to fix the line, commit, and move on. That fixes one instance of an unbounded class. The next <code>#}</code> in a stylesheet — or the next <code>//</code>, or the next stray <code>}</code> — lands exactly the same way, and the next debugging session starts from zero. What went into the test suite instead was two assertions:</p>
+<pre>css = (STATIC_DIR / "style.css").read_text()
+
+# 1. Every comment that opens must close.
+assert css.count("/*") == css.count("*/")
+
+# 2. No template-language comment syntax inside a stylesheet.
+assert "#}" not in css and "{#" not in css</pre>
+<p>Two lines, no new dependencies, runs with everything else. It knows nothing about the line that broke; it knows the <em>shape</em> of the failure. "Is that one line correct?" is a test with a lifespan of one commit. "Do comment delimiters balance, and is foreign comment syntax absent?" still works after the file has been rewritten twice.</p>
+<table>
+<tr><th>Tier</th><th>Catches</th><th>Cost</th></tr>
+<tr><td>Delimiter balance + foreign-token ban</td><td>unclosed comments, template syntax bleed</td><td>2 lines, no dependencies</td></tr>
+<tr><td>Parse the stylesheet, assert critical selectors survive</td><td>anything that removes a rule from the parse</td><td>one CSS parser dependency</td></tr>
+<tr><td>Visual regression on key screens</td><td>everything, including cascade and specificity bugs</td><td>a browser in CI, plus baseline maintenance</td></tr>
+</table>
+<p>The middle tier is the one most projects skip and probably shouldn't. Parse the file with a real CSS parser and assert that the selectors your layout depends on are present <em>in the parsed result</em>. That check would have failed loudly here, because the swallowed rules were absent from the parse while present in the text — precisely the discrepancy that defines this bug.</p>
+<p>Worth noting what would <em>not</em> have caught it: a linter. Stylelint and PostCSS parse this file without complaint, because the comment is closed, just later than intended. There is no rule for "this comment is longer than you meant it to be." Stylelint does ship <code>no-invalid-double-slash-comments</code>, which flags JS-style <code>//</code> comments in CSS — one member of this class, enumerated by hand. Which is the thesis: tooling guards instances, so you have to guard the class yourself.</p>
+
+<h2>Where these guards break</h2>
+<div class="warn">The two-line check is cheap, not perfect. Being clear about its limits is part of shipping it.</div>
+<ul>
+<li><strong>Delimiter counting has false positives.</strong> A stylesheet containing <code>content: "/*"</code>, or a <code>url()</code> with those characters in it, will fail a naive count. It can fire on a valid stylesheet — and when it does you need to understand why before you "fix" it.</li>
+<li><strong>Balanced counts are necessary, not sufficient.</strong> Two typos that cancel out still balance. Order is not checked either: a <code>*/</code> before its <code>/*</code> counts the same.</li>
+<li><strong>The foreign-token ban is a blacklist.</strong> It knows about <code>{#</code> and <code>#}</code> because those are the languages in this project. A different stack brings different terminators, and the assertion will not know about them until someone adds them.</li>
+<li><strong>Neither assertion catches the sibling failure.</strong> A stale stylesheet in the browser cache produces an identical symptom — correct rules on disk, broken page — and no assertion about file contents can see it. That needs a version query on the asset URL, so the URL changes whenever the file does.</li>
+</ul>
+<p>Those last two are why "tests green, screen broken" needs both suspects ruled out in order: is the browser reading <em>this</em> file, and is the browser seeing these rules as rules?</p>
+
+<h2>The rule I run on now</h2>
+<p><strong>Absence of an error is not evidence of correctness in a recovery-by-design language.</strong> CSS, HTML, and most template languages are built to swallow bad input and keep going, because that property is what lets them survive version skew. In those languages the only ground truth is rendered output. A green test suite tells you the markup exists and the routes return 200; it says nothing about whether the cascade produced the layout you asked for. If your <a href="./verify-the-output-surface.html">verification surface never renders the thing</a>, it is verifying something other than what you think.</p>
+<p><strong>Every fix ships with a class-level guard, or it isn't finished.</strong> The question at the end of a debugging session is not "is it working now" but "what family of mistakes does this belong to, and what is the cheapest assertion that covers the family?" For a page broken by a comment closer, the answer was two lines in a file I already had.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why doesn't CSS report an unclosed comment as an error?</strong><br>
+Because CSS has no fatal parse errors by design. The syntax specification says a comment consumes everything up to and including the first */, or up to the end of the file, and CSS 2.1 requires user agents to close all open constructs at the end of a stylesheet. Reaching end of file inside a comment is flagged as a parse error, but every parse error in CSS has defined recovery behavior, so nothing halts and nothing is logged. The spec gives the rationale: new syntax looks like an error to an old parser, so the parser throws away the minimum and keeps going rather than breaking the page.</p>
+
+<p><strong>Q. How do I find a comment that is swallowing my CSS rules?</strong><br>
+Count the delimiters. Run grep -c for the opening and closing comment tokens and compare the two numbers. In my case the file had 49 openers and 48 closers, which pinned the problem to exactly one comment. The tell that sends you there is a specific contradiction: the rule is present in the file when you grep for it, and absent from the rendered page. If the text exists and the rule does not apply, you have a parser-level problem, not a logic problem.</p>
+
+<p><strong>Q. Will stylelint or a CSS linter catch this?</strong><br>
+Not this one. The comment was closed, just seventeen lines later than intended, so the file parses cleanly and no linter complains. Linters catch specific enumerated instances of this failure family - stylelint ships no-invalid-double-slash-comments for JS-style // comments in CSS, for example - but there is no rule for a comment being longer than you meant it to be. That is why the guard has to be written at the level of the class rather than borrowed from a rule list.</p>
+
+<p><strong>Q. What is the cheapest test that prevents this class of bug?</strong><br>
+Two assertions over the stylesheet text: that the count of /* equals the count of */, and that no template-language comment syntax such as {# or #} appears in a CSS file. No new dependencies, and it runs inside a test suite you already have. A stronger tier is to parse the stylesheet with a real CSS parser and assert that the selectors your layout depends on are present in the parsed result, which catches anything that removes a rule from the parse rather than from the file.</p>
+
+<p><strong>Q. Why do code reviews, human or AI, miss this?</strong><br>
+Because the damage is not in the changed line. A diff shows one edited comment closer, which looks ordinary in a repository that also contains template files. The fifteen lines that stopped working sit below it and did not change, so they never appear in the review at all. Reviewing source cannot surface a rendering outcome. The risk is higher when an agent writes the code, because one session moves between Python, templates, CSS, and JavaScript, and comment syntax is different in every one of them.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./ai-cant-see-what-it-drew.html">The AI Can't See What It Drew</a></li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for Four Days While Nothing Shipped: A Reader Rebutted My Monitoring Post, and He Was Right</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
