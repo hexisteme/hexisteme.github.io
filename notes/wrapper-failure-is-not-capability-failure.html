@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible — hexisteme notes</title>
+<meta name="description" content="An AI wrapper crashed twice and got logged as impossible, until a direct call to the provider's API showed the model could do the job all along.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing whether an AI tool failure is a wrapper bug or a real capability limit", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I tell a wrapper failure from a real capability failure?", "acceptedAnswer": {"@type": "Answer", "text": "Read the raw error text before anything else. If it names an explicit account-state condition, such as balance, authorization, or quota, in plain language, that is almost always true and retrying will not help. If instead it looks like an internal exception, a stack trace, an undefined property, a type error, it is describing a bug in the client code, not a decision by the provider, and you have not yet learned whether the provider itself would refuse the request."}}, {"@type": "Question", "name": "What does it mean to descend to the API?", "acceptedAnswer": {"@type": "Answer", "text": "Find the credential the wrapper is already using underneath, usually a plain environment variable, and call the provider's own documented endpoint directly with that same credential, bypassing the wrapper entirely. If the direct call succeeds, the wrapper was the bug. If it fails with the same account-state error as before, only then is unavailable an honest conclusion."}}, {"@type": "Question", "name": "Why is switching to a different wrapper not the same as descending?", "acceptedAnswer": {"@type": "Answer", "text": "Switching wrappers moves sideways to another layer that can fail for its own unrelated reasons, and it tells you nothing about the layer underneath either one. Descending means going down to the provider's own interface with the same credentials, which is the only step that actually isolates whether a failure belongs to the client code or to the account and the service."}}, {"@type": "Question", "name": "When should I re-open a closed unavailable conclusion?", "acceptedAnswer": {"@type": "Answer", "text": "Treat a credible report that the same task worked before, or works elsewhere, as close to a mandatory trigger to re-run the diagnostic, because that statement is strong evidence the account and credentials are fine, which means the failure has to be sitting in a layer you control. The reversal is only justified once a direct call actually produces new evidence, not merely because someone pushed back."}}, {"@type": "Question", "name": "Does this diagnostic always work?", "acceptedAnswer": {"@type": "Answer", "text": "No. It assumes there is a documented layer underneath the wrapper that you can call directly, which holds for most API-keyed services but not for fully closed platforms where the wrapper is the only sanctioned path. In that case the honest report is blocked at the wrapper, could not verify further, not impossible."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible</h1>
+<p>I run a small internal dashboard that routes generation jobs, mostly images, across whichever backend happens to be available: a couple of hosted APIs, a subscription CLI, a local pipeline as a last resort. One night it needed two images for a design task. The first backend threw a client-side exception, twice in a row, and a standing rule moved the job to a second backend, which came back with an explicit account-lockout message instead. Two backends, two failures, and the conclusion written down was reasonable-sounding and wrong: no path exists, task not performed. A direct challenge from a human — "this worked somewhere else, why not here?" — was enough to learn the first backend had never actually been broken in the way that mattered, and a second, unrelated correction showed even the no-path-exists half of the story rested on an untested assumption. This is the postmortem of both reversals, and the procedure they leave behind: a way to tell "the wrapper died" from "the capability doesn't exist" before writing the second one down as a fact anyone else will trust.</p>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-17</p>
+
+<div class="note">A tool failing to do something and a tool being unable to do something are different claims, and the error message sitting in front of you does not automatically tell you which one you are looking at. The way to find out is not to reach for a different wrapper. It is to descend one layer, call the underlying service directly with the same credentials, and let that result decide. Skipping the descent step is how a client-side bug gets laundered into a permanent capability judgment.</div>
+
+<h2>Two failures, two wrappers, one wrong conclusion</h2>
+
+<p>The first attempt went through an MCP-style wrapper around Google's Gemini image generation. It failed with:</p>
+
+<pre><code>Image generation failed: Cannot read properties of undefined (reading '0')</code></pre>
+
+<p>Twice. That is a JavaScript-shaped null-reference error, the kind you get when code does something like <code>response.candidates[0]</code> against a response object that did not come back in the shape the client expected. A standing rule for exactly this situation — two failures on one mechanism means switch mechanisms — fired as designed and moved the job to a second backend: a wrapper around fal.ai's hosted models, the only other known route to the same capability.</p>
+
+<p>The second backend failed too, with a different kind of message:</p>
+
+<pre><code>User is locked. Reason: Exhausted balance. Top up your balance at fal.ai/dashboard/billing.</code></pre>
+
+<p>Not a stack trace — a plain-language account-state report, and it happened to be true: the account had been sitting unfunded for several days. With the first backend crashing and the second locked, both looking like the only doors available, the process closed the task with "no path exists."</p>
+
+<p>That conclusion mixed two failures that do not belong in the same bucket, rounding down to the more pessimistic one — treating a wrapper's internal crash as if it carried the same weight as an explicit "your balance is empty." It did not, and the gap between those two kinds of failure is the subject of this essay.</p>
+
+<h2>Two classes of error, and why conflating them is the whole bug</h2>
+
+<p>Split any tool-call failure into two buckets before doing anything else with it.</p>
+
+<p><strong>Class A: account-state errors</strong> name a condition external to the code calling them — insufficient balance, expired auth, a rate limit, a region lock — usually in plain language, with a code or a stated reason. In practice they are almost always true as reported, and retrying without changing anything wastes time; fix the account state, rotate the key, wait out the window, or accept the block.</p>
+
+<p><strong>Class B: client-side errors</strong> reference the wrapper's own internals — a null pointer, an undefined property, a stack trace pointing at the client library's code rather than the provider's documented error surface. A message like <code>Cannot read properties of undefined (reading '0')</code> is diagnostic information about a bug between you and the provider. It says nothing, directly, about whether the provider itself would have served the request.</p>
+
+<p>The test is close to mechanical: does the message name a business condition (balance, auth, quota, region), or a code condition (a property access, a type, a null)? The first is a fact about the world; the second is a fact about the wrapper. Report the first as unavailable. Never report the second as unavailable without one more step — it is exactly as likely to mean "the client mishandled a perfectly good response" as it is to mean anything about the underlying service. Conflating the two is what happened here: the undefined-property crash got filed next to the exhausted balance as if they were the same kind of evidence, and the more final-sounding one won.</p>
+
+<h2>The descent procedure</h2>
+
+<p>Here is the check that would have caught it, as a small procedure instead of a one-off insight:</p>
+
+<ol>
+<li>Read the raw error text first. Does it name an account, billing, or auth condition in plain language? Class A — act on it directly, do not route around it.</li>
+<li>Does it instead look like an internal exception — a stack trace, an undefined, a type error, the client library talking about itself rather than the provider talking about your request? Class B — do not write "unavailable" yet.</li>
+<li>For Class B, descend: find the credential the wrapper uses underneath, usually a plain environment variable, and call the provider's own documented endpoint directly with it, bypassing the wrapper's code path entirely.</li>
+<li>Direct call succeeds? The wrapper is the bug, full stop — file it there. The account and the underlying model were never in question.</li>
+<li>Direct call reproduces the same Class A signature, now with no wrapper in between? Only then is "unavailable via this account" an honest fact.</li>
+</ol>
+
+<p>In the actual case, step 3 was one direct HTTPS call to the Gemini API, using the same key the wrapper reads from the environment, naming the same model, gemini-3-pro-image-preview. It returned a valid image on the first try: 565,520 bytes for one variant, 774,801 bytes for a second — clean enough to leave no ambiguity. The failure had been entirely inside the wrapper's response parsing, nowhere near the provider.</p>
+
+<p>The point generalizes past image APIs. Swapping wrapper A for wrapper B when A fails is lateral movement — you are still one layer removed from what you are diagnosing, and you have only changed which client bug you might hit next. Descent means going down a layer, not sideways, and it is usually cheap: one direct call is far less expensive than letting a false "impossible" sit in a report that something, or someone, later builds on.</p>
+
+<h2>"No path exists" is a claim about your map, not about the world</h2>
+
+<p>The story does not end at the parsing bug. A separate, closed judgment held that a different image capability was genuinely out of reach: the obvious API-keyed route was unconfigured, and the other hosted account was the same locked one from before. That judgment was built on an assumption already falsified, in an unrelated session, before the judgment was even made.</p>
+
+<p>A subscription-authenticated coding CLI — OpenAI's codex, driven purely by a ChatGPT Plus login, no API key involved — had already generated images with the gpt-image-2 model, for an unrelated task, in a different session: two images, a little over a megabyte each. The capability existed and the proof already existed; neither fact had reached the place where "impossible" got written down.</p>
+
+<p>This is a sharper failure than the parsing bug, and more common. A fact your process knows in one place is not a fact it knows everywhere. "This tool is text-only" was never re-tested; it was inherited and never revisited, even after a subscription login started covering more ground than an API-key model gave it credit for. That is how stale capability assumptions usually form — not from a check that came back negative, but from nobody re-checking an inherited answer at all.</p>
+
+<p>"No path exists" is a much stronger claim than "no path that I already knew about exists," and the two get typed as the same sentence. Before the first one is true, walk the resource map — the subscription CLI, the local pipeline with no billing dependency, the model family under an account you already have but never pointed at this task — not just the two or three tools you reach for out of habit. A living, ordered list of "if capability X is needed, try in this order" turns a lesson that keeps re-teaching itself into one you learn once, and it is the artifact to update the moment an assumption is falsified, not file away as a one-time fix.</p>
+
+<h2>Treat "it worked before" as a mandatory re-diagnosis trigger</h2>
+
+<p>The challenge that opened this essay deserves promotion from a courtesy to a standing order. "This worked somewhere else, why not here?" is strong evidence the account, key, and quota are all fine, which means, by elimination, the failure lives in a layer you control. Treating it as a mild suggestion to glance again undersells what it is telling you.</p>
+
+<p>But be precise about what acting on it looks like, because a nearby failure mode looks similar and is not: reversing a conclusion just to match the tone of a challenge, with no new evidence. Reversing because someone sounded confident is capitulation. Reversing because the challenge sent you back to run the descent procedure, and the direct call produced a real result, is a correction backed by evidence. Same outward behavior — "I changed my answer" — and the whole question of whether it was right lives in whether a real diagnostic step happened first.</p>
+
+<h2>What this costs, and where the procedure runs out</h2>
+
+<p>A false "unavailable" is not a neutral placeholder. It gets read by whatever comes next: a planning step that quietly avoids a whole tier of capability, a decision to stop maintaining something that "does not do this anyway," a rebuild of functionality that already existed one layer down. The cost is paid later and somewhere else, which is why skipping the diagnosis feels cheap now and expensive in aggregate.</p>
+
+<p>The procedure has a real edge. It requires a layer underneath the wrapper you can actually reach — true for most API-keyed services, where a direct HTTP call with the same credential is always available even if nobody bothers, but not for a fully closed platform where the wrapper is the only sanctioned path. There, "wrapper failure" and "capability failure" can be indistinguishable from where you stand, and the honest write-up is "blocked at the wrapper, could not verify further," not "impossible." Nor is this a license to distrust every account-state message: a clearly stated balance or auth error is still Class A, almost always true as reported, and re-litigating it anyway just burns time you did not need to spend.</p>
+
+<h2>The general rule</h2>
+
+<p>None of this is specific to image generation, MCP wrappers, or any one vendor. Any time you call something through a layer you did not write — an SDK, a CLI, an internal client, a coworker's script — that layer can fail in a way that has nothing to do with whether the thing underneath it can do the job. The fix is not "try harder" or "switch tools faster." It is a habit: read the error for the class it belongs to, descend one layer with the same credentials before writing "impossible" anywhere, and treat a credible "it worked before" as a standing order to find out why, not a nuisance to smooth over. The wrapper failing and the capability failing are different claims, and the only way to know which one you are looking at is to go look one layer down.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do I tell a wrapper failure from a real capability failure?</strong><br>
+Read the raw error text before anything else. If it names an explicit account-state condition, such as balance, authorization, or quota, in plain language, that is almost always true and retrying will not help. If instead it looks like an internal exception, a stack trace, an undefined property, a type error, it is describing a bug in the client code, not a decision by the provider, and you have not yet learned whether the provider itself would refuse the request.</p>
+
+<p><strong>Q. What does it mean to descend to the API?</strong><br>
+Find the credential the wrapper is already using underneath, usually a plain environment variable, and call the provider's own documented endpoint directly with that same credential, bypassing the wrapper entirely. If the direct call succeeds, the wrapper was the bug. If it fails with the same account-state error as before, only then is unavailable an honest conclusion.</p>
+
+<p><strong>Q. Why is switching to a different wrapper not the same as descending?</strong><br>
+Switching wrappers moves sideways to another layer that can fail for its own unrelated reasons, and it tells you nothing about the layer underneath either one. Descending means going down to the provider's own interface with the same credentials, which is the only step that actually isolates whether a failure belongs to the client code or to the account and the service.</p>
+
+<p><strong>Q. When should I re-open a closed unavailable conclusion?</strong><br>
+Treat a credible report that the same task worked before, or works elsewhere, as close to a mandatory trigger to re-run the diagnostic, because that statement is strong evidence the account and credentials are fine, which means the failure has to be sitting in a layer you control. The reversal is only justified once a direct call actually produces new evidence, not merely because someone pushed back.</p>
+
+<p><strong>Q. Does this diagnostic always work?</strong><br>
+No. It assumes there is a documented layer underneath the wrapper that you can call directly, which holds for most API-keyed services but not for fully closed platforms where the wrapper is the only sanctioned path. In that case the honest report is blocked at the wrapper, could not verify further, not impossible.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface</a></li>
+<li><a href="./challenge-triggered-reverification.html">Your AI Agent Folds When You Push Back</a></li>
+<li><a href="./ai-subagent-faked-verification-output.html">My AI Subagent Faked the Verification Output I Asked It to Attach</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
