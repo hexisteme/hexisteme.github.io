@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Our Quality Gate Was 24x Noisier Than What It Guarded — hexisteme notes</title>
+<meta name="description" content="A submission gate required beating a proxy 24x noisier than its real target, and a near-zero pass rate was a symptom, not proof the gate worked.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Our Quality Gate Was 24x Noisier Than What It Guarded", "datePublished": "2026-07-29", "dateModified": "2026-07-29", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "why a quality gate must be measured against the precision of the signal it protects, not just tuned by its pass or fail threshold", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What does it mean for a quality gate to be noisier than what it guards?", "acceptedAnswer": {"@type": "Answer", "text": "It means the instrument enforcing the gate has more measurement variance than the real signal it exists to protect access to, so the gate's pass or fail outcome carries less information than the number it is gating."}},
+{"@type": "Question", "name": "Why doesn't a near-zero pass rate prove a gate is working?", "acceptedAnswer": {"@type": "Answer", "text": "Because a gate whose own noise dwarfs the effect size it is supposed to detect produces a near-empty pass log whether the true rate of good changes underneath is high or low. The pass log is a statistic about the gate, not about what it screened, unless you have separately confirmed the gate's noise sits below the effect size that matters."}},
+{"@type": "Question", "name": "If a gate is too noisy to trust, why not just remove it?", "acceptedAnswer": {"@type": "Answer", "text": "Because a noisy threshold and an anti-fishing discipline are usually two different rules wearing one number. Removing the whole gate brings back the failure mode the discipline half was blocking, which is trying many variants and only reporting the best one, even though that failure mode has nothing to do with the noise problem."}},
+{"@type": "Question", "name": "When is it actually correct to make a gate itself more precise?", "acceptedAnswer": {"@type": "Answer", "text": "Only when the resource on the other side of the gate is the noisier side of the comparison. If the target signal is already more precise than your proxy, refining the proxy further does not fix anything. The fix is deciding when you are allowed to consult the precise signal directly."}},
+{"@type": "Question", "name": "How do you check whether a noisy proxy still preserves ranking?", "acceptedAnswer": {"@type": "Answer", "text": "You need at least two independent measurements moving in a known direction. One point can confirm a proxy's absolute level, but only a second point, compared against the same target, can show whether it also preserves the order between candidates."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Our Quality Gate Was 24x Noisier Than What It Guarded</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-29</p>
+
+<div class="note">A quality gate's own measuring instrument turned out to be nearly 24 times noisier than the real signal it was meant to protect, which explains why its threshold was cleared zero times in 125 days. The fix was not to delete the gate, nor to make its measurement bigger — it was to replace a noisy statistical threshold with a named hypothesis and a result-interpretation table written down before the outcome existed, while leaving the original rule against fishing for a lucky result untouched.</div>
+
+<h2>The Rule Nobody Could Pass</h2>
+<p>In a public ML benchmark competition, we ran a submission policy: don't spend a submission — a scarce, rate-limited resource — unless a candidate change beats the current best by at least 2 percentage points on a fixed, 40-task local holdout set. It read like ordinary scientific discipline: don't act on noise, require a minimum effect size before you spend something scarce. Over a 125-day eligibility window, at one submission per day, exactly one submission went out — under an explicit calibration exemption written into the rule itself, not because anything cleared the +2pp bar. In 125 days, the threshold itself was cleared zero times.</p>
+<p>The policy had three conditions. Two were fine: reproduce across multiple random augmentation seeds, and a full-length dry run finishing without timing out. This is about the third — beat the local holdout by at least 2 points — because in 125 days nothing ever actually cleared it. The one submission that did go out was explicitly exempted from it by the rule's own calibration clause, not passed by it.</p>
+<p>At first the near-silence looked like it might just be the truth: maybe nothing attempted in that window genuinely worked. That's possible — and it is also exactly what you would see if the gate itself could not tell a real improvement apart from sampling noise. Those two very different realities produce an identical pass log. The only way to tell them apart is to stop staring at the log and start measuring the instrument that produced it.</p>
+
+<h2>Put the Two Numbers Side by Side</h2>
+<p>Before arguing about whether 2 percentage points was the right bar, we measured something nobody had measured yet: how noisy is the ruler itself, compared to the thing we actually cared about?</p>
+<table>
+<tr><th>Instrument</th><th>Standard deviation</th><th>Basis</th><th>Role</th></tr>
+<tr><td>40-task local holdout</td><td>±4.79pp</td><td>Simulated, from a measured task-churn rate of 11/120</td><td>The gate — decided whether you could submit</td></tr>
+<tr><td>Larger 120-task local eval set</td><td>±2.77pp</td><td>Simulated, from the same measured task-churn rate</td><td>Available, but never used as the gate</td></tr>
+<tr><td>Actual scored result (the real target)</td><td>≈0.2pp</td><td>Observed directly — 4 submissions of the same configuration, made by different teams</td><td>What you were actually trying to predict — those 4 submissions landed inside a 0.42-point band</td></tr>
+</table>
+<p>Worth flagging that "Basis" column: the two gate-side numbers are not repeated measurements, they are a simulation seeded by one observed churn rate; only the target-side number is a direct, repeated observation. An essay arguing you should measure your own instrument's noise before trusting it does not get to skip that disclosure about its own numbers.</p>
+<p>The gate was carrying close to 24 times more noise than the thing it existed to protect access to. And it was not just imprecise in some abstract sense — a companion analysis measured the false-positive rate of the "beat the holdout by 2 points" bar directly and got 39.4%. More than a third of the time, pure sampling noise, with zero real improvement behind it, would clear that bar on its own. The gate was not a strict filter guarding a scarce resource. It was closer to a coin flip wearing a lab coat.</p>
+<p>This is a completely general shape, not a quirk of one competition. It is the same comparison as a performance budget enforced on noisy, shared CI runners gating a deploy whose real production regression rate is tiny and well characterized, or a flaky pre-merge test suite blocking merges into a service whose actual incident rate barely moves release over release. In every case there is one diagnostic question that settles the argument before you even get to threshold values: whose standard deviation is bigger, the gate's or the target's?</p>
+
+<h2>A Zero-Pass Log Is a Symptom, Not a Safety Certificate</h2>
+<p>It is tempting to read "the threshold was cleared zero times in 125 days" as proof the gate worked — screening out everything that was not good enough, letting nothing through that had not earned it. That reading does not survive contact with the numbers above. When a gate's own noise floor is several times larger than the effect size it is supposed to detect, a zero-pass log is exactly what you would see whether the true rate of real improvements underneath was high or low. The gate cannot distinguish those two worlds, so its output does not carry that information either, no matter how strict it looks from the outside.</p>
+<p>The general version: a team that points to "our gate rejects 95% of what comes through it" as evidence of rigor is citing a statistic about the gate, not about what it screened — unless it has separately confirmed the gate's noise floor sits below the effect size that matters. Otherwise a zero-pass (or near-zero-pass) log and a well-calibrated strict gate look identical from the outside, and only one of them is doing anything useful.</p>
+
+<h2>The Instinctive Fix Is Usually the Wrong One</h2>
+<p>Once a gate looks untrustworthy, the natural move is to make the gate itself more precise: a bigger holdout, more seeds, a tighter statistical test. That instinct is only correct if the resource being protected is the noisier side of the comparison. Here it was the reverse — the thing behind the gate, the actual scored result, was already dramatically more precise than the gate itself. Spending effort shrinking the local holdout's noise further would have meant polishing the wrong ruler, like recalibrating a bathroom scale to match a lab balance you already have standing right next to it, instead of just stepping on the lab balance.</p>
+<p>The general rule: only invest in tightening a gate when the resource on the other side — the expensive or scarce one — is itself the noisier side of the pair. If the target signal is already more precise than your proxy, refining the proxy further changes nothing; you still have a cheap, noisy instrument standing in front of an expensive, precise one. The real question is not how to make the proxy better. It is when you are allowed to just consult the precise instrument.</p>
+
+<h2>Delete the Threshold, Not the Discipline</h2>
+<p>The other tempting move runs the opposite direction: since the gate clearly does not work, delete it — submit whenever you want. That is also wrong, for a reason that has nothing to do with noise. The gate existed to block a specific, real failure mode: spending a scarce resource by trying many variants and only reporting the one that happened to score best. That failure mode — call it fishing, or informal multiple testing — is just as real with a perfectly precise proxy as with a noisy one. Delete the gate and it comes straight back.</p>
+<p>The old rule had quietly conflated two different jobs under one number: a statistical bar on a noisy proxy metric, and a discipline requirement against fishing. Only the first one was broken. So we deleted the first and kept, then sharpened, the second.</p>
+<p>In place of the deleted statistical bar, we added a process requirement: state, in one sentence, the specific hypothesis this attempt tests, and explain why your cheap local measurement is structurally unable to resolve it — not "it's noisy this time," but incapable by design. Then write down, for every range the real result could plausibly land in, what you will conclude and do next, before you see the result. If any range's answer is "we'll figure it out when we see it," the attempt does not qualify.</p>
+<p>The anti-fishing rule stayed completely untouched: no resubmitting an unchanged configuration hoping for a better roll. One configuration, one measurement, and remeasurement only after a real change. That is what separates the two things the old rule had lumped together — selecting on noise, illegitimate and non-transferable, from measuring a hypothesis your cheap instrument structurally cannot answer, legitimate and transferable — while still blocking the failure mode the gate was originally built for.</p>
+<p>Translated to ordinary software practice: you do not scrap "only one canary deployment in flight at a time." You might well scrap "must beat this noisy synthetic load test by X%" and replace it with "state which regression this canary is checking for, and write down what you will do for every value the canary metric could show, before you ship it."</p>
+
+<h2>Commit the Reasoning Before You See the Result</h2>
+<p>Everything above — the rewritten rule, and a full table mapping every possible real-world outcome to a conclusion — was written down before the actual result existed. That ordering is the entire point. Rewrite a rule after you have already seen the number, and you are not correcting a bad gate. You are picking whichever justification would have let you do what you already wanted to do.</p>
+<p>The pre-registered outcome table looked roughly like this (scores on this competition's normal 0–100-ish scale, baseline at 28.47):</p>
+<table>
+<tr><th>Real score lands in...</th><th>Conclusion</th></tr>
+<tr><td>≥ 30.5</td><td>Local read had the direction wrong; every recent local-only verdict this week needs re-checking</td></tr>
+<tr><td>28.9 – 30.4</td><td>Real effect exists but is small; local got sign or size wrong</td></tr>
+<tr><td>28.05 – 28.89</td><td>Effect is zero within noise; local verdict stands</td></tr>
+<tr><td>27.5 – 28.04</td><td>Effect is real and negative, matching local, just smaller</td></tr>
+<tr><td>&lt; 27.5</td><td>Can't separate a real negative effect from an unrelated execution failure; inconclusive</td></tr>
+</table>
+<p>The candidate under test had searched a wider space per task — about 31% more candidate answers generated, roughly 22% more compute spent — and the real result came back at 28.19. That falls inside the 28.05–28.89 band. The conclusion followed mechanically, exactly as written down in advance: the extra search bought an effect indistinguishable from zero at this instrument's noise level. No re-litigating, no "well, technically." The table had already decided.</p>
+<p>There was a second, unplanned payoff. An earlier calibration point had shown the local proxy's absolute level predicted the real score reasonably well — the real result had landed at about 97.6% of the local number. But one point can only validate level, never ranking; checking whether a noisy proxy preserves order takes at least two independent readings moving in a known direction. This measurement supplied the second point: the ratio-adjusted local prediction was 27.93, the actual result was 28.19, a gap of 0.26 — about the size of the real instrument's own noise floor. A gate can be too noisy to threshold on directly and still be trustworthy for ranking candidates against each other, but that is a separate property from absolute-level accuracy, and it takes a second measurement to check, not one.</p>
+
+<h2>Where This Reasoning Breaks Down</h2>
+<p>Three honest limits, stated on the record rather than left implicit:</p>
+<ul>
+<li>The ≈0.2pp figure for the real target came from four submissions of identical code by different teams, not from our own repeated attempts — the anti-fishing rule forbids measuring that directly, since it would mean resubmitting unchanged code ourselves. If our own run-to-run variance differs from that borrowed estimate, the 24x figure moves. That's a known, accepted gap, not a hidden one.</li>
+<li>The whole argument assumes the resource stays scarce. A process gate built for one submission a day, over a fixed 125-day window, is calibrated to that scarcity — if the budget loosens later, its weight should be revisited.</li>
+<li>Every number here describes one evaluation environment. Public/private scoring environments can diverge; conclusions are scoped to what was measured, not guaranteed wherever the stakes end up highest.</li>
+</ul>
+<p>The general habit worth keeping, independent of any of this: before arguing about where to set a gate's threshold, measure the gate instrument's own noise and put it next to the noise of the thing it exists to protect. If the gate turns out to be the noisier side, the fix is not a bigger or smaller number. It is moving what you are gating on entirely — from a statistical bar you cannot trust to a discipline you can. And whichever fix you pick, write down why, and what every outcome will mean, before the result exists to tempt you.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does it mean for a quality gate to be noisier than what it guards?</strong><br>
+It means the instrument enforcing the gate has more measurement variance than the real signal it exists to protect access to, so the gate's pass or fail outcome carries less information than the number it is gating.</p>
+
+<p><strong>Q. Why doesn't a near-zero pass rate prove a gate is working?</strong><br>
+Because a gate whose own noise dwarfs the effect size it is supposed to detect produces a near-empty pass log whether the true rate of good changes underneath is high or low. The pass log is a statistic about the gate, not about what it screened, unless you have separately confirmed the gate's noise sits below the effect size that matters.</p>
+
+<p><strong>Q. If a gate is too noisy to trust, why not just remove it?</strong><br>
+Because a noisy threshold and an anti-fishing discipline are usually two different rules wearing one number. Removing the whole gate brings back the failure mode the discipline half was blocking, which is trying many variants and only reporting the best one, even though that failure mode has nothing to do with the noise problem.</p>
+
+<p><strong>Q. When is it actually correct to make a gate itself more precise?</strong><br>
+Only when the resource on the other side of the gate is the noisier side of the comparison. If the target signal is already more precise than your proxy, refining the proxy further does not fix anything. The fix is deciding when you are allowed to consult the precise signal directly.</p>
+
+<p><strong>Q. How do you check whether a noisy proxy still preserves ranking?</strong><br>
+You need at least two independent measurements moving in a known direction. One point can confirm a proxy's absolute level, but only a second point, compared against the same target, can show whether it also preserves the order between candidates.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+<li><a href="./deterministic-tool-adoption-gates.html">Deterministic Tool Adoption Gates: Score It, Don't Vibe It</a></li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for four days while nothing shipped: score the effect, not the report</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
