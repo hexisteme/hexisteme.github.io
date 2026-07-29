@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unit Tests Passed. The Feature Never Ran. Three Times in One Session. — hexisteme notes</title>
+<meta name="description" content="Three features passed their unit tests and never executed in production, in one session. Why component tests are blind to wiring, and the two fixes.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Unit Tests Passed. The Feature Never Ran. Three Times in One Session.", "datePublished": "2026-07-19", "dateModified": "2026-07-19", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why unit tests structurally cannot detect wiring gaps between components, drawn from three features in one session that had passing dedicated tests and never executed in production, plus the default-value root cause and the two structural fixes that stop the repeat.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can unit tests pass while the feature never runs in production?", "acceptedAnswer": {"@type": "Answer", "text": "Because a unit test supplies the arguments itself. It verifies that the function handles an argument correctly, which is a different claim from the argument actually arriving on a live code path. In this case a pure URL-building function had eight passing tests covering coordinate branches, app-installed branches, percent-encoding and identifier precedence, and in production the new fields were dropped by a hand-written merge function and omitted by two of the four view call sites. None of that is visible to a test that constructs its own input."}}, {"@type": "Question", "name": "Why does code coverage not detect a wiring gap?", "acceptedAnswer": {"@type": "Answer", "text": "Coverage counts lines that executed. A wiring gap is a call site that does execute and simply passes nothing, so there is no uncovered line to point at. In the second incident the only places constructing the new type were three preview blocks, the test suite exercised the type thoroughly with fifteen passing tests, and the feature still rendered zero pixels on a real device."}}, {"@type": "Question", "name": "How does giving a new field a default value cause this?", "acceptedAnswer": {"@type": "Answer", "text": "A default value removes the compiler's call-site audit. Without a default, adding a field makes every call site that needs updating fail to compile, immediately and exhaustively. With a default, the compiler is satisfied and the failure relocates to runtime, where it manifests as an absence, and absences do not throw. The uncomfortable part is that the default almost always looks like the correct call at the moment you make it: it is the textbook incremental migration, and often the only way to add a field without breaking a file somebody else is editing right now."}}, {"@type": "Question", "name": "Why does AI-assisted or parallel-agent development widen this gap?", "acceptedAnswer": {"@type": "Answer", "text": "Two reasons. Scoping: a code generator builds the component you asked for, complete with its own tests, but connecting it to the call sites was never part of the request. The generator produces the thing, not the thing's callers. File ownership: parallel delegation only works if you split files between workers, so the instruction becomes \"don't touch files you don't own\", which in practice becomes \"give the new parameter a default so files you don't own keep compiling\". Wiring is precisely the work that crosses ownership boundaries, which is the work nobody was assigned."}}, {"@type": "Question", "name": "What is a wiring pass-through test and how is it different from a unit test?", "acceptedAnswer": {"@type": "Answer", "text": "It is a separate test file whose only job is asserting the assembly path rather than the functions. Three assertion points cover it: the merge boundary, checking that a partial merge preserves newly added fields regardless of completion order; the assembly boundary, reproducing the live assembly expression exactly and asserting the value reaches the final object; and orthogonality, asserting the newly carried value does not change the verdict it travels with. It lives in its own file with a comment explaining why, because next to the unit tests it looks redundant and would otherwise get deleted."}}]}
+</script>
+</head>
+<body>
+
+<h1>Unit Tests Passed. The Feature Never Ran. Three Times in One Session.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-19</p>
+
+<div class="note">Three features shipped in one session, each with dedicated unit tests, all green, and none of the three ever executed in the live app. The first had eight passing tests and was broken by a hand-written merge that dropped three new fields plus two call sites that never passed them. The second had a 692 MB data pipeline, a generated survival table and fifteen passing tests, and existed only inside preview blocks. The third was reported as unwired by the worker that built it, in a line that got buried. The shared root cause is the default value that quietly removes the compiler's call-site audit, and the fixes are structural rather than more tests.</div>
+
+<h2>Round one: eight passing tests, zero live executions</h2>
+
+<p>The first feature was a handoff row: buttons that take you from the app to a phone dialer or a maps app. The URL construction lived in a pure function, <code>HandoffRow.urls()</code>, written that way on purpose, with a comment in the source declaring it testable. Eight dedicated tests, all passing, covering whether coordinates are present, whether the target app is installed, percent-encoding of the business name, and the precedence rule for using a place identifier over a name search.</p>
+
+<p>In production those arguments were never populated. The wiring broke in two places.</p>
+
+<p>First, a merge function. The live app composes two review sources, and that merge is hand-written: it copies fields one explicit line at a time. Three new fields had been added upstream (a place identifier, a phone number, a maps URI). None were added to the copy list. It compiled fine, because dropping a field during an explicit field-by-field copy is not a type error. It is just not copying.</p>
+
+<p>Second, the call sites. Four view call sites construct this row. Two of them, the two on the live path, didn't pass the new arguments at all.</p>
+
+<p>So the phone button never rendered, in any state, ever, and the maps deep link always degraded to a plain name search. No crash, no error, tests green. The tests didn't find it; an adversarial code review did, run with three lenses, two of which flagged it independently.</p>
+
+<h2>Round two: the same failure, at much larger scale</h2>
+
+<p>Same session. I added a new axis to the verdict: how long the restaurant has been operating, benchmarked against how long comparable businesses survive. The deliverables:</p>
+
+<ul>
+<li>a pipeline that exhaustively aggregates 692 MB and 2,280,906 rows of public business-registry data</li>
+<li>a static cohort survival table covering 17 business categories across up to 20 years of cohorts, generated at build time</li>
+<li>two domain types and a timeline view component</li>
+<li>fifteen dedicated tests, all passing</li>
+</ul>
+
+<p>Zero of the five production call sites passed the <code>tenure:</code> argument. Grepping for the type constructor found every construction site in the app inside a <code>#Preview</code> block, three of them. The feature existed exclusively in the preview canvas.</p>
+
+<p>The most instructive call site was the map-pin lookup path. That function already held both values the new axis needed, the license date and the category, in local variables a few lines above the call. It just didn't pass them.</p>
+
+<p>So the pipeline, the table, the types, the view and fifteen green tests all existed, and the feature rendered zero pixels on a real device. This happened <em>after</em> I had diagnosed round one and written a dedicated test file for it.</p>
+
+<h2>Round three: the worker said so out loud</h2>
+
+<p>Same session, same workflow. I wired restaurant photos in from a places API. The verdict object, the thing that carries the analysis from the logic layer to the view layer, didn't carry the photo fields, so the hero image fell back to a stock illustration on every live path.</p>
+
+<p>The detail that stings: the subagent that did this work wrote <em>"backend not wired"</em> in its own completion report. It was honest. It said the thing. That report was one of several returning at once, and the line got buried.</p>
+
+<p>Three for three, on a pattern I already knew.</p>
+
+<h2>Why unit tests cannot catch this, in principle</h2>
+
+<p>A pure-function test looks like this:</p>
+
+<pre>let destinations = HandoffRow.urls(placeName: "...", googlePlaceId: "ChIJabc", ...)
+XCTAssertEqual(destinations.google.absoluteString, "...query_place_id=ChIJabc")</pre>
+
+<p>The proposition it verifies: <strong>does the function handle the argument correctly?</strong> The proposition it does not verify: <strong>does that argument ever arrive?</strong></p>
+
+<p>The second is out of reach for as long as the test supplies the argument itself. That isn't a gap in the suite, it is what isolation <em>means</em>. More tests, or better ones, hit the same wall, because every one constructs the input by hand, which is exactly the step production was skipping. Coverage doesn't rescue it either: coverage counts lines that executed, and the failure here is a call site that <em>does</em> execute and passes nothing.</p>
+
+<p>So the category matters more than the three bugs. Unit tests validate components in isolation, which makes every state where components are <em>not connected to each other</em> invisible to them. Here that was unpassed arguments and a lossy merge. Elsewhere it is the handler written but never registered, the route that exists but was never mounted, the feature flag defaulting to off, the DI binding that never made it into the container. Different surface, same blind spot. All of them go green.</p>
+
+<h2>The real culprit is the default value</h2>
+
+<p>All three had the same thing at the root: to add a new field without breaking existing call sites, I gave it a default.</p>
+
+<pre>var googlePlaceId: String? = nil
+static func read(from: FetchedSignals, tenure: TenureRecord? = nil) -&gt; TransparencyRead</pre>
+
+<p>That single <code>= nil</code> is the whole story. Without it, the compiler lists every call site needing an update, immediately, as errors. With it, the compiler is satisfied and the failure relocates to runtime, where it manifests as an absence, and absences don't throw.</p>
+
+<div class="warn">The uncomfortable part: the default almost always looks like the correct call at the moment you make it. It is the textbook incremental migration, and often the only way to add a field without breaking a file somebody else is editing right now. You reach for it because it is the professional move, and it quietly trades a compile-time guarantee for a runtime nothing.</div>
+
+<h2>Why AI-assisted development widens the gap</h2>
+
+<p>This predates LLMs, but delegating implementation to a code generator makes it structurally more likely.</p>
+
+<p><strong>Scoping.</strong> A generator builds the component you asked for. "Add a tenure axis" yields a pipeline, types, a view and tests, all self-contained, all good. Connecting it to the five places that should call it was never in the request, and a component that compiles with passing tests looks finished from the inside. The generator produces the thing; it does not produce the thing's callers.</p>
+
+<p><strong>File ownership.</strong> Parallel delegation only works if you split files between workers, or they collide on edits. So the instruction becomes "don't touch files you don't own", which, followed faithfully, becomes "give the new parameter a default so files you don't own keep compiling". Wiring is precisely the work that crosses ownership boundaries, which is the work nobody was assigned.</p>
+
+<p>Every worker did its job correctly. Nobody lied. Round three's worker reported the gap explicitly. And the feature was dead. That is a structural outcome, not a diligence problem, and it recurs until you change the structure.</p>
+
+<h2>Fix one: make the omission inexpressible</h2>
+
+<p>Stop hand-passing the data. Instead of threading new values through view properties at each call site, load them onto an object that already flows to the consumer, here the verdict itself. It travels with the verdict, so a new call site cannot fail to bring it.</p>
+
+<pre>// Before: hand-passed at every call site -&gt; 2 of 4 forgot
+TransparencyReadView(read: read, googlePlaceId: ..., phoneNumber: ..., googleMapsUri: ...)
+
+// After: the verdict carries it -&gt; the call site has nothing to forget
+TransparencyReadView(read: read)</pre>
+
+<p>The principle isn't "remember to pass it". It is <strong>make forgetting inexpressible</strong>. A rule that depends on remembering had already failed three times inside this one story.</p>
+
+<h2>Fix two: a wiring test beside the unit tests</h2>
+
+<p>A separate file whose only job is asserting the <em>assembly path</em>: not the functions, the connections between them. Three assertion points:</p>
+
+<ul>
+<li><strong>The merge boundary.</strong> Does the partial merge preserve the new fields? Plus order-independence, since the two sources are fetched concurrently and complete non-deterministically.</li>
+<li><strong>The assembly boundary.</strong> Reproduce the live assembly expression exactly and assert the value reaches the final object.</li>
+<li><strong>Orthogonality.</strong> Assert the newly carried value does <em>not</em> change the verdict. A handoff identifier must not leak into a trust judgment.</li>
+</ul>
+
+<p>It is a separate file because it answers a different question and would otherwise get deleted as redundant, so a comment at the top explains why it exists, for the next person doing a cleanup pass.</p>
+
+<h2>What actually caught all three</h2>
+
+<p>Adversarial code review, every time. Three reviewers with different lenses (regression risk, contract integrity, honesty of reporting) run independently, converging on the same finding. One line in the review instruction did most of the work:</p>
+
+<div class="note">Trace new features to their call sites and verify they actually receive values on the live path.</div>
+
+<p>In round one that line wasn't there, and the reviewer saw eight passing tests and rated the item low severity, which was a reasonable read of the evidence in front of it. The instruction is what changes the evidence a reviewer goes and collects. You don't get call-site tracing by hoping the reviewer is thorough; you get it by asking for it by name.</p>
+
+<h2>The portable checklist</h2>
+
+<p>Language-agnostic. Applies anywhere default arguments and optional fields exist.</p>
+
+<ol>
+<li>Giving a new field a default opts you out of the compiler's call-site audit. Budget for paying that cost elsewhere.</li>
+<li>Partial merges (<code>merge</code>, <code>combine</code>, <code>reduce</code>, any hand-written field-by-field copy) get no compiler help when a field is added. Add a field, grep the merges first.</li>
+<li>Keep a wiring pass-through test beside the unit tests, in its own file, with its reason for existing written at the top.</li>
+<li>Before trusting a new test, check that it can fail: delete the thing it protects and confirm it goes red.</li>
+<li>Put "trace to the call site" in the review instruction. Don't rely on reviewer diligence for something you can ask for.</li>
+<li>Splitting file ownership across parallel workers structurally produces incomplete wiring. Schedule a dedicated wiring pass at the end, or move the data onto a domain object so there is nothing left to wire.</li>
+</ol>
+
+<h2>Honest limits</h2>
+
+<p>One project, one developer, one session. A case study, not a statistic. The review caught all three this time, which is not evidence it catches everything, since there is no way to count what it missed.</p>
+
+<p>"Put the data on the domain object" isn't universally right; the counter-cost is that the object grows. It was cheap here because that object was already a display-oriented container carrying a dozen derived values, and never gets persisted. If it were a persisted model, adding fields for view convenience would be a schema decision, and I'd have chosen differently.</p>
+
+<p>Two conditions would tell me I'm wrong. If a wiring gap of the same shape recurs <em>despite</em> the pass-through test, the answer isn't more test placement, it is applying the structural fix more broadly. And if six months pass with no recurrence, that only counts if new fields with defaults were actually added in that window. No incidents can mean no attempts.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How can unit tests pass while the feature never runs in production?</strong><br>
+Because a unit test supplies the arguments itself. It verifies that the function handles an argument correctly, which is a different claim from the argument actually arriving on a live code path. In this case a pure URL-building function had eight passing tests covering coordinate branches, app-installed branches, percent-encoding and identifier precedence, and in production the new fields were dropped by a hand-written merge function and omitted by two of the four view call sites. None of that is visible to a test that constructs its own input.</p>
+
+<p><strong>Q. Why does code coverage not detect a wiring gap?</strong><br>
+Coverage counts lines that executed. A wiring gap is a call site that does execute and simply passes nothing, so there is no uncovered line to point at. In the second incident the only places constructing the new type were three preview blocks, the test suite exercised the type thoroughly with fifteen passing tests, and the feature still rendered zero pixels on a real device.</p>
+
+<p><strong>Q. How does giving a new field a default value cause this?</strong><br>
+A default value removes the compiler's call-site audit. Without a default, adding a field makes every call site that needs updating fail to compile, immediately and exhaustively. With a default, the compiler is satisfied and the failure relocates to runtime, where it manifests as an absence, and absences do not throw. The uncomfortable part is that the default almost always looks like the correct call at the moment you make it: it is the textbook incremental migration, and often the only way to add a field without breaking a file somebody else is editing right now.</p>
+
+<p><strong>Q. Why does AI-assisted or parallel-agent development widen this gap?</strong><br>
+Two reasons. Scoping: a code generator builds the component you asked for, complete with its own tests, but connecting it to the call sites was never part of the request. The generator produces the thing, not the thing's callers. File ownership: parallel delegation only works if you split files between workers, so the instruction becomes "don't touch files you don't own", which in practice becomes "give the new parameter a default so files you don't own keep compiling". Wiring is precisely the work that crosses ownership boundaries, which is the work nobody was assigned.</p>
+
+<p><strong>Q. What is a wiring pass-through test and how is it different from a unit test?</strong><br>
+It is a separate test file whose only job is asserting the assembly path rather than the functions. Three assertion points cover it: the merge boundary, checking that a partial merge preserves newly added fields regardless of completion order; the assembly boundary, reproducing the live assembly expression exactly and asserting the value reaches the final object; and orthogonality, asserting the newly carried value does not change the verdict it travels with. It lives in its own file with a comment explaining why, because next to the unit tests it looks redundant and would otherwise get deleted.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for Four Days While Nothing Shipped: A Reader Rebutted My Monitoring Post, and He Was Right</a></li>
+<li><a href="./harness-invariants-stop-cross-component-leaks.html">How to Stop AI Agent Skills, Hooks, and Cron Jobs from Silently Conflicting</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
