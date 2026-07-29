@@ -155,6 +155,24 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">adversarial review</span><span class="tag">multi-agent</span><span class="tag">verification</span>
 </div>
 
+<div class="card">
+  <h3><a href="quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a></h3>
+  <p>A pre-registered gate used a holdout roughly 24 times noisier than the leaderboard it was protecting, so its threshold was cleared zero times in 125 days. A near-empty pass log is a symptom, not proof the gate works — and the fix is to move the gate to a different axis, not to enlarge the noisy instrument.</p>
+  <span class="tag">measurement</span><span class="tag">pre-registration</span><span class="tag">experiment design</span>
+</div>
+
+<div class="card">
+  <h3><a href="subagent-metrics-not-comparable-to-main-thread.html">Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics</a></h3>
+  <p>Across a few thousand agent threads, the main-thread vs sub-agent split moved metrics by up to 135x, and the role mix ranged from 1.5% to 71.4% per model — so pooled per-model averages were weighted averages with different weights. One pair showed a 3.6x pooled gap that exists in neither stratum. Plus two traps that survive stratification: metrics that change meaning per stratum, and bootstrap intervals that collapse to [0, 0] on tied data.</p>
+  <span class="tag">agent telemetry</span><span class="tag">stratification</span><span class="tag">statistics</span>
+</div>
+
+<div class="card">
+  <h3><a href="wrapper-failure-is-not-capability-failure.html">The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible</a></h3>
+  <p>A tool failing and a tool being incapable are different claims, and the error in front of you does not say which. Descend one layer, call the underlying service directly with the same credentials, and let that decide — skipping the descent is how a client-side parsing bug gets laundered into a permanent capability judgment.</p>
+  <span class="tag">AI agents</span><span class="tag">diagnosis</span><span class="tag">tool wrappers</span>
+</div>
+
 <h2>Fleet Monitoring &amp; Orchestration</h2>
 
 <div class="card">
@@ -237,6 +255,30 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="app-store-connect-api-hard-limits.html">Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</a></h3>
   <p>A 20-minute JWT cap that 401s perfectly valid signatures, one app version in flight (409 STATE_NOT_SUITABLE), and a 2-in-flight/5-total review-submission ceiling with undeletable orphans (DELETE 403, PATCH 409 — web UI cancel or 7-day expiry only). The two-call pre-flight that avoids all three.</p>
   <span class="tag">App Store Connect</span><span class="tag">iOS</span><span class="tag">API</span>
+</div>
+
+<div class="card">
+  <h3><a href="unit-tests-pass-feature-dead-in-production.html">Unit Tests Passed. The Feature Never Ran. Three Times in One Session.</a></h3>
+  <p>Three features, each with dedicated passing unit tests, none of which ever executed in the live app. One was broken by a merge that dropped two call sites; one existed only inside preview blocks; one was reported unwired in a line that got buried. Component tests are blind to wiring, and the shared root cause was a default value that removes the compiler's call-site audit.</p>
+  <span class="tag">testing</span><span class="tag">wiring</span><span class="tag">AI codegen</span>
+</div>
+
+<div class="card">
+  <h3><a href="error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</a></h3>
+  <p>An upstream reported throttling as HTTP 200 with an error envelope, so a rate-limited response parsed as a legitimately empty table and got memoized — serving zero rows long after the upstream recovered, with a completed walk and silent logs. Success is a verdict on the body schema, not the status code, and the cache write has to sit downstream of that verdict.</p>
+  <span class="tag">API</span><span class="tag">caching</span><span class="tag">error handling</span>
+</div>
+
+<div class="card">
+  <h3><a href="css-comment-typo-swallowed-fifteen-rules.html">CSS Doesn't Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet</a></h3>
+  <p>A layout fell apart while 481 tests stayed green and the missing rules sat in the file, correctly written. A comment closed with Jinja's <code>#}</code> instead of <code>*/</code> made the parser consume seventeen lines to the next real closer. CSS has no fatal parse errors by design, so a linter cannot catch it — the fix that mattered was two assertions guarding the whole failure class.</p>
+  <span class="tag">CSS</span><span class="tag">silent failure</span><span class="tag">guard tests</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-edge-cache-that-never-served-a-byte.html">The Edge Cache That Never Served a Byte: Verify Cache Hits by Timing a Warm Call</a></h3>
+  <p>The design record, the code and the response headers all said the endpoint cached at the edge. The first test that actually timed a warm call found it re-walking all 29 upstream pages at 2.9s against a 0.16s expectation — the cache API is a documented no-op on that hostname. Nothing broke, because the spend circuit breakers underneath were absorbing the load the cache was credited with removing.</p>
+  <span class="tag">edge cache</span><span class="tag">verification</span><span class="tag">serverless</span>
 </div>
 
 <h2>macOS &amp; Debugging</h2>
