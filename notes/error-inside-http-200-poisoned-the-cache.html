@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check — hexisteme notes</title>
+<meta name="description" content="An upstream that reports rate limiting as HTTP 200 with an error envelope turned a throttled response into a memoized empty table — why success has to be a body-schema verdict, why the cache write belongs after that verdict, and how a revision token in the key evicts entries you cannot enumerate.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check", "datePublished": "2026-07-18", "dateModified": "2026-07-18", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Soft errors returned inside HTTP 200 responses, and cache poisoning: why an upstream error envelope parsed as an empty result set, why the cache write must come after the success verdict rather than after the status-code check, how the poisoned entries were detected, and how a revision token in the cache key invalidates entries in a store that cannot be enumerated or flushed.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does an API error arrive with an HTTP 200 status code?", "acceptedAnswer": {"@type": "Answer", "text": "Because many gateways report the application-level outcome inside the response body rather than in the status line. The government portal in this case answers throttling with a 200, a well-formed JSON body, an envelope header code other than the documented success value, a total count of zero, and an empty item list. GraphQL, JSON-RPC and SOAP all do versions of the same thing. The status code told me the exchange completed; only the body says whether the upstream did the work."}}, {"@type": "Question", "name": "Is response.ok enough to check whether an API call succeeded?", "acceptedAnswer": {"@type": "Answer", "text": "No, not when the payload carries its own status. response.ok, raise_for_status and their equivalents adjudicate the transport only: a response arrived with a 2xx code. Success has to be a schema predicate — the envelope status equals the documented success value and the fields the caller needs are present and typed — so everything else, including a well-formed error body under a 200, is a failure. Run that check on every page of a paginated walk, not just the first, because pages two onward are exactly where a rate limiter starts saying no."}}, {"@type": "Question", "name": "Why does a cached error keep being served after the upstream recovers?", "acceptedAnswer": {"@type": "Answer", "text": "Because the cache write happened before anything adjudicated the response. When the pipeline is fetch, transport check, parse, write, any value that clears the status-code check becomes durable, and the failure then lasts as long as the cache entry rather than as long as the outage. Moving the write after the success verdict — returning null on an error envelope so the caller never writes the entry and the next request retries — makes the failure's lifetime the upstream outage again."}}, {"@type": "Question", "name": "How do I invalidate cache entries that a bug already poisoned?", "acceptedAnswer": {"@type": "Answer", "text": "Put a revision token in the cache key and bump it in the same deploy as the fix. That orphans every entry written by the old code path at once, with no key enumeration and no flush endpoint, which is what makes it work on a store you cannot address from outside — a per-isolate memo has no key list and no admin flush. Waiting out the TTL is not a remediation plan; it makes the incident's length a property of a config constant."}}, {"@type": "Question", "name": "Why did nothing downstream notice that the cached board was empty?", "acceptedAnswer": {"@type": "Answer", "text": "Because empty was a legal answer. The design treats a flight missing from one feed as a fallthrough to another provider rather than an error, so an empty board is a legitimate value that no consumer above the walker can distinguish from an upstream refusal. Any system with a legal nothing-here value — an empty search result, a zero balance, an empty entitlement list, a null price — will silently absorb an upstream error that decays into that value, so the check has to happen at the boundary where the error is still distinguishable from the value."}}]}
+</script>
+</head>
+<body>
+
+<h1>An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-18</p>
+
+<div class="note">A government open-data gateway reports throttling as HTTP 200 with an error envelope: well-formed body, non-success code in the header, zero rows. My paginated board walk checked only <code>res.ok</code>, so a rate-limited response parsed as a legitimately empty table and was memoized — the board served zero rows for every date long after the upstream recovered, with HTTP 200, a completed walk, a fresh memo and silent logs the whole time. Two lessons generalize past this stack: success is a verdict on the body schema, not on the status code, and the cache write has to sit downstream of that verdict, because a cache in front of validation is poisoned by construction. A revision token in the key is what evicted the entries afterwards.</div>
+
+<p>My travel app's backend walks Korea's government open-data portal, data.go.kr, for airport departure boards. One evening a board walk came back empty, memoized that, and kept serving zero rows for every date long after the upstream had recovered. Nothing reported a failure, because by the only definition the code was checking, nothing had failed: the response was HTTP 200.</p>
+
+<h2>A rate limit that arrives as HTTP 200</h2>
+
+<p>The portal's gateway wraps every response in an envelope carrying its own status. Success is the header code <code>00</code>. Throttling is reported through that same envelope — a 200, a well-formed body, a non-<code>00</code> code in the header, <code>totalCount: 0</code>, and an empty item list.</p>
+
+<pre><code>{
+  "response": {
+    "header": { "resultCode": "&lt;anything but 00&gt;", "resultMsg": "&lt;why it failed&gt;" },
+    "body":   { "totalCount": 0, "items": [] }
+  }
+}</code></pre>
+
+<p>The consumer is a paginated walk: fetch page 1, read <code>totalCount</code>, derive the page count, fan out the rest, concatenate, memoize the assembled board per operation. The guard before parsing was the one every fetch wrapper I have ever written has:</p>
+
+<pre><code>const res = await fetch(url);
+if (!res.ok) return null;
+const body = await res.json();
+const items = body?.response?.body?.items ?? [];
+return items;                    // throttled -&gt; [] -&gt; memoized as "the board"</code></pre>
+
+<p>Under throttling, <code>res.ok</code> is <code>true</code>. The JSON parses. The item list is empty. The walk reports success with zero rows, and the memo stores that as the board. The visible symptom: the international board for Gimpo (GMP) had returned 32 rows earlier that day, and after one evening walk it returned zero — for every date, for as long as the memo lived. HTTP 200. Walk completed. Memo fresh. Logs silent.</p>
+
+<h2>Empty was a legal answer, so nothing downstream could flag it</h2>
+
+<p>The design deliberately treats a missing flight as a fallthrough rather than an error: absence in one feed is not evidence of nonexistence — a board can transiently miss a flight through a gap or a codeshare edge — so a lookup the free feed cannot answer falls through to the metered commercial provider instead of returning a 404. That is the right call, and it is also why an empty board is a completely legitimate value here, indistinguishable at every layer above the walker from "the upstream refused to talk to us."</p>
+
+<p>Generalize it: any system with a legal <em>nothing here</em> — an empty search result, a zero balance, an empty entitlement list, a null price — will silently absorb an upstream error that decays into that value. Once the error is laundered into the domain's legal empty, no consumer downstream can tell the difference, and no amount of defensive coding at those layers will help. The check has to happen at the boundary where the error is still distinguishable from the value.</p>
+
+<h2>response.ok answers the transport question, not the application one</h2>
+
+<p>Every one of these calls stacks two protocols. HTTP transports the exchange; the gateway's envelope reports the application's outcome. <code>res.ok</code> — or <code>raise_for_status()</code>, or <code>if err != nil</code> — adjudicates the transport only. Whether the upstream <em>did the thing</em> is a separate claim, made in the body. This is not an exotic quirk of one government portal: GraphQL conventionally answers 200 with an <code>errors</code> array, JSON-RPC transports failures as an <code>error</code> member in a 200 body, SOAP puts faults in the envelope, and plenty of enterprise and public-sector gateways stamp 200 on anything that reached the application at all. Wherever a body carries its own status, the status code is a routing detail, not a verdict.</p>
+
+<p>So the rule I now apply is that <strong>success is a schema predicate</strong>: a response is a success when its body parses into the shape success has — envelope status is the documented OK value, and the fields the caller needs are present and typed. Everything else, including a beautifully formed error body under a 200, is a failure and returns nothing.</p>
+
+<pre><code>const res = await fetch(url);
+if (!res.ok) return null;
+const body = await res.json();
+if (body?.response?.header?.resultCode !== "00") return null;   // envelope gate
+const items = body?.response?.body?.items ?? [];
+return items;</code></pre>
+
+<div class="warn"><strong>Gate every page, not just the first.</strong> A walk that validates page 1 and then trusts the fan-out has only moved the window in which a throttled page can enter the result set — page 2 onward is exactly where a rate limiter starts saying no.</div>
+
+<h2>The cache write belongs after the success verdict</h2>
+
+<p>The broken ordering was: fetch → transport check → parse → <strong>memoize</strong> → return. Any judgement about what the payload <em>meant</em> happened, if at all, downstream of the write, so the moment a bad value cleared the transport check it was durable. The fixed ordering is: fetch → transport check → parse → <strong>adjudicate</strong> → memoize. Only an adjudicated success is cacheable. The walker returns <code>null</code> on an error envelope; <code>null</code> is not a board, so the caller never writes the memo and the next request retries. That single reordering changes the failure's lifetime from <em>the cache's TTL</em> to <em>the upstream's outage</em> — which is the whole game, because the throttling passes and the memo does not.</p>
+
+<p>Two corollaries came with it. <strong>Partial successes are not successes:</strong> each operation's board is memoized atomically, all-or-nothing, so a truncated walk is never kept — a half-populated cache entry is the same bug wearing a friendlier face. <strong>The layer above has to agree:</strong> the route layer marks an incomplete board <code>cacheable: false</code>, so a partial result cannot be re-poisoned into a downstream cache. Fixing validation in one layer is worthless if the layer above saved the bad value anyway.</p>
+
+<h2>Detecting it: the same input, a different hour</h2>
+
+<p>Nothing about this failure looked like a failure. The honest answer to "how was it caught" is that a staged proof re-run at a different hour returned different data for the same date — that was the whole signal, and chasing it took three instrumented rounds, tail logging plus a raw re-probe, because every layer reported health. What I would actually trust as a detector, in rough order of cost:</p>
+
+<ol>
+<li><strong>Re-probe the upstream raw and diff it against the cached answer</strong> for the same input. It is the only check that sees the divergence directly, and it is what ended the hunt.</li>
+<li><strong>Log the envelope status and row count on every walk</strong>, successful-looking ones included. An empty board is an event, not a boring success; if the line for zero rows carries the envelope code that produced it, the diagnosis is a grep instead of three rounds.</li>
+<li><strong>Make truncation loud.</strong> A warning when a paginated walk hits its page cap is cheap, and it caught the sibling bug below in the same session.</li>
+<li><strong>Alert on the transition, not the state</strong> — a board that had rows and now has none, for an input with no business being empty. State-based checks cannot help here, because the poisoned state is a legal state.</li>
+</ol>
+
+<h2>Invalidating a cache you cannot enumerate</h2>
+
+<p>Fixing the walker does not fix the entries the broken walker already wrote: the deploy ships correct code that goes on reading a wrong value it saved earlier. You have repaired the producer and left the poison in the store, and a remediation plan amounting to "wait out the TTL" just makes the incident's length a property of a config constant. The fix that generalizes is a <strong>revision token in the cache key</strong>:</p>
+
+<pre><code>const memoKey = `${WALK_REV}:${op}:${day}:${pageCap}`;</code></pre>
+
+<p>Bumping it to <code>2</code> in the same deploy as the envelope gate orphaned every entry the old walker had written — instantly, without enumerating keys, without a flush endpoint, and without needing to know which entries were bad. New code reads new keys; the orphans expire unread. That property is what makes it the right tool rather than a clever one: this memo lives per worker isolate, on a deployment where the edge cache itself was inert — no key list, no admin flush, no way to address the store from outside. <strong>A revision component is the only invalidation primitive that works on a store you cannot enumerate or reach</strong>, and it costs one string concatenation.</p>
+
+<p>Its sibling rule fell out of the same proofs. The international walk had a page cap of 6, sized off Gimpo's 4-page board. Busan's international board is 22 pages, so the cap truncated it — and the surviving rows were all outside their effective date window, so the board rendered <em>stale-empty</em>: the same wrong answer by a different route. The fix was per-operation caps plus putting the cap <strong>in the memo key</strong>, so raising a cap cannot keep serving the board the old cap truncated. Generalized: <strong>every input that changes the value belongs in the key</strong> — operation, parameters, caps, and the revision of the code that built it.</p>
+
+<h2>What it degrades to, and where it is still wrong</h2>
+
+<p>Under active throttling the board now serves the domestic rows alone and retries the international operation next request, rather than pinning an empty board. That is a real cost, stated plainly: during an upstream outage a complete-looking board is quietly missing a section. It was judged the lesser harm for suggestion-grade data that never blocks manual entry — a partial suggestion list recovers on the next request, a memoized empty one does not. An earlier draft coupled the established board's availability to the brand-new operation's uptime, which inverted the priority; review reversed it. Other residuals I would rather name than let a reader assume away:</p>
+
+<ul>
+<li>The same codebase still has older routes — congestion, checkpoints, transit, schedules — that treat an error envelope as an empty result. Their blast radius is smaller (those degrades are per request and mostly uncached or short-TTL), but they are the same class of bug, queued behind an explicit trigger: the first report that data went missing re-opens all of them.</li>
+<li>The pre-registered falsifier for the free-feed-first design: if its answers materially disagree with the airline's own information on real lookups, or board gaps make the fallthrough so common that the free path is just added latency, the step is demoted to fallback-only or cut. It is a one-line reorder either way — which is the point of putting it at a seam.</li>
+</ul>
+
+<p>After the fix the boards converged and stayed converged, with warm calls around 0.16s and no client change at all. Three rules survive the specifics. <strong>Success is a body-schema verdict, not a status code</strong> — if the payload carries its own status, check it, on every page, before anything else looks at the data. <strong>The cache write goes after the verdict, never before it</strong> — a cache in front of validation converts every upstream hiccup into a durable lie whose lifetime is your TTL rather than their outage. <strong>Keys carry the revision</strong> — anything that changes what a cached value means belongs in the key, because that is the only invalidation you can perform on a store you cannot enumerate.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does an API error arrive with an HTTP 200 status code?</strong><br>
+Because many gateways report the application-level outcome inside the response body rather than in the status line. The government portal in this case answers throttling with a 200, a well-formed JSON body, an envelope header code other than the documented success value, a total count of zero, and an empty item list. GraphQL, JSON-RPC and SOAP all do versions of the same thing. The status code told me the exchange completed; only the body says whether the upstream did the work.</p>
+
+<p><strong>Q. Is response.ok enough to check whether an API call succeeded?</strong><br>
+No, not when the payload carries its own status. response.ok, raise_for_status and their equivalents adjudicate the transport only: a response arrived with a 2xx code. Success has to be a schema predicate — the envelope status equals the documented success value and the fields the caller needs are present and typed — so everything else, including a well-formed error body under a 200, is a failure. Run that check on every page of a paginated walk, not just the first, because pages two onward are exactly where a rate limiter starts saying no.</p>
+
+<p><strong>Q. Why does a cached error keep being served after the upstream recovers?</strong><br>
+Because the cache write happened before anything adjudicated the response. When the pipeline is fetch, transport check, parse, write, any value that clears the status-code check becomes durable, and the failure then lasts as long as the cache entry rather than as long as the outage. Moving the write after the success verdict — returning null on an error envelope so the caller never writes the entry and the next request retries — makes the failure's lifetime the upstream outage again.</p>
+
+<p><strong>Q. How do I invalidate cache entries that a bug already poisoned?</strong><br>
+Put a revision token in the cache key and bump it in the same deploy as the fix. That orphans every entry written by the old code path at once, with no key enumeration and no flush endpoint, which is what makes it work on a store you cannot address from outside — a per-isolate memo has no key list and no admin flush. Waiting out the TTL is not a remediation plan; it makes the incident's length a property of a config constant.</p>
+
+<p><strong>Q. Why did nothing downstream notice that the cached board was empty?</strong><br>
+Because empty was a legal answer. The design treats a flight missing from one feed as a fallthrough to another provider rather than an error, so an empty board is a legitimate value that no consumer above the walker can distinguish from an upstream refusal. Any system with a legal nothing-here value — an empty search result, a zero balance, an empty entitlement list, a null price — will silently absorb an upstream error that decays into that value, so the check has to happen at the boundary where the error is still distinguishable from the value.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./government-open-data-api-docs-vs-reality.html">Government Open-Data APIs: Every Guess I Made Was Wrong Until I Probed It Live</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./app-store-connect-api-hard-limits.html">Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
