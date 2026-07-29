@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Edge Cache That Never Served a Byte: Verify Cache Hits by Timing a Warm Call — hexisteme notes</title>
+<meta name="description" content="Every edge cache in my worker was inert in production and nothing broke: a circuit breaker was paying the bill. A cache you have not timed is an assumption.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Edge Cache That Never Served a Byte: Verify Cache Hits by Timing a Warm Call", "datePublished": "2026-07-18", "dateModified": "2026-07-18", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why an edge cache can run at a zero percent hit rate in production without producing any visible failure, and how to verify a cache directly. A Cloudflare Worker deployed on a workers.dev subdomain called the Cache API on five paths; the API is documented as having no effect on that hostname, so no cached response was ever served. The failure stayed invisible because per-day spend circuit breakers and upstream free quotas absorbed the full request volume. Covers warm-call timing as the verification method, a diagnostic checklist for zero-hit-rate caches (environment no-ops, cache key mismatch, Vary, Set-Cookie, no-store, short TTLs, personalization, locality, unreached read paths), and the tradeoffs of replacing an edge cache with a per-isolate in-memory memo.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why is my Cloudflare Workers cache not working on workers.dev?", "acceptedAnswer": {"@type": "Answer", "text": "Because the Cache API is documented as having no effect on a workers.dev subdomain, and the same is true in the dashboard editor and preview playgrounds. The calls do not fail: caches.default.put() returns cleanly and caches.default.match() simply never finds anything, so the code looks correct while the layer is inert. The same call sites start working unchanged once the worker is served from a custom domain."}}, {"@type": "Question", "name": "How do I verify that a cache is actually serving hits?", "acceptedAnswer": {"@type": "Answer", "text": "Three things observe a hit. Time a warm call: send two identical requests back to back and write down the expected number before running it, so a miss becomes a failed assertion instead of a shrug at a slow response. Emit an explicit hit marker: set x-cache HIT or MISS at the point where the lookup returns, not where the response is assembled. Count hits and misses, so the hit rate is a number you can chart and alert on. Reading the cache-control header off a response your own code just built verifies none of these."}}, {"@type": "Question", "name": "Why does a dead cache layer cause no visible failure?", "acceptedAnswer": {"@type": "Answer", "text": "Because the layer underneath absorbs what the cache was supposed to remove. In my case per-day spend circuit breakers and upstream free-tier quotas carried the full request volume in production, so the system looked healthy while every cache read missed. Absence of failure is evidence about the layer below, not about the cache. The review question that catches it is: if this layer were deleted entirely, what would I observe? If the answer is nothing for a while, the claim is unverifiable until you measure that layer directly."}}, {"@type": "Question", "name": "What are the most common reasons a cache has a zero percent hit rate?", "acceptedAnswer": {"@type": "Answer", "text": "An environment where caching is a no-op (preview URLs, dev domains, local emulators, dashboard editors); a cache key mismatch between write and read, including query-string order and trailing slashes; a Vary header on something that differs per client; a Set-Cookie on the response, which shared caches generally refuse to store; Cache-Control no-store, private, no-cache or max-age=0 set by a framework default; a TTL shorter than the gap between requests; personalization or Authorization on the path; a method or status that is not cacheable; locality, where a hit in one node is a miss in the next; and a write path that runs while the read path is skipped by a flag or an early return."}}, {"@type": "Question", "name": "Is an in-memory memo a good replacement for an edge cache?", "acceptedAnswer": {"@type": "Answer", "text": "It is a strictly weaker promise, but a measurable one. A per-isolate memo lives inside one instance, dies when that instance is recycled, and gives no benefit to a request routed elsewhere. On my deployed worker it took the endpoint from 1.19 seconds cold to 0.157 seconds warm, which was close to what the original cache test had expected all along. It makes sense where a cold miss is survivable and the data is shared across requests rather than per-user."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Edge Cache That Never Served a Byte: Verify Cache Hits by Timing a Warm Call</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-18</p>
+
+<div class="note">An endpoint on my serverless backend was supposed to be caching its result at the edge — it said so in the design record, in the code, and in the response headers. The first test that actually timed a warm call showed it re-walking all 29 upstream pages at 2.9 seconds, twice, against a 0.16-second expectation. The cache API is documented as having no effect on the hostname it was deployed to, so every cache that backend ever claimed had never served a byte. Nothing broke, because the spend circuit breakers underneath were quietly absorbing the whole load the cache was credited with removing.</div>
+
+<p>I run a small serverless backend on Cloudflare Workers. One of its endpoints assembles a schedule board by walking 29 pages of an upstream API, then caches the assembled result at the edge. The cache was in the design record, in the code, and in the <code>cache-control</code> header of every response it returned. It had been live in production.</p>
+
+<p>Then a verification step asked it to prove itself. The requirement had been written down in plain words — the second call must come back from the stored value — so it got a test: call the endpoint, call it again, time the second call. The expected number was about 0.16 seconds.</p>
+
+<p>The second call took 2.9 seconds. It had re-walked all 29 upstream pages. I ran it again: 2.9 seconds again. A miss that size, twice, is not a flake.</p>
+
+<h2>The cause was in the hostname</h2>
+
+<p>The worker was deployed on a <code>*.workers.dev</code> subdomain. Cloudflare's <a href="https://developers.cloudflare.com/workers/runtime-apis/cache/">Cache API</a> — <code>caches.default.put()</code> and <code>caches.default.match()</code> — is documented as having no effect there, and the same is true inside the dashboard editor and preview playgrounds. The calls do not fail. <code>put()</code> returns cleanly. <code>match()</code> simply never finds anything.</p>
+
+<p>So the code was right, the deploy was right, and the layer was inert. And not for one endpoint: every cache that backend had ever claimed went through the same API — a per-flight lookup with its own TTL table, a congestion endpoint, a checkpoint endpoint, the schedule board, and a share page whose <code>s-maxage=60</code> I had been treating as a real 60-second cache. Not one of them had ever served a byte in production.</p>
+
+<p>The shape of that is worth stating on its own, because it is the part that repeats. The defect was not in any of the five call sites. It was in an environment property one level above all of them. Grep the codebase for the cache API and you find five correct usages. Nothing in the code is wrong. Every one of them starts working, unchanged, the day the worker sits behind a custom domain.</p>
+
+<h2>Nothing broke, because the layer underneath was paying</h2>
+
+<p>Every request that backend had ever served in production ran with zero caching, and that should have produced a signal somewhere. It produced none, and the reason generalizes further than the bug does.</p>
+
+<p>Underneath the cache sat a second protection: per-day spend counters in the SQL store, acting as circuit breakers over the paid upstream. Underneath that, the free-tier quotas of the upstreams themselves. Those two absorbed the entire request volume without complaint. The system looked healthy because it <em>was</em> healthy — just not for the reason the design record gave.</p>
+
+<p>That is the trap in stacked protections. Layer A (the cache) is supposed to remove load. Layer B (the breaker, the quota, the retry budget, the autoscaler) is supposed to bound the damage when load arrives anyway. When A is dead, B covers for it silently, and the only trace is that B's budget is what is actually burning. Absence of failure is evidence about B. It is not evidence about A.</p>
+
+<p>The question that would have caught this in review: <em>if this layer were deleted entirely, what would I observe?</em> If the honest answer is "nothing, for a while," you do not have a monitoring gap — you have an unverifiable claim, and it stays unverifiable until you measure that layer directly. Caches are the common case, but the same silence covers a retry policy that never retries, a rate limiter that is never reached, and a fallback path that is never taken. Any layer whose success signature is identical to a normal response can be missing for months.</p>
+
+<h2>A cache you have not timed is an assumption</h2>
+
+<p>Here is everything I had accepted as evidence before that timing test:</p>
+
+<ul>
+<li>The <code>put()</code> call is in the code, on the right path, with the right key.</li>
+<li>The response carries <code>cache-control</code> with a sensible TTL.</li>
+<li>A test asserts the header is present.</li>
+</ul>
+
+<p>None of those observes a hit. The last one is the most seductive, because it is green and it says "cache" in the test name. Reading the <code>cache-control</code> header off a response your own code just built tells you what your code wrote into a header. It says nothing about whether any cache stored the response, and nothing about whether a later request read it back.</p>
+
+<p>Three things actually observe a hit:</p>
+
+<ol>
+<li><strong>Time a warm call.</strong> Two identical requests, back to back. Write down the expected number <em>before</em> running it — the point of the expectation is that a miss becomes a failed assertion instead of a shrug at a slow response.</li>
+<li><strong>Emit an explicit hit marker.</strong> Have the read path set <code>x-cache: HIT</code> or <code>MISS</code> at the point where the lookup returns, not where the response is assembled. Then a hit is directly observable in a curl, in a log line, and in a smoke test.</li>
+<li><strong>Count hits and misses.</strong> A hit rate is a number you can chart and alert on. A cache with no hit-rate metric is one whose failure mode is silence.</li>
+</ol>
+
+<p>The reason this got caught at all was an accident of wording worth stealing on purpose. The requirement had been stated as <em>behavior</em> ("serve it from the stored value"), not as an optimization. Optimizations do not get assertions; behaviors do. If a cache matters — for cost, for a paid upstream, for a latency budget — write it down as a behavior with a number attached, and it gets a test that is capable of failing.</p>
+
+<h2>Why a cache layer quietly runs at a zero percent hit rate</h2>
+
+<p>My specific cause was a platform rule about a hostname. The general failure — a cache that is present, correct-looking, and never hit — has a short list of usual suspects. When a warm call comes back cold, walk this before touching the cache code:</p>
+
+<table>
+<tr><th>Cause</th><th>The check that settles it</th></tr>
+<tr><td>Environment where caching is a no-op (preview URLs, dev domains, local emulators, dashboard editors)</td><td>Read the platform docs for the exact hostname and environment you deployed to, not for the product in general</td></tr>
+<tr><td>Cache key mismatch</td><td>Log the key on write and on read, then diff them; query-string order, trailing slashes, and method all move the key</td></tr>
+<tr><td><code>Vary</code></td><td>Any <code>Vary</code> on a header that differs per client (<code>User-Agent</code>, <code>Accept-Encoding</code>, <code>Cookie</code>) fragments the entry; <code>Vary: *</code> disables storage outright</td></tr>
+<tr><td><code>Set-Cookie</code> on the response</td><td>Shared caches generally refuse to store a response that sets a cookie</td></tr>
+<tr><td><code>Cache-Control: no-store</code>, <code>private</code>, <code>no-cache</code>, or <code>max-age=0</code></td><td>Print the <em>final</em> response headers; a framework or middleware default may be overwriting what you set</td></tr>
+<tr><td>TTL shorter than the gap between requests</td><td>Compare the TTL against real inter-request time; a 60-second entry on a page requested every five minutes hits approximately never</td></tr>
+<tr><td>Personalization or auth on the path</td><td><code>Authorization</code> headers and per-user bodies are uncacheable by design; the fix is splitting the cacheable part out, not a longer TTL</td></tr>
+<tr><td>Method or status not cacheable</td><td>POST responses and many non-200 statuses are not stored by default</td></tr>
+<tr><td>Locality</td><td>A hit in one node, region, or isolate is a miss in the next; thin traffic spread across many nodes looks exactly like a broken cache</td></tr>
+<tr><td>Write path runs, read path does not</td><td>A feature flag, an early return, or an error branch that skips the lookup gives you a cache that only ever fills</td></tr>
+</table>
+
+<p>Every row produces the identical symptom — a warm call as slow as a cold one — which is exactly why the measurement comes first and the theory second. I spent no time debugging cache keys, because the timing test told me the layer was inert before I had a chance to guess.</p>
+
+<h2>What I replaced it with</h2>
+
+<p>The fix was not to make the edge cache work. On that hostname it cannot, and moving the whole deployment behind a custom domain was a larger decision than one endpoint deserved.</p>
+
+<p>Instead the assembled board got a per-isolate in-memory memo, and that became the load-bearing store. Measured on the deployed worker: 1.19 seconds cold, 0.157 seconds warm — close to the number the original test had been expecting all along.</p>
+
+<p>That store is strictly weaker than an edge cache, and it is worth being precise about how. It lives inside one isolate. It dies when that isolate is recycled. A request routed to a different instance pays full price. It is a smaller promise than the one the design record made — but it is a promise I can measure, which the larger one turned out not to be.</p>
+
+<p>The dead <code>caches.default</code> calls stayed in the code on purpose, as dormant scaffolding: they become live and correct the day the worker moves behind a custom domain. That choice has a cost. To any future reader — most often me, three months later — five correct-looking cache calls read as a working cache layer. So the fact went next to the code, in the decision record and in the planning notes, in the form "this layer is inert on this hostname." A phantom layer nobody wrote down gets re-trusted by the next person who greps for it.</p>
+
+<h2>Limits</h2>
+
+<p>The hostname rule is one platform's documented behavior. The replacement — an in-process memo — only makes sense where a cold miss is survivable and the data is shared across requests rather than per-user. Neither of those transfers automatically.</p>
+
+<p>The claim I would defend is narrower than "your cache is broken." It is that a cache hit is something you can only learn by observing it, and that a stack of protections conceals the death of any single layer for as long as the layer below it has budget.</p>
+
+<p>Two ways this would be shown wrong. If the same worker on a custom domain still re-walked the upstream on a warm call, then the hostname was not the cause and the cache key or <code>Vary</code> was — the measurement would stand, the diagnosis would move. And a near-zero hit rate is not by itself a defect: low traffic, short TTLs, and many nodes can produce one legitimately. The claim is not that zero hits means broken. It is that until you have timed a warm call, you do not know which one you have.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why is my Cloudflare Workers cache not working on workers.dev?</strong><br>
+Because the Cache API is documented as having no effect on a workers.dev subdomain, and the same is true in the dashboard editor and preview playgrounds. The calls do not fail: caches.default.put() returns cleanly and caches.default.match() simply never finds anything, so the code looks correct while the layer is inert. The same call sites start working unchanged once the worker is served from a custom domain.</p>
+
+<p><strong>Q. How do I verify that a cache is actually serving hits?</strong><br>
+Three things observe a hit. Time a warm call: send two identical requests back to back and write down the expected number before running it, so a miss becomes a failed assertion instead of a shrug at a slow response. Emit an explicit hit marker: set x-cache HIT or MISS at the point where the lookup returns, not where the response is assembled. Count hits and misses, so the hit rate is a number you can chart and alert on. Reading the cache-control header off a response your own code just built verifies none of these.</p>
+
+<p><strong>Q. Why does a dead cache layer cause no visible failure?</strong><br>
+Because the layer underneath absorbs what the cache was supposed to remove. In my case per-day spend circuit breakers and upstream free-tier quotas carried the full request volume in production, so the system looked healthy while every cache read missed. Absence of failure is evidence about the layer below, not about the cache. The review question that catches it is: if this layer were deleted entirely, what would I observe? If the answer is nothing for a while, the claim is unverifiable until you measure that layer directly.</p>
+
+<p><strong>Q. What are the most common reasons a cache has a zero percent hit rate?</strong><br>
+An environment where caching is a no-op (preview URLs, dev domains, local emulators, dashboard editors); a cache key mismatch between write and read, including query-string order and trailing slashes; a Vary header on something that differs per client; a Set-Cookie on the response, which shared caches generally refuse to store; Cache-Control no-store, private, no-cache or max-age=0 set by a framework default; a TTL shorter than the gap between requests; personalization or Authorization on the path; a method or status that is not cacheable; locality, where a hit in one node is a miss in the next; and a write path that runs while the read path is skipped by a flag or an early return.</p>
+
+<p><strong>Q. Is an in-memory memo a good replacement for an edge cache?</strong><br>
+It is a strictly weaker promise, but a measurable one. A per-isolate memo lives inside one instance, dies when that instance is recycled, and gives no benefit to a request routed elsewhere. On my deployed worker it took the endpoint from 1.19 seconds cold to 0.157 seconds warm, which was close to what the original cache test had expected all along. It makes sense where a cold miss is survivable and the data is shared across requests rather than per-user.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for Four Days While Nothing Shipped: A Reader Rebutted My Monitoring Post, and He Was Right</a></li>
+<li><a href="./government-open-data-api-docs-vs-reality.html">Government Open-Data APIs: Every Guess I Made Was Wrong Until I Probed It Live</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
