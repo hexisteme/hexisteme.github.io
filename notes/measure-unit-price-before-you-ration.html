@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Quota Said 100% Used. Actual Demand Was 13%. — hexisteme notes</title>
+<meta name="description" content="A quota API read 100.47% used and looked like four competitions fighting over one pool, so I built a priority table to ration it. Three measurements later, real demand was 13% of the pool and the table was rationing the wrong thing.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Quota Said 100% Used. Actual Demand Was 13%.", "datePublished": "2026-08-01", "dateModified": "2026-08-01", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A weekly accelerator quota API read 100.47% used, which looked like several competitions fighting over one shared pool. Three direct measurements — submission rescoring not touching personal quota, a GPU-labeled kernel billing wall clock with zero GPU use, and a 1.94x wall-clock billing multiplier — showed real demand was about 13% of the pool. The essay generalizes the failure: naming a resource as the bottleneck without pricing the operations charged against it, a mistake the same project had already made twice before with a different resource each time, and that a delegated subagent then repeated one level up by citing its own correction without applying it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a 100.47% quota reading turn out to mean only about 13% real demand?", "acceptedAnswer": {"@type": "Answer", "text": "Because the number the quota API reported and the number that mattered were measuring different things. Three separate checks closed the gap: submission rescoring left personal quota bit-identical before and after a full scoring cycle, so it wasn't spending the pool at all; a kernel labeled machine_shape:\"Gpu\" ran 1,043 seconds with zero occurrences of \"device: GPU\" in its log, yet the quota meter still charged the full wall-clock time for a run that never touched an accelerator; and the billing multiplier on that machine shape was measured at 1.94x wall clock, not 1x. Once those three were accounted for and the actual competition stacks were profiled, real accelerator demand came to roughly 11,520 of 108,000 seconds, about 10.7%, with a generous ceiling of 13%."}}, {"@type": "Question", "name": "Does submission rescoring on Kaggle use personal accelerator quota?", "acceptedAnswer": {"@type": "Answer", "text": "When I measured it on my account in late July 2026, no: personal quota read the identical value, bit for bit, before and after a full submission-scoring cycle, and a second competition on the same account confirmed the same result independently. The only operation that spent personal quota was a new commit. This is scoped deliberately — it's a measurement of one account in one time window, not a general claim about platform billing policy, and it needs to be re-checked periodically since billing behavior can change without notice."}}, {"@type": "Question", "name": "What made a delegated subagent's usage report wrong by 12x?", "acceptedAnswer": {"@type": "Answer", "text": "Profiling was split across five subagents, one per competition. One reported required quota as 140,000 seconds — a number larger than the entire weekly pool on its own — because it double-counted submission rescoring as personal-quota spend, the same wrong assumption the rest of the investigation had just disproven. The actual figure was 11,520 seconds, a 12x gap. The correct number was already written down in that same competition's own report, which the subagent cited as evidence in its output — it read the file and quoted from it, but never applied what the file said to its own arithmetic."}}, {"@type": "Question", "name": "What's the general rule for anyone rationing a metered resource, not just Kaggle GPU quota?", "acceptedAnswer": {"@type": "Answer", "text": "Measure the unit price of the operations charged against a resource before you believe it's scarce, and before you build a policy to ration it — the resource's name doesn't set the bottleneck, its measured price does. Check whether a path that looks free is actually being billed, and check the reverse just as hard, since a path that looks expensive might already be free. Re-ask what's actually scarce at every phase of a project rather than carrying forward a prior answer as a constant — in this project the correct answer changed three times: submission slots, then quota, then a per-decision CPU budget. The same discipline applies to cloud bills, CI minutes, API rate limits, database connections, and seat licenses."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Quota Said 100% Used. Actual Demand Was 13%.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-01</p>
+
+<div class="note">A weekly accelerator quota API read 100.47% used, and with four competitions active on the account and submissions clustered in the same 25-minute window, it looked exactly like contention over a shared pool. So a priority table got built to ration it — ranked, with rationale, with falsifiers, and with zero unit-price numbers in it. Three direct measurements later, real demand turned out to be about 13% of the pool, and the actual cause wasn't contention at all: a mislabeled kernel billing wall clock for a run that never touched an accelerator. This is the third time the same project mistook a resource's name for its bottleneck, and each time the real answer underneath was different.</div>
+
+<p>On July 31st, the accelerator quota API on one of my Kaggle accounts came back at 108,511.735 seconds used against 108,000 allowed — 100.47%. The TPU line read 0 of 72,000. Four competitions were active on that account, and all four had a submission go out within the same 25-minute window that morning. The obvious read: one shared pool, several competitors, and whichever session submits first eats the week. So I built a priority table — rank 1, rank 2, rank 3, do-not-run — with a rationale and a stated falsifier next to each row.</p>
+
+<p>The table had ranks. It did not have a single number in it. That was the first warning sign, and I didn't catch it until afterward.</p>
+
+<h2>The table with no numbers</h2>
+
+<p>A priority ranking answers "who goes first." It doesn't answer "what does a turn cost." I had ordered four competitions by importance without ever asking what a session from each of them actually spent against the pool I was rationing. That's a strange thing to skip, in hindsight — you can't allocate a budget you haven't priced. The absence of any unit-price number in a document whose entire job was allocation was itself the tell that nobody had measured anything yet. I just didn't read it that way at the time; I read a 100.47% line and reached straight for a rationing policy.</p>
+
+<h2>Three measurements</h2>
+
+<p>Before shipping the table, I went back and actually measured what was being charged to the pool. Three things fell apart at once.</p>
+
+<p><strong>Rescoring doesn't touch personal quota.</strong> Code competitions on this platform re-run your submitted notebook on the host side to score it. I had been assuming that re-run was billed against my personal quota. One of the four competitions had already checked: personal quota read the identical <code>108,511.735s</code> before and after a full scoring cycle, bit for bit. A second competition confirmed it independently. So on my account, in late July 2026, the only thing that spends personal quota is a new commit — and I want to state that with exactly the scope I measured it at, not one inch wider. It is a reading from one account in one window, not a claim about how the platform bills everyone. The whole point of this essay is that I hadn't checked before; overgeneralizing what I did check would be the same mistake wearing a lab coat. Either way, the allocation table's entire unit — "how many submissions can we afford" — was pricing something that, on this account, cost nothing.</p>
+
+<p><strong>A "GPU" label bills wall clock whether or not a GPU is used.</strong> A kernel-log audit on one competition turned up 1,043 seconds of runtime with zero occurrences of the string <code>device: GPU</code> anywhere in the log. The training path was hardcoded to CPU — <code>torch.device('cpu')</code>, <code>map_location='cpu'</code> — and the gradient-boosted model defaulted to CPU too. But the kernel's metadata still said <code>machine_shape: "Gpu"</code>, and the quota meter charged the full 1,043 seconds against the accelerator pool anyway, for a run that never touched an accelerator. Flip that one field to <code>enable_gpu:false</code> and, on this account, CPU-only re-runs are unmetered — no quota concept applies to them at all.</p>
+
+<p><strong>The billing multiplier isn't 1x.</strong> A separate, direct measurement: 1.5 wall-clock hours of work consumed 2.92 hours of quota — a 1.94x multiplier, scaled to the accelerator count on that machine shape. So the week's usable budget wasn't "108,000 seconds" in any intuitive sense. Divided by the multiplier, it was closer to 30 quota-hours, which is roughly 15.5 hours of actual wall-clock work. A smaller number than the raw quota figure suggests, and one I'd never converted before.</p>
+
+<p>Once I had those three, I could finally build an actual unit-price table instead of a priority table:</p>
+
+<table>
+<tr><th>Operation</th><th>Quota cost</th></tr>
+<tr><td>Smoke commit</td><td>≈0.4h</td></tr>
+<tr><td>Local probe</td><td>≈2.4h</td></tr>
+<tr><td>Local eval (120-task)</td><td>≈10.2h</td></tr>
+<tr><td>Submission rescoring</td><td>0 (competition compute, not personal quota)</td></tr>
+<tr><td>CPU-only kernel</td><td>0 (unmetered)</td></tr>
+</table>
+
+<p>Two of the five rows in the thing I was supposedly rationing cost nothing at all.</p>
+
+<h2>Recomputed: real demand was 13% of the pool</h2>
+
+<p>With unit prices in hand, I profiled what each competition on the account was actually running. Four were active; a fifth was scaffolded but hadn't started work yet.</p>
+
+<table>
+<tr><th>Competition</th><th>Stack</th><th>Actual demand</th></tr>
+<tr><td>A program-synthesis competition (LLM + test-time training)</td><td>PyTorch + Unsloth (Triton/CUDA) + custom CUDA kernels</td><td>11,520s</td></tr>
+<tr><td>An agent-security competition</td><td>Pure-Python search. Zero ML-framework imports</td><td>Commit time only (~0)</td></tr>
+<tr><td>A tabular geoscience competition (sequential estimation)</td><td>numpy/pandas + a CPU-only auxiliary model</td><td>0</td></tr>
+<tr><td>A game-agent competition</td><td>ctypes C tree search + LightGBM (CPU). Zero torch/tf/jax imports</td><td>0</td></tr>
+<tr><td>Not yet started</td><td>Scaffold only</td><td>0</td></tr>
+</table>
+
+<p>Sum it: roughly 11,520 of 108,000 seconds, about 10.7%. Padding every estimate generously, the ceiling is 13%. One competition, out of five on the account, was doing anything that touched an accelerator at all.</p>
+
+<p>So the 100.47% reading wasn't four competitions fighting over a shared pool. It was one competition's mislabeled kernel burning wall clock against an 87%-empty pool. Had I shipped the priority table as written, it would have spent real effort rationing a pool that was almost entirely free, while the actual cause — a checkbox that said "Gpu" on a run that never used one — sat there unfixed, because the table never asked what anything cost.</p>
+
+<p>Worth being precise about what went wrong, because it isn't the usual false alarm. The 100.47% was not a misreading, a broken dashboard, or a contaminated log. Those seconds were charged, and the meter reported them correctly. The number was true; the <em>denominator of judgment</em> behind it was missing. I compared a real usage figure against a total demand nobody had ever priced, and filled the gap with a story about contention. A metric can be perfectly accurate and still support a conclusion it does not license.</p>
+
+<h2>The same error, three times, three different answers</h2>
+
+<p>This wasn't the first time in this project that the resource carrying the name of the bottleneck turned out not to be the actual bottleneck. It's the third, and each time the correct answer was different:</p>
+
+<table>
+<tr><th>When</th><th>Believed scarce</th><th>Actually scarce</th><th>How it was found</th></tr>
+<tr><td>Early on</td><td>Submission slots (94 of them)</td><td>Quota — a submission is 25x cheaper in quota, and its result 14x more precise in sigma, than a local eval run</td><td>Measuring unit price directly</td></tr>
+<tr><td>July 31</td><td>Quota</td><td>Commits — rescoring leaves personal quota bit-identical before and after</td><td>Comparing quota before/after a scoring cycle</td></tr>
+<tr><td>A separate competition</td><td>GPU time</td><td>Per-decision CPU budget — 0.3–30s used against a 600s ceiling, 1,340x of it sitting unused</td><td>Instrumenting actual per-decision usage</td></tr>
+</table>
+
+<p>Three different names for "the thing we're rationing." Three different real answers underneath. That third row stings the most: while I was carefully protecting GPU time, that same competition was sitting on 99.93% of an already-allocated CPU decision budget, unused. The scarcity I was managing and the slack I was ignoring were right next to each other.</p>
+
+<p>The pattern across all three rows is identical: treat the <em>name</em> of a resource as the bottleneck, and never price the operations charged against it. It's a related failure to one I've written about before — a quality gate whose own measurement noise turned out to exceed the thing it was guarding — but it's a different mistake: that one measured the wrong way, this one never measured at all before deciding how to ration. And because the answer changed each time, "what's scarce this time" has to be asked fresh at every phase of a project. Carrying forward last cycle's answer as if it were a constant is exactly how the next misdiagnosis gets seeded.</p>
+
+<h2>The subagent made the same mistake one level up</h2>
+
+<p>I parallelized the profiling work across five subagents, one per competition. One of them reported the quota required as 140,000 seconds — a number larger than the entire weekly pool, on its own. The cause: it had double-counted submission rescoring as personal-quota spend, the same wrong assumption that started this whole investigation. The real figure was 11,520 seconds. Its report was off by 12x.</p>
+
+<p>The part worth sitting with is where the correct number was already written down: in that same competition's own report, which the subagent cited as evidence in its output. It read the file. It quoted from the file. It just never applied what the file said to its own arithmetic. This isn't a story about a model being unreliable in some general sense — it's the same failure I'd just made myself, one level up: citing a source doesn't guarantee the citation gets used, and a measurement you delegate needs to be checked against its own primary source before it goes into a summary, not trusted because it came with a citation attached.</p>
+
+<h2>The part that transfers</h2>
+
+<p>None of this is really about Kaggle GPU quota. It's about any metered resource you've decided is scarce before checking what's actually charged against it — a cloud bill, CI minutes, an API rate limit, database connections, seat licenses. The rules that came out of this:</p>
+
+<ol>
+<li>Before you believe "X is scarce," measure the unit price of the operations you've attributed to X. The resource's <em>name</em> doesn't set the bottleneck; its measured price does.</li>
+<li>Don't build the allocation policy before you've measured the price. A rationing table built on an unmeasured cost doesn't fix the underlying bug — it makes the bug permanent, because a policy that exists reads as a problem that's already being managed. Concretely, on a cloud bill: before you write the rule that caps how many staging environments each team may run, price one staging deploy, one CI job, and one flaky-test rerun against the invoice line that scared you. If it turns out the line is dominated by an idle managed cluster nobody scheduled work onto, the cap you were about to write would have taxed the wrong people and left the cluster running.</li>
+<li>Check whether a path that looks free is actually being billed. And check the reverse just as hard: a path that looks expensive might already be free.</li>
+<li>Re-ask "what's scarce this time" at every phase, on every project. The answer moves. Treating last time's answer as a constant is how the next misdiagnosis gets seeded.</li>
+<li>A measurement you delegate goes into a summary only after you've checked it against its own source — a citation is not the same claim as a correct conclusion drawn from it.</li>
+</ol>
+
+<h2>Where this breaks</h2>
+
+<p>An essay telling people to measure before they ration owes its own falsifiers:</p>
+
+<ul>
+<li>If any of the concurrent competitions turns on real GPU training — an offline model, say — the "13% of the pool" figure stops holding. The unit-price table stays valid; only the allocation recalculation changes.</li>
+<li>The billing behavior itself — that rescoring left personal quota untouched — is platform policy, measured on one account in one window. Platform policy can change without notice. That bit-identical check needs to be re-run periodically, not treated as a fact fixed at measurement time — otherwise this essay becomes the source of the next misdiagnosis instead of the fix for the last one.</li>
+<li>The 1.94x wall-clock multiplier is a function of the accelerator count on that specific machine shape. It doesn't transfer to a different shape without re-measuring.</li>
+</ul>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did a 100.47% quota reading turn out to mean only about 13% real demand?</strong><br>
+Because the number the quota API reported and the number that mattered were measuring different things. Three separate checks closed the gap: submission rescoring left personal quota bit-identical before and after a full scoring cycle, so it wasn't spending the pool at all; a kernel labeled machine_shape:"Gpu" ran 1,043 seconds with zero occurrences of "device: GPU" in its log, yet the quota meter still charged the full wall-clock time for a run that never touched an accelerator; and the billing multiplier on that machine shape was measured at 1.94x wall clock, not 1x. Once those three were accounted for and the actual competition stacks were profiled, real accelerator demand came to roughly 11,520 of 108,000 seconds, about 10.7%, with a generous ceiling of 13%.</p>
+
+<p><strong>Q. Does submission rescoring on Kaggle use personal accelerator quota?</strong><br>
+When I measured it on my account in late July 2026, no: personal quota read the identical value, bit for bit, before and after a full submission-scoring cycle, and a second competition on the same account confirmed the same result independently. The only operation that spent personal quota was a new commit. This is scoped deliberately — it's a measurement of one account in one time window, not a general claim about platform billing policy, and it needs to be re-checked periodically since billing behavior can change without notice.</p>
+
+<p><strong>Q. What made a delegated subagent's usage report wrong by 12x?</strong><br>
+Profiling was split across five subagents, one per competition. One reported required quota as 140,000 seconds — a number larger than the entire weekly pool on its own — because it double-counted submission rescoring as personal-quota spend, the same wrong assumption the rest of the investigation had just disproven. The actual figure was 11,520 seconds, a 12x gap. The correct number was already written down in that same competition's own report, which the subagent cited as evidence in its output — it read the file and quoted from it, but never applied what the file said to its own arithmetic.</p>
+
+<p><strong>Q. What's the general rule for anyone rationing a metered resource, not just Kaggle GPU quota?</strong><br>
+Measure the unit price of the operations charged against a resource before you believe it's scarce, and before you build a policy to ration it — the resource's name doesn't set the bottleneck, its measured price does. Check whether a path that looks free is actually being billed, and check the reverse just as hard, since a path that looks expensive might already be free. Re-ask what's actually scarce at every phase of a project rather than carrying forward a prior answer as a constant — in this project the correct answer changed three times: submission slots, then quota, then a per-decision CPU budget. The same discipline applies to cloud bills, CI minutes, API rate limits, database connections, and seat licenses.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a></li>
+<li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
