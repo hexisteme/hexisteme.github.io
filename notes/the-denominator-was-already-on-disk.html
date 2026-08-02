@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest. — hexisteme notes</title>
+<meta name="description" content="A reader suggested the cheapest fix for a Stop hook with no trigger-rate data: timestamp the fingerprint file it already writes. Replaying the hook's deterministic logic over 5,537 archived transcripts answered the question without that week, or any new write, because the input the logic needed was already on disk.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.", "datePublished": "2026-08-01", "dateModified": "2026-08-01", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Recovering a deterministic gate's counterfactual trigger rate by replaying its exit logic over an archive of retained inputs, instead of adding new instrumentation and waiting", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What was the actual problem with the Stop hook?", "acceptedAnswer": {"@type": "Answer", "text": "It only wrote to disk on one outcome, blocking a turn, out of five possible outcomes. Every other exit — no assistant text, no data-tool evidence, no pattern match, or a deduplicated repeat — left no trace, so there was no denominator: no way to know how many times the hook had run in total, or how much of its filtering came from the pattern match versus the tool-evidence condition."}}, {"@type": "Question", "name": "What did the reader suggest, and why wasn't it enough on its own?", "acceptedAnswer": {"@type": "Answer", "text": "Add a timestamp to the fingerprint file the hook already writes when it blocks a turn. A week of that would date the fires; it would still not provide a trigger rate without the missing denominator. The fingerprint file only exists on the path that fires, so it says nothing about the four silent exits, all of which live on the entry path where nothing gets written."}}, {"@type": "Question", "name": "How did you get the numbers without adding new instrumentation?", "acceptedAnswer": {"@type": "Answer", "text": "I reproduced the hook's exact exit logic in a standalone script and replayed it over 5,537 archived transcripts that already contained everything the hook's deterministic logic needs in order to decide. The replay produced 116,022 candidate stop points and sorted every one into the hook's five outcomes, including 95 fires — a rate of 0.082%, about one candidate stop point in every 1,221."}}, {"@type": "Question", "name": "Is 95 fires an actual log of what the hook did live?", "acceptedAnswer": {"@type": "Answer", "text": "No, it's a counterfactual. The replay approximates stop points rather than reproducing them exactly, and most of the corpus predates the hook and spans projects it never watched. It shows what the current logic would have decided, not a record of what happened live — the hook's real, live warned log held 22 lines at the time of this audit, which answers a different question over a different population, not a contradiction of the 95."}}, {"@type": "Question", "name": "Can this replay method tell you if the gate is missing real cases?", "acceptedAnswer": {"@type": "Answer", "text": "No, and no fire-path counter ever can. A false negative, a real case the pattern fails to catch, never touches the code that counts anything, so no amount of replay or logging on that path can distinguish genuine rarity from a pattern that's simply too narrow. That requires a labeled sample someone reads by hand, independent of the gate itself."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-01</p>
+
+<div class="note">A trigger rate looks like a metrics problem — add a counter, wait, read it back later. But when a gate's decision logic is deterministic and the inputs it decides over are retained somewhere, you don't have to wait for new data. You can replay the exact logic over the old data and get a counterfactual rate today, at a sample size a week of live instrumentation would never match. The gap here wasn't a missing write. It was a missing read.</div>
+
+<p>I run a Stop hook called <code>stop_decision_ownership_check.sh</code> — a shell script that runs at the end of every agent turn in my coding sessions — whose job is to catch a specific failure: the agent doing analysis it is fully capable of doing itself, then handing the conclusion back to me as a question instead of just answering it. It fires on an AND of two conditions: the agent's last message matches a pattern for that kind of hand-back, and the ten transcript entries before it show the agent actually pulling data first — a file read, a grep, a shell command. The second condition exists because the pattern match alone can't tell a real question from a punt; the same sentence is a punt if it followed genuine digging, and legitimate if it didn't. It's one of seven hooks built the same way over my sessions, and until recently I had no idea how often any of them actually fired relative to how often they ran, because the code writes nothing down except on the one outcome that blocks the turn.</p>
+
+<p>A reader, @xm_dev_2026, left a comment that put the situation in sharp terms: the cheapest next step is to add a timestamp to the fingerprint file the hook already writes when it blocks. A week of that would date the fires; it would still not provide a trigger rate without the missing denominator. The real question was whether I was willing to act on a week of data from a gate that had already been running uninstrumented for months. As it turned out, the retained transcripts could answer the denominator question without that wait.</p>
+
+<h2>A hook that only wrote down one outcome out of five</h2>
+
+<p>The decision-ownership hook sits on every Stop event and has five possible outcomes, and exactly one of them touches disk. If the agent's last message has no text, it exits quietly. If the ten prior entries show no data-gathering tool call, it exits quietly. If the hand-back pattern doesn't match, it exits quietly. If it matches but an identical response was already recorded, a deduplication check catches it and it exits quietly too. Only if none of that stops it does the hook block the turn — and only then does it append one line, a hash of the response text, to <code>~/.claude/decision-ownership.warned</code>.</p>
+
+<p>The dedup check runs before that append, which means a second or third instance of the exact same blocked text produces no new line. So the warned log's row count was never a count of how many times the hook fired. It was a count of how many distinct pieces of text it had ever fired on. And the one number that would make either count mean something — how many times the hook ran at all — appeared nowhere, in this hook or the six others built the same way: zero counters across all seven, five of them keeping nothing but a fingerprint set like this one.</p>
+
+<h2>A fix aimed at the half that was already visible</h2>
+
+<p>The timestamp suggestion deserves to be taken seriously on its own terms, because it isn't wrong. It's aimed at the side of the hook that already had a signal. A timestamp on the warned log tells you when a block happened. It says nothing about the four quiet exits standing in front of it, because the warned log only exists on the path that fires. The denominator, the pattern-match rate, how much filtering the tool-evidence condition is actually doing — every number that would answer "how often does this hook do something" lives on the entry path, and the entry path writes nothing, timestamped or otherwise. The comment carried its own diagnosis of why: the exit that fires gets instrumented, the four that don't, don't. That line predicts the limit of the fix it's attached to.</p>
+
+<h2>What was already on disk</h2>
+
+<p>Instead of changing the hook or waiting a week, I reproduced its exact exit logic — same AND-gate, same pattern, same ten-entry window, same dedup check — in a standalone, re-runnable script (<code>hook_denominator_audit.py</code>), and replayed it over transcripts that already existed: 5,537 of them, archived from past sessions across projects. Nothing about this needed the hook to have been instrumented differently while those sessions were running, because the hook's decision at any point is a pure function of the transcript around it. If you can recompute the function, you can recompute the decision after the fact, over however much history you kept.</p>
+
+<p>Replayed against that corpus, the script found 116,022 points where the hook's Stop logic would have evaluated — a denominator that had existed nowhere. Every one of the 116,022 sorted into exactly one of the hook's five outcomes:</p>
+
+<table>
+<tr><th>Outcome</th><th>Count</th><th>Share</th></tr>
+<tr><td>No last-assistant text</td><td>15,871</td><td>13.68%</td></tr>
+<tr><td>No data tool in prior 10 entries</td><td>23,040</td><td>19.86%</td></tr>
+<tr><td>Pattern didn't match</td><td>76,999</td><td>66.37%</td></tr>
+<tr><td>Matched, but deduped</td><td>17</td><td>0.015%</td></tr>
+<tr><td>Fired</td><td>95</td><td>0.082%</td></tr>
+</table>
+
+<p>Ninety-five fires out of 116,022 points would be a rate of 0.082%, about one candidate Stop point in every 1,221 — a replayed figure, not an observed log, for reasons I come back to below. That number alone was what the timestamp suggestion was reaching for, and the replay reached it without a single new session having to run first.</p>
+
+<p>The corpus gave more than the top-line rate, though, because it let me pull the AND-gate's two conditions apart instead of only seeing their combined output. Across the same 116,022 points, the hand-back pattern matched on its own 316 times — 0.272% of all Stop events, before the tool-evidence condition gets a vote. Of those 316, the tool-evidence condition — the one I'd always treated as a plausibility check riding along on top of the pattern match — suppressed 204 of them, 64.6%. Most of what decides whether this hook fires turned out not to be the pattern at all. It's the second condition, the one I added specifically to compensate for the regex being context-blind. Of the 112 that survived both conditions, the dedup check silently passed 17, 15.2%, before a single new line ever reached the log. That 15.2% used to be a sentence I could only phrase as "the warned log undercounts, by some amount I don't know." It's a number now.</p>
+
+<h2>The gap was a missing read, not a missing write</h2>
+
+<p>None of this needed a new write anywhere. The transcripts were already an append-only record of exactly the material the hook's logic runs over: the last message, the ten entries before it, the response text a dedup check would hash. The hook's rules are deterministic — given the same transcript, they sort a Stop point into the same one of five outcomes every time. A deterministic function over retained input doesn't have to be watched running forward. It can produce a counterfactual replay across retained history, provided that the retained record reproduces the gate's inputs and evaluation points closely enough.</p>
+
+<p>That's the part of this that isn't specific to Stop hooks or coding agents. Any gate that reaches its decision through a fixed, reproducible procedure, and reads from inputs retained somewhere — logs, transcripts, request bodies, event streams — can be replayed instead of re-instrumented. A rate limiter's rule can be replayed over old request logs to see how often it would have tripped before anyone thought to count it. A fraud rule can be replayed over historical transactions. A CI gate's pass condition can be replayed over old build logs. The instinct in all of these cases is to add a counter and wait, because that's the right move when the logic isn't fully known yet, or the past wasn't fully kept. When both of those are actually true, waiting is the expensive option, not the safe one.</p>
+
+<h2>What the replay doesn't tell you</h2>
+
+<p>A recovered denominator is an easy thing to overtrust, so I want to be specific about where this one stops being solid.</p>
+
+<p>The replay approximates a Stop point rather than reproducing it exactly — it treats any assistant entry with no tool call after it as a turn boundary, which is the right rule most of the time and not guaranteed to match what the live hook does under every interrupt or edge case. And a substantial share of the 5,537 transcripts in the corpus predate the hook's existence and span projects it was never watching in the first place. Both facts point the same way: what I have is not a log of 95 real blocks. It's a counterfactual — what the current logic would have decided, replayed over sessions it never actually ran against. The hook's real, live warned log held 22 lines at the time of this audit. Ninety-five and 22 aren't in tension. They answer different questions over different populations, and treating them as the same number would be the actual mistake here.</p>
+
+<h2>What no fire-path counter can ever settle</h2>
+
+<p>There's a second limit, and it has nothing to do with corpus scope — it would hold even against a perfect live log going back to day one. Whether 316 matches out of 116,022 points means "this behavior is genuinely rare" or "the pattern is too narrow to see most of it" isn't something any counter sitting on the fire path can ever answer. A false negative — a real hand-back the pattern fails to catch — never reaches the code that counts anything, by definition. It doesn't fire, it doesn't dedup, it doesn't land in any of the five buckets I can measure, because as far as the hook is concerned, nothing happened.</p>
+
+<p>Rate is free now. Recall isn't. Knowing how often the gate fires relative to how often it runs is a replay away. Knowing how often it should have fired and didn't needs something a counter can never supply: a sample labeled by something other than the gate itself, which still means a person reading transcripts by hand and deciding, case by case, whether a hand-back was really there. I got the first number without spending that cost. I still owe the second one.</p>
+
+<h2>Before you add the counter</h2>
+
+<p>What this leaves me with is a question to ask before opening an editor to add a counter anywhere: is the decision this gate makes actually deterministic, and do I already have the inputs it decided over, retained somewhere? If both answers are yes, the fastest route to a trigger rate isn't a new write. It's writing the replay — the same logic, pointed backward — and reading what was already there. New instrumentation only earns its keep when one of those answers is no: the logic depends on something that isn't logged, or the history that would make a replay worth running was never kept. Neither was true here. The week the timestamp suggestion would have cost bought nothing the archive didn't already have.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What was the actual problem with the Stop hook?</strong><br>
+It only wrote to disk on one outcome, blocking a turn, out of five possible outcomes. Every other exit — no assistant text, no data-tool evidence, no pattern match, or a deduplicated repeat — left no trace, so there was no denominator: no way to know how many times the hook had run in total, or how much of its filtering came from the pattern match versus the tool-evidence condition.</p>
+
+<p><strong>Q. What did the reader suggest, and why wasn't it enough on its own?</strong><br>
+Add a timestamp to the fingerprint file the hook already writes when it blocks a turn. A week of that would date the fires; it would still not provide a trigger rate without the missing denominator. The fingerprint file only exists on the path that fires, so it says nothing about the four silent exits, all of which live on the entry path where nothing gets written.</p>
+
+<p><strong>Q. How did you get the numbers without adding new instrumentation?</strong><br>
+I reproduced the hook's exact exit logic in a standalone script and replayed it over 5,537 archived transcripts that already contained everything the hook's deterministic logic needs in order to decide. The replay produced 116,022 candidate stop points and sorted every one into the hook's five outcomes, including 95 fires — a rate of 0.082%, about one candidate stop point in every 1,221.</p>
+
+<p><strong>Q. Is 95 fires an actual log of what the hook did live?</strong><br>
+No, it's a counterfactual. The replay approximates stop points rather than reproducing them exactly, and most of the corpus predates the hook and spans projects it never watched. It shows what the current logic would have decided, not a record of what happened live — the hook's real, live warned log held 22 lines at the time of this audit, which answers a different question over a different population, not a contradiction of the 95.</p>
+
+<p><strong>Q. Can this replay method tell you if the gate is missing real cases?</strong><br>
+No, and no fire-path counter ever can. A false negative, a real case the pattern fails to catch, never touches the code that counts anything, so no amount of replay or logging on that path can distinguish genuine rarity from a pattern that's simply too narrow. That requires a labeled sample someone reads by hand, independent of the gate itself.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+<li><a href="./quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>

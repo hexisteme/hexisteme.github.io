@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Our Status Column Said 30 Waiting. Six Were. — hexisteme notes</title>
+<meta name="description" content="A status column read &quot;queued&quot; for rows whose files had already been published, and a session appears to have trusted that column over the live file count already on screen next to it, turning six real days of runway into an assumed month of slack. The fix, and the more general rule: a status column only stays true if the action that changes reality is the one that advances it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Our Status Column Said 30 Waiting. Six Were.", "datePublished": "2026-08-01", "dateModified": "2026-08-01", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a ledger status column written once by a promotion step and never advanced by the job that actually publishes turns into a write-once label that only grows, drawn from a real incident where a status column claimed 30 items were queued while only 6 files were actually waiting, the inferred decision path associated with that mismatch, and the fix that binds the status write to the act of publishing itself.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a queued status column keep growing instead of shrinking?", "acceptedAnswer": {"@type": "Answer", "text": "Because the only code that ever wrote to it was the step that enqueued an item, and nothing downstream advanced it afterward. The daily publish job moved files and appended to a log but never opened the ledger, so every item that had ever been queued kept the queued label permanently, whether or not it had since been published."}}, {"@type": "Question", "name": "How far off was the number, in practice?", "acceptedAnswer": {"@type": "Answer", "text": "The ledger showed 30 rows marked queued out of 31 total, but only 6 of those rows still had a real file sitting in the queue; the other 24 had already been published. At one post a day, that is the difference between a stated month of runway and an actual six days, against a low-water alarm set to fire at 3."}}, {"@type": "Question", "name": "If the number was wrong, why did nobody notice sooner?", "acceptedAnswer": {"@type": "Answer", "text": "A second, independent instrument was already showing the right number the whole time: a small check that counts files on disk rather than reading the ledger, and prints that count at the start of every session. The likely failure path — inferred from the exact numeric match, not directly observed — is that the decision used the stale ledger while the correct file count was already on screen."}}, {"@type": "Question", "name": "What is the actual fix, beyond remembering to update the column?", "acceptedAnswer": {"@type": "Answer", "text": "Route every write to the ledger through one function instead of ad hoc edits, call it from inside the publish job's success branch right after the file move so the state change is bound to the action that makes it true, make the write idempotent and loud on an unrecognized key, leave the failure branch untouched so retries still work, and never let a failed ledger write undo a publish that already happened."}}, {"@type": "Question", "name": "Does this only apply to publishing pipelines?", "acceptedAnswer": {"@type": "Answer", "text": "No. It is the same failure wherever a status is written once at the start of a lifecycle and only sometimes advanced by whatever downstream code happens to run: order status never advanced by the fulfillment step, job status never advanced by the worker that finishes it, a support ticket marked open with no code path that ever closes it. Any status column whose writer and whose advancer are different pieces of code is a candidate for the same drift."}}]}
+</script>
+</head>
+<body>
+
+<h1>Our Status Column Said 30 Waiting. Six Were.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-01</p>
+
+<div class="note">A status column in a publishing ledger read <code>queued</code> for 30 rows, but only 6 of them still had a file waiting in the actual queue; the other 24 had already been published and never had their status advanced. A separate working session stated a near-month backlog and deferred refill work. Its exact numeric match with the ledger suggests — but does not prove — that the stale status informed the decision, while the real runway was six days against a low-water alarm at three. A second, independent instrument that counts real files was already showing the correct number the whole time. The fix binds the status write to the publish action itself, keeps a single writer, makes it idempotent and loud on unknown keys, never lets a bookkeeping failure undo a publish, and retroactively repairs history only where the artifact provably exists.</div>
+
+<p>A status column in one of my agent fleet's ledgers said 30 items were queued to publish. A working session that day stated a backlog close to a month at the fleet's normal rate and deferred the work that keeps posts flowing into the queue. At that moment the ledger showed the same backlog. That exact numeric match suggests — but does not prove — that the ledger informed the decision.</p>
+
+<p>The real number of items actually waiting was 6. At one post published per day, that is six days of runway, against a low-water alarm configured to fire at 3. The gap came from a status value that was never advanced after publication, not from the queue-file count itself. A column just quietly stopped meaning what everyone assumed it meant, and by the time it mattered, it had been wrong for a while.</p>
+
+<h2>The pipeline, briefly</h2>
+
+<p>The fleet runs a small publishing pipeline: a draft gets written, a promotion step validates it and drops a file into a queue directory, and a scheduled job runs once a day, picks the oldest file in that directory, publishes it, moves the file into a published folder, and appends one line to a log.</p>
+
+<p>Alongside the queue directory sits a separate ledger: a flat TSV file, one row per item, with a <code>status</code> column meant to track where each item sits in its life — staged, queued, published. Two different things track the same concept: the files actually sitting in the queue directory, and a column in a table that is supposed to describe them.</p>
+
+<h2>Where it broke</h2>
+
+<p>Exactly one piece of code writes <code>status=queued</code>: the promotion step, at the moment an item enters the queue. Nothing else ever changes that value afterward. The daily publish job moves the file and writes to the log; it never opens the ledger. Nobody had assigned any code the job of setting the status forward to <code>published</code>.</p>
+
+<p>So <code>queued</code> stopped meaning "currently waiting." It came to mean "was queued at some point," which, once true, is true forever. Every item that had ever passed through the queue kept the label, including the ones published weeks earlier. The column could only grow.</p>
+
+<h2>What that looked like on disk</h2>
+
+<p>The ledger held 31 rows total. 30 of them said <code>queued</code>. Of those 30, only 6 corresponded to a file still physically sitting in the queue directory. The other 24 had already been published, their files long since moved to the published folder, which by then held 39 files, and were still wearing the label from the day they were promoted.</p>
+
+<p>Nobody engineered this to be wrong. On the day each row was written, <code>queued</code> was true. It just never got told when that stopped being the case.</p>
+
+<h2>The decision path it may have distorted</h2>
+
+<p>A different working session, the same day, needed to know how deep the backlog was before deciding whether to spend time writing new posts. It stated a backlog of 29 queued items and concluded there was no urgency, then deferred the task that restocks the queue. At that moment the ledger showed 29 rows marked <code>queued</code> and 2 more in the earlier staged state.</p>
+
+<p>I want to be precise about what I actually know here versus what I'm inferring. I did not watch that session read the ledger. What I have is that the number it stated, 29, is exactly what the ledger showed at that moment: 29 rows marked <code>queued</code>, plus 2 more sitting in an earlier pre-queue stage. That match is exact enough to be more than coincidence, but it is still an inference from a number, not an observed fact. I'm treating the cause as circumstantial, not confirmed.</p>
+
+<p>What isn't circumstantial is the mismatch. The stated backlog was roughly five times the real one, and the session deferred the refill; the real six-day runway would instead have argued for urgency. Whether the stale ledger caused that deferral remains inferred.</p>
+
+<h2>The correct number was already on screen</h2>
+
+<p>Here is the detail that turns this from an ordinary oversight into something more specific: nothing needed to be built to catch this. A separate, much smaller check already existed, and it was already right. It doesn't read the ledger at all; it counts real files, walking the queue directory and reporting how many are actually there, and it prints that count at the start of every working session. On the day in question, it was displaying exactly what it should have: one item still waiting to be drafted, six already queued.</p>
+
+<p>This wasn't a missing instrument. It was two instruments under the same rough heading, "how much is queued," where one counted actual files and the other counted how many times a database row had once been written. The likely failure path — inferred from the exact numeric match, not directly observed — is that the decision used the one that had stopped tracking reality while the correct answer was already on screen.</p>
+
+<h2>The fix</h2>
+
+<p>Stopping new drift meant fixing the write, not adding a second reminder to remember it.</p>
+
+<p>All writes to the ledger now go through a single function, rather than through whichever script happens to need to touch it that day. No more hand-editing the TSV from shell as a side effect of some other task. A single writer is the only way to guarantee that every write leaves the row in a state the next reader can trust.</p>
+
+<p>That function is called from inside the publish job's success branch, immediately after the file move that constitutes "this item is now published," not on a timer, not in a separate reconciliation pass that runs later and hopes to catch up, but bound directly to the action that makes the new state true. If the publish doesn't happen, that branch never runs, so the status never advances on a failed attempt either. The failure branch is untouched by this change, on purpose, so retry behavior stays exactly what it was before.</p>
+
+<div class="warn">The write itself had to satisfy three properties that sound minor and aren't. It has to be idempotent, so running it twice on the same item is a no-op rather than a second mutation. It has to be loud on a key it doesn't recognize: a hard failure with a message, not a silent no-op that looks like success from the caller's side. And a failure inside that write must never be allowed to undo the publish that triggered it. Bookkeeping is downstream of reality, not a precondition for it.</div>
+
+<p>The acceptable failure mode is a warning line and a ledger that is one row behind until someone notices, not an already-shipped post getting treated as if it never happened because a table write failed.</p>
+
+<h2>Repairing the 24 rows already wrong</h2>
+
+<p>Fixing the writer stops future drift. It does nothing about the 24 rows that were already wrong, and those needed a one-time retroactive correction, held to a stricter rule than the ongoing fix gets: advance a row only if the file it describes is verifiably sitting in the published output. No inferring from dates, no "this one is probably done too." Every row was checked directly against both the queue directory and the published folder, and there were zero rows found in neither place, zero orphans, which meant zero rows got corrected by guesswork.</p>
+
+<p>Then I diffed the ledger before and after, specifically looking for anything beyond the one column I intended to touch. The set of 31 slugs was identical. The <code>report_path</code> and <code>note</code> fields changed in zero rows. All 24 recorded status transitions moved in the same direction, <code>queued</code> to <code>published</code>. Anything else in that diff would have meant I couldn't trust the fix regardless of what the headline numbers said afterward. After the correction, the ledger's <code>queued</code> count was 6, matching the queue directory's 6, not just the same number, the same set of items.</p>
+
+<p>I also checked the status consumers recorded in the audit before calling any of this safe, because a column that starts telling the truth can still break something that was quietly relying on the old lie. <code>cmd_stage</code> and <code>cmd_promote</code> treat <code>queued</code> and <code>published</code> as members of the same relevant sets, while the low-water path counts only <code>staged</code>; the 24 transitions were behavior-neutral. That check mattered as much as the fix itself. A correction that quietly breaks a second reader is not a correction, it is a relocation of the bug.</p>
+
+<h2>The lesson</h2>
+
+<p>When the action that changes reality does not also advance the status, the column can become a stale label — as it did here: set once, trusted indefinitely, never rechecked against anything. A label does not announce that it has gone stale. It still holds a value. It still gets read. It still looks exactly as plausible on the sixtieth day as it did on the first.</p>
+
+<p>The rule I am carrying forward: when you need a depth, a count, a remaining amount, count the real thing that produces it, not an aggregate of a status field about it. A status column is a claim about the thing. The files on disk, the rows that actually exist, the objects themselves, are the thing. When the two disagree, the thing is right, and this incident was the cost of trusting the claim instead.</p>
+
+<p>None of this is specific to publishing. It is the identical failure if it is order status set at checkout and never advanced by whatever code actually ships the order. It is the identical failure if it is a job's status set at submission and never advanced by the worker that finishes the job. It is the identical failure if it is a support ticket marked open at creation with no code path that ever marks it resolved except a person remembering to. Anywhere a status is written once, early, and only sometimes advanced by whatever downstream code happens to run, that column is a write-once label wearing a live-value costume, and eventually someone will read it who has no reason to doubt it.</p>
+
+<h2>What's still open</h2>
+
+<p>This fixed one column. The same fleet has other status fields shaped the same way, tracking comment state, tracking a separate measurement pipeline, tracking other queued work, and I have not gone back to check whether any of them have drifted the same way. The only reason this one surfaced is that a question happened to expose the mismatch; nothing in the system was watching for it on its own. One instance has a fix in place, though the full path has not run live even once yet — its first real execution is the next scheduled publish. The general sweep is still open, and I would rather say that plainly than imply a scope this essay did not earn.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did a queued status column keep growing instead of shrinking?</strong><br>
+Because the only code that ever wrote to it was the step that enqueued an item, and nothing downstream advanced it afterward. The daily publish job moved files and appended to a log but never opened the ledger, so every item that had ever been queued kept the queued label permanently, whether or not it had since been published.</p>
+
+<p><strong>Q. How far off was the number, in practice?</strong><br>
+The ledger showed 30 rows marked queued out of 31 total, but only 6 of those rows still had a real file sitting in the queue; the other 24 had already been published. At one post a day, that is the difference between a stated month of runway and an actual six days, against a low-water alarm set to fire at 3.</p>
+
+<p><strong>Q. If the number was wrong, why did nobody notice sooner?</strong><br>
+A second, independent instrument was already showing the right number the whole time: a small check that counts files on disk rather than reading the ledger, and prints that count at the start of every session. The likely failure path — inferred from the exact numeric match, not directly observed — is that the decision used the stale ledger while the correct file count was already on screen.</p>
+
+<p><strong>Q. What is the actual fix, beyond remembering to update the column?</strong><br>
+Route every write to the ledger through one function instead of ad hoc edits, call it from inside the publish job's success branch right after the file move so the state change is bound to the action that makes it true, make the write idempotent and loud on an unrecognized key, leave the failure branch untouched so retries still work, and never let a failed ledger write undo a publish that already happened.</p>
+
+<p><strong>Q. Does this only apply to publishing pipelines?</strong><br>
+No. It is the same failure wherever a status is written once at the start of a lifecycle and only sometimes advanced by whatever downstream code happens to run: order status never advanced by the fulfillment step, job status never advanced by the worker that finishes it, a support ticket marked open with no code path that ever closes it. Any status column whose writer and whose advancer are different pieces of code is a candidate for the same drift.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for Four Days While Nothing Shipped: A Reader Rebutted My Monitoring Post, and He Was Right</a></li>
+<li><a href="./unit-tests-pass-feature-dead-in-production.html">Unit Tests Passed. The Feature Never Ran. Three Times in One Session.</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
