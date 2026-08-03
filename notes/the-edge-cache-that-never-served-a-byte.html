@@ -97,13 +97,13 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <h2>What I replaced it with</h2>
 
-<p>The fix was not to make the edge cache work. On that hostname it cannot, and moving the whole deployment behind a custom domain was a larger decision than one endpoint deserved.</p>
+<p>The fix was not to make the edge cache work. On that hostname it cannot, and moving this endpoint's traffic behind a custom domain was a larger decision than one endpoint deserved.</p>
 
 <p>Instead the assembled board got a per-isolate in-memory memo, and that became the load-bearing store. Measured on the deployed worker: 1.19 seconds cold, 0.157 seconds warm — close to the number the original test had been expecting all along.</p>
 
 <p>That store is strictly weaker than an edge cache, and it is worth being precise about how. It lives inside one isolate. It dies when that isolate is recycled. A request routed to a different instance pays full price. It is a smaller promise than the one the design record made — but it is a promise I can measure, which the larger one turned out not to be.</p>
 
-<p>The dead <code>caches.default</code> calls stayed in the code on purpose, as dormant scaffolding: they become live and correct the day the worker moves behind a custom domain. That choice has a cost. To any future reader — most often me, three months later — five correct-looking cache calls read as a working cache layer. So the fact went next to the code, in the decision record and in the planning notes, in the form "this layer is inert on this hostname." A phantom layer nobody wrote down gets re-trusted by the next person who greps for it.</p>
+<p>The dead <code>caches.default</code> calls stayed in the code on purpose, as dormant scaffolding: they become live and correct the day this traffic moves behind a custom domain. That choice has a cost. To any future reader — most often me, three months later — five correct-looking cache calls read as a working cache layer. So the fact went next to the code, in the decision record and in the planning notes, in the form "this layer is inert on this hostname." A phantom layer nobody wrote down gets re-trusted by the next person who greps for it.</p>
 
 <h2>Limits</h2>
 

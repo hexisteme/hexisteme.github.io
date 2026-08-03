@@ -16,10 +16,10 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 </style>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing whether an AI tool failure is a wrapper bug or a real capability limit", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible", "datePublished": "2026-07-17", "dateModified": "2026-08-03", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing whether an AI tool failure is a wrapper bug or a real capability limit", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
 </script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I tell a wrapper failure from a real capability failure?", "acceptedAnswer": {"@type": "Answer", "text": "Read the raw error text before anything else. If it names an explicit account-state condition, such as balance, authorization, or quota, in plain language, that is almost always true and retrying will not help. If instead it looks like an internal exception, a stack trace, an undefined property, a type error, it is describing a bug in the client code, not a decision by the provider, and you have not yet learned whether the provider itself would refuse the request."}}, {"@type": "Question", "name": "What does it mean to descend to the API?", "acceptedAnswer": {"@type": "Answer", "text": "Find the credential the wrapper is already using underneath, usually a plain environment variable, and call the provider's own documented endpoint directly with that same credential, bypassing the wrapper entirely. If the direct call succeeds, the wrapper was the bug. If it fails with the same account-state error as before, only then is unavailable an honest conclusion."}}, {"@type": "Question", "name": "Why is switching to a different wrapper not the same as descending?", "acceptedAnswer": {"@type": "Answer", "text": "Switching wrappers moves sideways to another layer that can fail for its own unrelated reasons, and it tells you nothing about the layer underneath either one. Descending means going down to the provider's own interface with the same credentials, which is the only step that actually isolates whether a failure belongs to the client code or to the account and the service."}}, {"@type": "Question", "name": "When should I re-open a closed unavailable conclusion?", "acceptedAnswer": {"@type": "Answer", "text": "Treat a credible report that the same task worked before, or works elsewhere, as close to a mandatory trigger to re-run the diagnostic, because that statement is strong evidence the account and credentials are fine, which means the failure has to be sitting in a layer you control. The reversal is only justified once a direct call actually produces new evidence, not merely because someone pushed back."}}, {"@type": "Question", "name": "Does this diagnostic always work?", "acceptedAnswer": {"@type": "Answer", "text": "No. It assumes there is a documented layer underneath the wrapper that you can call directly, which holds for most API-keyed services but not for fully closed platforms where the wrapper is the only sanctioned path. In that case the honest report is blocked at the wrapper, could not verify further, not impossible."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I tell a wrapper failure from a real capability failure?", "acceptedAnswer": {"@type": "Answer", "text": "Treat the message as a hypothesis, then cross the provider boundary. An account-state message is stronger evidence than an internal exception, but a wrapper can translate or mislabel provider responses. A direct call with the same credential, model, prompt and time window distinguishes an unavailable account or model from a defect somewhere in the wrapper path."}}, {"@type": "Question", "name": "What does it mean to descend to the API?", "acceptedAnswer": {"@type": "Answer", "text": "Call the provider's documented endpoint with the same credential and model while bypassing the wrapper. Keep the credential in the subprocess environment and HTTP header, not in shell arguments or logs. A success rules out an unavailable account or model at probe time, but it does not identify the exact wrapper sublayer unless you retained the failed raw response."}}, {"@type": "Question", "name": "Why is switching to a different wrapper not the same as descending?", "acceptedAnswer": {"@type": "Answer", "text": "Switching wrappers moves sideways to another client path with its own possible defects. Descending crosses the boundary to the provider's own interface, which is the step that can separate an account or service failure from a defect in request construction, transport or response handling."}}, {"@type": "Question", "name": "When should I re-open a closed unavailable conclusion?", "acceptedAnswer": {"@type": "Answer", "text": "A credible report that the task worked before or elsewhere is not proof that the current account, key, quota, prompt and model are identical. It is evidence that the capability map may be incomplete or stale, which is enough to trigger re-diagnosis before closing the task. Reverse the conclusion only after the new probe produces evidence."}}, {"@type": "Question", "name": "Does this diagnostic always work?", "acceptedAnswer": {"@type": "Answer", "text": "No. It requires a provider boundary you can reach directly. On a closed platform where the wrapper is the only sanctioned path, the honest report is blocked at the wrapper, could not verify further. The wrapper-path diagnosis is also falsified if a direct call with the same credential, model, prompt and time window returns the same structured failure."}}]}
 </script>
 </head>
 <body>
@@ -46,29 +46,82 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <p>That conclusion mixed two failures that do not belong in the same bucket, rounding down to the more pessimistic one — treating a wrapper's internal crash as if it carried the same weight as an explicit "your balance is empty." It did not, and the gap between those two kinds of failure is the subject of this essay.</p>
 
-<h2>Two classes of error, and why conflating them is the whole bug</h2>
+<p>Before generalizing from the incident, here is the evidence capsule I wish the original report had contained:</p>
+
+<table>
+<tr><th>Competing explanation</th><th>What would distinguish it</th><th>What I actually observed</th></tr>
+<tr><td>The Gemini account or key was unusable</td><td>A direct provider call with the same credential fails with an account or authentication response</td><td>The direct call returned image bytes</td></tr>
+<tr><td>The named model could not generate an image</td><td>A direct call to that model returns a model or capability error</td><td>The direct call to the same model returned two images</td></tr>
+<tr><td>The prompt itself was rejected</td><td>The provider's raw response contains a safety or policy outcome instead of image data</td><td>Not retained from the wrapper path, so not ruled out for the original request</td></tr>
+<tr><td>The wrapper path was defective</td><td>Direct provider call succeeds while the wrapper path still throws</td><td>Observed twice through the wrapper, then one success through the provider boundary</td></tr>
+</table>
+
+<p>That table supports a narrower conclusion than the first postmortem claimed. It rules out “the account cannot do this” and “the model cannot do this” at the time of the direct probe. It localizes the remaining defect somewhere in the wrapper path — request construction, response handling, or the assumptions between them. The <code>candidates[0]</code>-shaped exception makes response handling the leading hypothesis, but without the raw provider response from the failed wrapper call, calling parsing the proven root cause would be stronger than the evidence.</p>
+
+<h2>Two classes of error — and neither is self-authenticating</h2>
 
 <p>Split any tool-call failure into two buckets before doing anything else with it.</p>
 
-<p><strong>Class A: account-state errors</strong> name a condition external to the code calling them — insufficient balance, expired auth, a rate limit, a region lock — usually in plain language, with a code or a stated reason. In practice they are almost always true as reported, and retrying without changing anything wastes time; fix the account state, rotate the key, wait out the window, or accept the block.</p>
+<p><strong>Class A: account-state errors</strong> name a condition external to the code calling them — insufficient balance, expired auth, a rate limit, a region lock — usually in plain language, with a code or a stated reason. They are stronger evidence than an internal exception, but the message's wording does not prove its provenance. A wrapper can translate, cache, or mislabel a provider response. If the consequence is merely “wait and retry,” accepting it may be reasonable. If the consequence is “record this capability as unavailable,” confirm it at the provider boundary.</p>
 
 <p><strong>Class B: client-side errors</strong> reference the wrapper's own internals — a null pointer, an undefined property, a stack trace pointing at the client library's code rather than the provider's documented error surface. A message like <code>Cannot read properties of undefined (reading '0')</code> is diagnostic information about a bug between you and the provider. It says nothing, directly, about whether the provider itself would have served the request.</p>
 
-<p>The test is close to mechanical: does the message name a business condition (balance, auth, quota, region), or a code condition (a property access, a type, a null)? The first is a fact about the world; the second is a fact about the wrapper. Report the first as unavailable. Never report the second as unavailable without one more step — it is exactly as likely to mean "the client mishandled a perfectly good response" as it is to mean anything about the underlying service. Conflating the two is what happened here: the undefined-property crash got filed next to the exhausted balance as if they were the same kind of evidence, and the more final-sounding one won.</p>
+<p>The first-pass classification is mechanical: does the message name a business condition (balance, auth, quota, region), or a code condition (a property access, a type, a null)? The first is a hypothesis about account state. The second is a fact about the client path, not the provider's capability. Neither licenses “impossible” on its own. Conflating the two is what happened here: the undefined-property crash got filed next to the exhausted balance as if they were the same kind of evidence, and the more final-sounding one won.</p>
 
 <h2>The descent procedure</h2>
 
 <p>Here is the check that would have caught it, as a small procedure instead of a one-off insight:</p>
 
 <ol>
-<li>Read the raw error text first. Does it name an account, billing, or auth condition in plain language? Class A — act on it directly, do not route around it.</li>
+<li>Read the raw error text first. Does it name an account, billing, or auth condition in plain language? Class A — record that as the leading hypothesis, not yet as a capability verdict.</li>
 <li>Does it instead look like an internal exception — a stack trace, an undefined, a type error, the client library talking about itself rather than the provider talking about your request? Class B — do not write "unavailable" yet.</li>
 <li>For Class B, descend: find the credential the wrapper uses underneath, usually a plain environment variable, and call the provider's own documented endpoint directly with it, bypassing the wrapper's code path entirely.</li>
-<li>Direct call succeeds? The wrapper is the bug, full stop — file it there. The account and the underlying model were never in question.</li>
-<li>Direct call reproduces the same Class A signature, now with no wrapper in between? Only then is "unavailable via this account" an honest fact.</li>
+<li>Keep the credential out of shell arguments and logs. Inject it from the environment into the request header, and save only a sanitized status plus artifact size.</li>
+<li>Direct call succeeds? The account and model were available at probe time; localize the defect to the wrapper path, but do not name the exact sublayer without the failed raw response.</li>
+<li>Direct call returns a structured account or model error? “Unavailable via this account at this time” is now supported. Preserve the response class and timestamp because account state and model availability change.</li>
 </ol>
 
-<p>In the actual case, step 3 was one direct HTTPS call to the Gemini API, using the same key the wrapper reads from the environment, naming the same model, gemini-3-pro-image-preview. It returned a valid image on the first try: 565,520 bytes for one variant, 774,801 bytes for a second — clean enough to leave no ambiguity. The failure had been entirely inside the wrapper's response parsing, nowhere near the provider.</p>
+<p>In the actual case, step 3 was one direct HTTPS call to the Gemini API, using the same key the wrapper reads from the environment, naming the same model, <code>gemini-3-pro-image-preview</code>. It returned a valid image on the first try: 565,520 bytes for one variant, 774,801 bytes for a second. That left no ambiguity about the capability verdict: the account and model could generate images at probe time. It did <strong>not</strong> reconstruct the failed wrapper response, so it narrowed the defect to the wrapper path rather than proving response parsing as the exact root cause.</p>
+
+<p>Here is the dependency-free probe shape I use now. The historical model name above may be retired; set <code>GEMINI_IMAGE_MODEL</code> to a currently documented image model. Google documents the same <code>generateContent</code> boundary and <code>x-goog-api-key</code> header in its <a href="https://ai.google.dev/gemini-api/docs/generate-content/image-generation">Gemini image-generation guide</a> — now filed under the legacy Generate Content API, since the newer Interactions API became the recommended path. The header and the endpoint boundary below are unchanged.</p>
+
+<pre><code>import base64
+import json
+import os
+import urllib.request
+
+model = os.environ["GEMINI_IMAGE_MODEL"]
+endpoint = (
+    "https://generativelanguage.googleapis.com/v1/models/"
+    f"{model}:generateContent"
+)
+payload = json.dumps({
+    "contents": [{"parts": [{"text": "Draw a small blue square."}]}]
+}).encode()
+request = urllib.request.Request(
+    endpoint,
+    data=payload,
+    headers={
+        "Content-Type": "application/json",
+        "x-goog-api-key": os.environ["GEMINI_API_KEY"],
+    },
+    method="POST",
+)
+
+with urllib.request.urlopen(request, timeout=120) as response:
+    body = json.load(response)
+
+parts = body["candidates"][0]["content"]["parts"]
+images = [part["inlineData"] for part in parts if "inlineData" in part]
+if not images:
+    raise RuntimeError("provider returned no image part")
+
+image = base64.b64decode(images[0]["data"], validate=True)
+with open("direct-provider-probe.png", "wb") as output:
+    output.write(image)
+print(json.dumps({"result": "image", "bytes": len(image)}))</code></pre>
+
+<p>This probe deliberately reports only the response class and byte count. The credential stays in the subprocess environment and HTTP header, not in the command line, output, or article. To make the diagnosis stronger than mine was, run the wrapper and direct probe with the same prompt, model, credential, and time window, and retain a scrubbed copy of both raw response envelopes.</p>
 
 <p>The point generalizes past image APIs. Swapping wrapper A for wrapper B when A fails is lateral movement — you are still one layer removed from what you are diagnosing, and you have only changed which client bug you might hit next. Descent means going down a layer, not sideways, and it is usually cheap: one direct call is far less expensive than letting a false "impossible" sit in a report that something, or someone, later builds on.</p>
 
@@ -84,7 +137,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <h2>Treat "it worked before" as a mandatory re-diagnosis trigger</h2>
 
-<p>The challenge that opened this essay deserves promotion from a courtesy to a standing order. "This worked somewhere else, why not here?" is strong evidence the account, key, and quota are all fine, which means, by elimination, the failure lives in a layer you control. Treating it as a mild suggestion to glance again undersells what it is telling you.</p>
+<p>The challenge that opened this essay deserves promotion from a courtesy to a standing order. "This worked somewhere else, why not here?" is not proof that the current account, key, quota, prompt, or model are identical. It is evidence that the capability map may be incomplete or stale, which is enough to require re-diagnosis before closing the task. Treating it as a mild suggestion to glance again undersells what it is telling you; treating it as proof would oversell it in the opposite direction.</p>
 
 <p>But be precise about what acting on it looks like, because a nearby failure mode looks similar and is not: reversing a conclusion just to match the tone of a challenge, with no new evidence. Reversing because someone sounded confident is capitulation. Reversing because the challenge sent you back to run the descent procedure, and the direct call produced a real result, is a correction backed by evidence. Same outward behavior — "I changed my answer" — and the whole question of whether it was right lives in whether a real diagnostic step happened first.</p>
 
@@ -92,7 +145,9 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <p>A false "unavailable" is not a neutral placeholder. It gets read by whatever comes next: a planning step that quietly avoids a whole tier of capability, a decision to stop maintaining something that "does not do this anyway," a rebuild of functionality that already existed one layer down. The cost is paid later and somewhere else, which is why skipping the diagnosis feels cheap now and expensive in aggregate.</p>
 
-<p>The procedure has a real edge. It requires a layer underneath the wrapper you can actually reach — true for most API-keyed services, where a direct HTTP call with the same credential is always available even if nobody bothers, but not for a fully closed platform where the wrapper is the only sanctioned path. There, "wrapper failure" and "capability failure" can be indistinguishable from where you stand, and the honest write-up is "blocked at the wrapper, could not verify further," not "impossible." Nor is this a license to distrust every account-state message: a clearly stated balance or auth error is still Class A, almost always true as reported, and re-litigating it anyway just burns time you did not need to spend.</p>
+<p>The procedure has a real edge. It requires a layer underneath the wrapper you can actually reach — common for API-keyed services, but not guaranteed for a fully closed platform where the wrapper is the only sanctioned path. There, "wrapper failure" and "capability failure" can be indistinguishable from where you stand, and the honest write-up is "blocked at the wrapper, could not verify further," not "impossible." Nor is this a license to distrust every account-state message. The depth of verification should track the consequence: a transient retry can accept weaker evidence than a permanent capability record.</p>
+
+<p>The probe also has a falsifier. If a direct call using the same credential, model, prompt, and time window returns the same structured failure as the wrapper, the “wrapper-path defect” diagnosis loses. If the direct call succeeds but a scrubbed raw wrapper response shows a valid provider refusal that the wrapper merely surfaced badly, the bug is error handling and reporting, not capability access. Those outcomes lead to different fixes, which is why retaining both response envelopes matters.</p>
 
 <h2>The general rule</h2>
 
@@ -101,19 +156,19 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <h2>FAQ</h2>
 
 <p><strong>Q. How do I tell a wrapper failure from a real capability failure?</strong><br>
-Read the raw error text before anything else. If it names an explicit account-state condition, such as balance, authorization, or quota, in plain language, that is almost always true and retrying will not help. If instead it looks like an internal exception, a stack trace, an undefined property, a type error, it is describing a bug in the client code, not a decision by the provider, and you have not yet learned whether the provider itself would refuse the request.</p>
+Treat the message as a hypothesis, then cross the provider boundary. An account-state message is stronger evidence than an internal exception, but a wrapper can translate or mislabel provider responses. A direct call with the same credential, model, prompt and time window distinguishes an unavailable account or model from a defect somewhere in the wrapper path.</p>
 
 <p><strong>Q. What does it mean to descend to the API?</strong><br>
-Find the credential the wrapper is already using underneath, usually a plain environment variable, and call the provider's own documented endpoint directly with that same credential, bypassing the wrapper entirely. If the direct call succeeds, the wrapper was the bug. If it fails with the same account-state error as before, only then is unavailable an honest conclusion.</p>
+Call the provider's documented endpoint with the same credential and model while bypassing the wrapper. Keep the credential in the subprocess environment and HTTP header, not in shell arguments or logs. A success rules out an unavailable account or model at probe time, but it does not identify the exact wrapper sublayer unless you retained the failed raw response.</p>
 
 <p><strong>Q. Why is switching to a different wrapper not the same as descending?</strong><br>
-Switching wrappers moves sideways to another layer that can fail for its own unrelated reasons, and it tells you nothing about the layer underneath either one. Descending means going down to the provider's own interface with the same credentials, which is the only step that actually isolates whether a failure belongs to the client code or to the account and the service.</p>
+Switching wrappers moves sideways to another client path with its own possible defects. Descending crosses the boundary to the provider's own interface, which is the step that can separate an account or service failure from a defect in request construction, transport or response handling.</p>
 
 <p><strong>Q. When should I re-open a closed unavailable conclusion?</strong><br>
-Treat a credible report that the same task worked before, or works elsewhere, as close to a mandatory trigger to re-run the diagnostic, because that statement is strong evidence the account and credentials are fine, which means the failure has to be sitting in a layer you control. The reversal is only justified once a direct call actually produces new evidence, not merely because someone pushed back.</p>
+A credible report that the task worked before or elsewhere is not proof that the current account, key, quota, prompt and model are identical. It is evidence that the capability map may be incomplete or stale, which is enough to trigger re-diagnosis before closing the task. Reverse the conclusion only after the new probe produces evidence.</p>
 
 <p><strong>Q. Does this diagnostic always work?</strong><br>
-No. It assumes there is a documented layer underneath the wrapper that you can call directly, which holds for most API-keyed services but not for fully closed platforms where the wrapper is the only sanctioned path. In that case the honest report is blocked at the wrapper, could not verify further, not impossible.</p>
+No. It requires a provider boundary you can reach directly. On a closed platform where the wrapper is the only sanctioned path, the honest report is blocked at the wrapper, could not verify further. The wrapper-path diagnosis is also falsified if a direct call with the same credential, model, prompt and time window returns the same structured failure.</p>
 
 <h2>Related notes</h2>
 <ul>
