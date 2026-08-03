@@ -52,6 +52,15 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <pre>grep -c '/\*' style.css   # 49
 grep -c '\*/' style.css   # 48</pre>
 <p>Forty-nine openers, forty-eight closers. Exactly one comment in that file never closed where it was supposed to. Finding which one took one more grep, fixing it took one edit, and the whole page came back.</p>
+<p>Here is a minimal reproduction of the parser boundary. The token that looks like a closer belongs to a template language, not CSS:</p>
+<pre><code>/* intended to end here, but closed with #}
+.timeline-row { display: grid; }
+.feed { display: flex; }
+.bucket + .bucket { margin-top: 1rem; }
+.dot { align-self: center; }
+/* the next real CSS comment */
+.footer { display: block; }</code></pre>
+<p>The first <code>/*</code> consumes the timeline, feed, bucket, and dot rules through the <code>*/</code> on the later comment. <code>.footer</code> survives because it starts after that real closer. The cheap delimiter test fails on this fixture before the fix. A parser-tier test should also fail because <code>.timeline-row</code> is absent from the parsed rule set even though the selector is present in the source text.</p>
 <p>The generalization worth keeping: <strong>text presence is not rule presence.</strong> <code>grep</code> sees bytes; the browser sees a parsed stylesheet. Every diagnostic you run against the raw file answers a different question from the one you care about, and when those two answers disagree you are looking at a parser-level problem — a swallowed region, an unbalanced delimiter, an encoding issue — not a logic problem.</p>
 
 <h2>Why humans and AI reviewers both miss it</h2>
@@ -70,6 +79,9 @@ assert css.count("/*") == css.count("*/")
 # 2. No template-language comment syntax inside a stylesheet.
 assert "#}" not in css and "{#" not in css</pre>
 <p>Two lines, no new dependencies, runs with everything else. It knows nothing about the line that broke; it knows the <em>shape</em> of the failure. "Is that one line correct?" is a test with a lifespan of one commit. "Do comment delimiters balance, and is foreign comment syntax absent?" still works after the file has been rewritten twice.</p>
+<p>In this project the regression lives in <code>test_aesthetic.py</code>; the narrow run is:</p>
+<pre><code>pytest test_aesthetic.py -q -k css_comment_delimiters_balanced</code></pre>
+<p>That command proves only the text-level guard. The diagnosis has its own falsifier: if a real CSS parser still returns <code>.timeline-row</code> from the broken fixture above, then the rule was not swallowed by that comment and the investigation has to move to cascade, specificity, or asset selection. A rendered assertion such as “the timeline row computes to <code>display: grid</code>” is the stronger final gate because it observes the surface the user sees.</p>
 <table>
 <tr><th>Tier</th><th>Catches</th><th>Cost</th></tr>
 <tr><td>Delimiter balance + foreign-token ban</td><td>unclosed comments, template syntax bleed</td><td>2 lines, no dependencies</td></tr>
