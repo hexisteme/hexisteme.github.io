@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Two of Five Gates Replayed Clean. The Other Three Read a Ledger With No History. — hexisteme notes</title>
+<meta name="description" content="A predecessor note replayed one deterministic gate's logic over an archive to recover a trigger rate no counter had ever recorded. Extending that replay to four more gates in the same fleet worked for exactly two of them — the other three read live external state with no change history, a sharper and more general condition than &quot;the logic is deterministic.&quot;">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Two of Five Gates Replayed Clean. The Other Three Read a Ledger With No History.", "datePublished": "2026-08-03", "dateModified": "2026-08-03", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why replaying a deterministic gate's decision logic over an archived transcript corpus can recover a missing trigger-rate denominator for some gates but not others, and the general condition (inputs fully contained in the preserved log, with the eligible population derivable from it) that separates the two cases.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What's the actual condition for recovering a rate by replaying a gate's logic over an archive?", "acceptedAnswer": {"@type": "Answer", "text": "The logic being deterministic is necessary but not sufficient. Replay only recovers a real denominator when every input the predicate reads is already inside the archive, and the eligible population is fully derivable from that archive alone — with nothing about \"current external state as of execution time\" required."}},
+{"@type": "Question", "name": "Why couldn't three of my five Stop hooks be replayed, if their logic is deterministic too?", "acceptedAnswer": {"@type": "Answer", "text": "Their predicates read live external state — two query SQLite tables within a two-hour window measured from wall-clock execution time, and one scans an event log with no window at all but shared across every project on the machine. None of that state's history survived; the tables only ever kept a present value, so the archive can't answer what they said at any past moment."}},
+{"@type": "Question", "name": "Can I just rank the five lifetime counts from these fingerprint files against each other?", "acceptedAnswer": {"@type": "Answer", "text": "No. Two dedupe by a hash of the response text and three dedupe by a hash of a sorted set of outstanding items — a fundamentally different unit — and even between the two that share a unit, one absorbed 15.2% of matches into deduplication and the other absorbed 52.9%, a 3.5x difference in compression. Comparing raw line counts measures the compression factor, not the underlying behavior."}},
+{"@type": "Question", "name": "Is \"the five counts look like geometric decay\" a reasonable reading of the data?", "acceptedAnswer": {"@type": "Answer", "text": "The arithmetic already rules it out — the consecutive ratios are 1.53, 1.95, 3.67, and 6.0, not a constant ratio. The deeper problem is treating five differently-defined instruments as one distribution in the first place, the same amalgamation error as pooling a metric across incomparable strata."}},
+{"@type": "Question", "name": "Is a recovered replay rate the same thing as an observed live trigger rate?", "acceptedAnswer": {"@type": "Answer", "text": "No. It's a counterfactual — \"if this exact logic had run for the whole period the archive covers\" — not a fire log, and most of the archive predates the gates in question. One of the two replayable gates compounds this further because its own logic changed mid-life, so applying its current version to the whole archive is a counterfactual layered on another counterfactual."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Two of Five Gates Replayed Clean. The Other Three Read a Ledger With No History.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-03</p>
+
+<div class="note">A predecessor note replayed one deterministic Stop hook's decision logic over an archive to recover a trigger-rate denominator no counter had ever written. This note extends that replay to the four other gates in the same fleet. It worked for exactly two of them. The other three read live external state with no change history, which turns out to be a sharper and more general failure condition than "the logic is deterministic" — and a reader's claim that five of these gates' lifetime counts form one geometric-decay distribution turns out to be wrong on both the arithmetic and the framing.</div>
+
+<h2>Five gates, one script, five different predicates</h2>
+<p>A few days ago I wrote about a Stop hook on my own agent fleet that had never once logged how often it <em>ran</em> — only how often it <em>fired</em>. The hook's decision logic was deterministic and its inputs (the full session transcript) were sitting untouched in an archive of past sessions, so instead of adding a counter and waiting a week for data, I replayed the hook's exact exit logic over 5,537 archived transcripts. That recovered a denominator — 116,022 candidate stop points — that had never existed before, for free, from data already on disk. The lesson: if a gate's decision logic is deterministic and its inputs are preserved, you don't need to instrument anything new — you replay the logic and the rate falls out.</p>
+<p>That lesson held for one gate. This note is about applying it to the other four gates in the same cascade — and where the technique quietly stops working, in a way "the logic is deterministic" does not warn you about.</p>
+<p>My fleet chains five Stop hooks in a fixed order — each can block the turn outright, and if it does, the ones behind it never run that time. Two of the five read the same kind of thing the first gate read: the current transcript, entry by entry. The other three read live state in a separate store, shared across every session on the machine.</p>
+
+<table>
+<tr><th>gate</th><th>what the predicate reads</th><th>time window</th></tr>
+<tr><td>decision-ownership</td><td>current transcript (text + tool calls)</td><td>none — whole transcript</td></tr>
+<tr><td>challenge-reverify</td><td>current transcript (text + tool calls)</td><td>none — whole transcript</td></tr>
+<tr><td>a pending-report gate</td><td>an external event log of advised/reported items</td><td>none — whole ledger, ever</td></tr>
+<tr><td>a pending-outcome gate</td><td>a SQLite table of outputs vs. recorded outcomes</td><td>rolling 2 hours before <em>now</em></td></tr>
+<tr><td>a second pending-outcome gate</td><td>a second SQLite table, same shape</td><td>rolling 2 hours before <em>now</em></td></tr>
+</table>
+
+<p>The first two are exactly like the gate from the earlier note: their eligible population is "every Stop point in the system," full stop — the same 120,551 stop points in the now slightly-grown archive, regardless of which of the two you ask about. I reimplemented both exit paths and replayed them.</p>
+<ul>
+<li>The decision-ownership gate fired 95 times out of 120,551 candidate stop points — 0.0788%, about 1 in 1,270. Exit funnel: 16,699 had no assistant text to check, 23,555 had no prior data-gathering tool call, 80,185 didn't match the deflection pattern, and 17 matched but deduplicated against an identical prior response.</li>
+<li>The challenge-reverify gate fired 24 times — 0.0199%, about a quarter of the first gate's rate. Its funnel is longer (challenge, capitulation, <em>and</em> absence of demonstrated verification), and 27 more matches deduplicated away before firing.</li>
+</ul>
+<p>Both numbers are useful and neither is a live rate (more on that below) — but they're recoverable, because both gates look at exactly the artifact I already have an archive of.</p>
+
+<h2>Where it stops working</h2>
+<p>The other three gates could not be replayed, and the reason is not "their logic is messier" — a SQL WHERE clause is about as deterministic as it gets. The reason is that their predicate doesn't read anything the archive contains.</p>
+<p>Two of the three ask, in effect: are there rows in this table right now that are unresolved <em>and</em> less than two hours old, measured from the moment this hook happens to execute? "Measured from the moment the hook executes" is the whole problem. Two hours before <em>when</em>? The tables carry only their present value — no history of when a row flipped from open to resolved, no log of a resolve-then-reopen, nothing. To answer the predicate for a stop point from three weeks ago, I'd need to know what that table said three weeks ago, and that was never kept. It isn't unmeasured. It was never captured in a form that could be measured after the fact.</p>
+<p>The third one has no time window at all — it scans an external ledger for items flagged but never reported back. That sounds more replayable, since there's no "as of when" ambiguity. But the ledger is shared across every project on the machine, not scoped to one session, and I have no way to confirm every stop point in the archive occurred in an environment actually pointed at this file at that moment. Replaying it would mean merging 120,551 stop points into one global wall-clock order and interleaving that against the ledger's own event history — a different algorithm than replaying each transcript independently, resting on an assumption I can't verify. I'd rather report a number as unavailable than manufacture a plausible one on an unverified assumption.</p>
+<p>So for these three, the denominator isn't a smaller or fuzzier version of the first two — it's undefined relative to the archive. The eligible population is "stop points that touched a particular external subsystem, inside a particular window relative to real time," and nothing in a transcript tells you which stop points meet that description.</p>
+
+<h2>The sharper condition</h2>
+<p>"The logic is deterministic" was never quite the right test, and now I can name the one that is: <strong>replay recovers a rate only when the eligible population is delimited entirely inside the inputs you already preserved.</strong> A predicate that reads current external state needs that state's <em>change history</em> to be replayed against the past — the database equivalent of change-data-capture — and a store that only keeps its present value has already, silently, thrown the denominator away. Determinism was never what made the first gate replayable; what made it replayable was that "transcript" is both the input to the predicate and the thing sitting in my archive. For the other three, the input to the predicate and the thing in my archive are two different objects, and only one of them survived.</p>
+<p>If you're deciding whether to backfill a rate for your own gate — a feature flag, a rate limiter, a fraud rule, an alerting rule, anything with an instrumented exit and an uninstrumented entry — this is worth ten minutes before you assume replay will save you a week of waiting. Write down every input the predicate actually reads, and check whether each is already inside the log you'd replay against. If any input is "current state of an external store" rather than "content of the artifact I'm archiving," ask a second question: does that store keep enough history to answer the predicate as of an arbitrary past moment, not just now? If the answer to either is no, you don't have an unmeasured rate — you have an underdetermined one, and no cleverness in the replay fixes that after the fact. You can only start capturing the history from here forward.</p>
+
+<h2>Same file format, three different quantities</h2>
+<p>There's a trap one level below the replay question, and it cost me a re-read before I saw it. All five gates write to a fingerprint file in the same shape: append a line, one line per new fire. Five files, same format — but "new" means something different depending on which gate you're looking at. For the two transcript-reading gates, the dedup key is a hash of the <em>response text itself</em>: the same violating sentence repeated a hundred times still gets one line. For the other three, the dedup key is a hash of the <em>sorted set of currently-outstanding items</em> — one unreported thing turning into two, or two turning back into one, produces a new line regardless of whether the underlying condition changed. A line in one of those three files doesn't mean "a violation happened." It means "the backlog changed shape while a stop point went by" — a third kind of quantity, counting neither violations nor distinct violation types, but distinct backlog configurations. Five files that look identical on disk are holding three different measurements, and nothing about the format tells you that; you have to read the code that writes to it.</p>
+<p>Even restricted to the two gates I <em>can</em> say something quantitative about, comparing their raw line counts directly is still a mistake. Both dedup by content hash, which makes every count a lower bound on how many times the condition held — but the compression isn't the same size. For the first gate, dedup silently absorbed 15.2% of the matches that would otherwise have fired. For the second, it absorbed 52.9% — three and a half times as much compression on the same mechanism. A raw count of 22 lines versus 6 lines isn't "22 versus 6 violations." It's two lower bounds squeezed by two different, unequal factors — like measuring two maps with a ruler without checking they're drawn at the same scale.</p>
+
+<h2>The trigger for all of this</h2>
+<p>None of the above was hypothetical — it was a response to a specific claim. A reader looked at the five lifetime line-counts — 66, 43, 22, 6, 1 — and read them as one distribution on a single "activation surface," decaying geometrically, arguing the reverse-engineered picture was already complete.</p>
+<p>The arithmetic alone refutes "geometric": the consecutive ratios are 1.53, then 1.95, then 3.67, then 6.0 — not a constant ratio, nearly quadrupling across four steps. But the deeper error isn't the word "geometric"; it's the same mistake as pooling a metric across strata that don't belong in the same pool. These five numbers come from gates with different predicates, different eligible populations, different dedup units, and — for the challenge-reverify gate specifically — a rule that changed shape partway through its own life: a stricter tool-evidence requirement was added roughly six weeks after it shipped, so of its 55 days alive, 42 ran the loose version and only 13 ran the strict one. Its lifetime line count is a sum over both regimes with no marker of which lines came from which — one filename, two instruments. Treating five such numbers as draws from one process and asking what shape that process has is the same move as averaging a metric across role types that share nothing and calling the average a property of the system. The shape isn't a property of the numbers; it's an artifact of laying five different rulers end to end and reading the result as one ruler.</p>
+
+<h2>What the replay actually is</h2>
+<p>It would be easy to let the two rates I recovered read as live behavior, so I want to say plainly what they are instead: a counterfactual. "If this logic had run the whole time the archive covers" is not the same claim as "this is what fired." Most of the archive predates the gates in question, so both numbers answer "how often would this rule have tripped," not "how often did it." The challenge-reverify number compounds this — I applied its <em>current</em>, three-condition logic across an archive that includes the era before that condition existed, so it's a counterfactual layered on another. And "stop point" is itself only approximated, as an assistant turn with no tool call attached; real hooks may fire on other boundaries I haven't modeled. None of this makes the two rates worthless — it makes them exactly as strong as a careful reader would want, no stronger.</p>
+
+<h2>What generalizes</h2>
+<p>Before you backfill a rate by replaying a gate's logic over an archive, ask two questions, not one: are all of the predicate's inputs already inside the log you'd replay against, and is the eligible population fully derivable from that log alone, with nothing about "current state as of execution time" smuggled in? Determinism is necessary but not sufficient. If the predicate reaches into a database, check whether it keeps change history or only a present value — a store with no change-data-capture has already destroyed the denominator, and no cleverness in the replay script gets it back. And once you get a rate from two different instruments, resist ranking them until you've checked they dedup, window, and count the same kind of thing. Same file format is not the same measurement.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What's the actual condition for recovering a rate by replaying a gate's logic over an archive?</strong><br>
+The logic being deterministic is necessary but not sufficient. Replay only recovers a real denominator when every input the predicate reads is already inside the archive, and the eligible population is fully derivable from that archive alone — with nothing about "current external state as of execution time" required.</p>
+
+<p><strong>Q. Why couldn't three of my five Stop hooks be replayed, if their logic is deterministic too?</strong><br>
+Their predicates read live external state — two query SQLite tables within a two-hour window measured from wall-clock execution time, and one scans an event log with no window at all but shared across every project on the machine. None of that state's history survived; the tables only ever kept a present value, so the archive can't answer what they said at any past moment.</p>
+
+<p><strong>Q. Can I just rank the five lifetime counts from these fingerprint files against each other?</strong><br>
+No. Two dedupe by a hash of the response text and three dedupe by a hash of a sorted set of outstanding items — a fundamentally different unit — and even between the two that share a unit, one absorbed 15.2% of matches into deduplication and the other absorbed 52.9%, a 3.5x difference in compression. Comparing raw line counts measures the compression factor, not the underlying behavior.</p>
+
+<p><strong>Q. Is "the five counts look like geometric decay" a reasonable reading of the data?</strong><br>
+The arithmetic already rules it out — the consecutive ratios are 1.53, 1.95, 3.67, and 6.0, not a constant ratio. The deeper problem is treating five differently-defined instruments as one distribution in the first place, the same amalgamation error as pooling a metric across incomparable strata.</p>
+
+<p><strong>Q. Is a recovered replay rate the same thing as an observed live trigger rate?</strong><br>
+No. It's a counterfactual — "if this exact logic had run for the whole period the archive covers" — not a fire log, and most of the archive predates the gates in question. One of the two replayable gates compounds this further because its own logic changed mid-life, so applying its current version to the whole archive is a counterfactual layered on another counterfactual.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-denominator-was-already-on-disk.html">The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.</a></li>
+<li><a href="./subagent-metrics-not-comparable-to-main-thread.html">Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics</a></li>
+<li><a href="./stop-hook-decision-ownership-ai-agent.html">The "You Decide" Reflex: Blocking AI-Agent Decision Punting with a Stop Hook</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
