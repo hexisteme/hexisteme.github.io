@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grep won't find your dead gates. A fill-rate query will. — hexisteme notes</title>
+<meta name="description" content="A predecessor note diagnosed three dead features from broken wiring in application code. This one is about finding the rest — a fill-rate query run across seven projects, why the defect lives at the column rather than the feature, and a fourth kind of dead gate where the wiring was correct all along.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Grep won't find your dead gates. A fill-rate query will.", "datePublished": "2026-08-04", "dateModified": "2026-08-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A follow-up to a note on wiring gaps that unit tests cannot detect. This one covers how to search for the rest of those gaps at scale using a fill-rate query rather than grep, a sweep across seven projects that confirmed the pattern in five, the finding that the defect lives at the column level rather than the feature or file level, and a fourth kind of dead gate where the wiring is correct and the missing value is a human judgment that a session never returned to close.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why doesn't grep work as the first detector for dead gates?", "acceptedAnswer": {"@type": "Answer", "text": "Because grep matches the shape of the bug you already expect, and the bug worth finding is usually the one you didn't expect. In this sweep grep produced both a false positive and a false negative in the same afternoon; the sharpest miss was a literal grep for a write path that failed to find a live INSERT OR REPLACE statement doing exactly the writing being searched for. A fill-rate query, counting how many rows in a table actually have a given column populated, needs no prior knowledge of the bug's shape, only the row and the column."}}, {"@type": "Question", "name": "Why is the column the right unit of analysis instead of the feature or file?", "acceptedAnswer": {"@type": "Answer", "text": "Because separate columns in the same table can die independently while the table as a whole looks alive. In one seven-row table, runs and run_failures were zero in every row while n and win_rate in those same rows were current and moving normally. A reviewer working the case initially attached the defect to the live axis, win_rate, before it was corrected to the actually dead one, runs. Auditing at the feature or file level would have missed that a single table can be half alive."}}, {"@type": "Question", "name": "What causes a column like this to go permanently unfilled?", "acceptedAnswer": {"@type": "Answer", "text": "In the case examined here, the function that executes the fix depended on the caller passing a ledger object, and every real call site in the codebase constructed the operation without passing one, a six-line fix once the column-level query pointed at the right function. A second case fell through a silent else because the basis value it should have matched appeared nowhere in the codebase at the time, misrouting a probe's reference date until the query surfaced it and it was fixed the same day. Both are ordinary wiring gaps once you know where to look; the query is what tells you where to look."}}, {"@type": "Question", "name": "What kind of dead gate does a wiring fix not repair?", "acceptedAnswer": {"@type": "Answer", "text": "One where the missing value was never supposed to come from code. Some gates wait on a human or a session to record a judgment: an outcome, a report, a closed loop. If the session ends before that happens, the loop stays open correctly; there was no bug that opened it. Forcing an automatic fill would replace a judgment with a computed value, which defeats the reason the field is human-populated. The only thing measurable here is that the loop is still open, not what its value should have been."}}, {"@type": "Question", "name": "How do you know when surfacing a backlog like that has stopped being worth it?", "acceptedAnswer": {"@type": "Answer", "text": "By a pre-declared falsifier: if the backlog stays visible and counted for weeks and does not shrink, the answer isn't to surface it harder. It's that closing that particular loop costs more than it's worth from any path currently available, and the fix is to reconsider where the surfaced count gets routed, not to add more instrumentation. A prior experiment already showed the wrong fix: dispatching automatically at a backlog that unattended sessions structurally can't close, which ran eight days across thirty-three items and closed none of them."}}]}
+</script>
+</head>
+<body>
+
+<h1>Grep won't find your dead gates. A fill-rate query will.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-04</p>
+
+<div class="note">A predecessor note diagnosed three features that shipped with fully green unit tests and never once executed in production, all caused by broken wiring in application code. This note covers the rest of the search: a fill-rate query that finds dead gates a grep cannot, a sweep across seven projects that confirmed the pattern in five, the finding that the defect lives at the column level rather than the feature or file level, and a fourth kind of dead gate where the wiring was correct from the start and the missing value is a human judgment a session never returned to supply.</div>
+
+<p>A <a href="./unit-tests-pass-feature-dead-in-production.html">predecessor note</a> diagnosed three production features that passed every dedicated unit test and never executed at all, and why a unit test structurally can't see that gap.</p>
+
+<p>That note answered three cases I already knew about, because I'd already tripped over them. It didn't answer the question that matters once you've found three: how do you find the rest — the ones nobody happened to notice yet? This is that search: the tool that actually works, what it found across seven projects, and a fourth failure shape that the predecessor note's two fixes don't reach at all, because in that fourth shape the code was never the thing that was broken.</p>
+
+<h2>The query, before the argument</h2>
+
+<p>Before any of the specifics, here is the shape of the query, so you can run something like it against your own tables in under a minute:</p>
+
+<pre>SELECT COUNT(*) AS total,
+       SUM(some_column IS NOT NULL) AS filled
+FROM some_table;</pre>
+
+<p>If that comes back near 100%, this note may simply not apply to your codebase, and that's a real result, not a failure to reproduce it. Keep that in mind through the rest of this — every finding below is downstream of a query shaped like this one, not downstream of reading code and guessing.</p>
+
+<h2>Grep is not the detector</h2>
+
+<p>My first instinct, the same one the predecessor note's fixes point toward, was to grep for the failure shape — a default value, an unpopulated argument, a call site missing a keyword. In one afternoon it produced both a false positive and a false negative. The sharper miss: a literal grep for a write path failed to find an <code>INSERT OR REPLACE</code> statement that was, in fact, live and doing exactly the writing I was looking for. Grep matched the shape of the bug I expected walking in, not the shape the code actually had.</p>
+
+<p>Everything that survived scrutiny below came from asking a database a question, not from asking a shell how a string was spelled. The question that works is: of all the rows that exist, how many have this column filled? In one of the fleet's coordination databases, an <code>outputs</code> table carries 177 rows. Seven of them have <code>internal_consistency</code> populated. That column isn't cosmetic: three gate constants downstream read it directly — a discard threshold at 0.30, an absorb-only threshold at 0.40, an empty-consensus verifiable floor at 0.20 — and all three had effectively been evaluating against absence for the overwhelming majority of rows they ever saw. A second query on the same fleet found 101 queries routed through the council's ask-path, of which 95 sit with no result ever reinjected back into the caller. Grep would have needed to already know the name of the bug to find either number. The count needed nothing but the row and the column.</p>
+
+<h2>The unit is the column</h2>
+
+<p>The clearest evidence that this class of bug lives at the column level, not the feature or file level, sits in one seven-row table. Every row of <code>free_ai_stats</code> had <code>runs=0</code> and <code>run_failures=0</code> — all seven, no exceptions. In those same seven rows, <code>n</code> ranged from 2 to 52 and <code>win_rate</code> from 0.50 to 0.90, current and moving normally. Same table, same seven rows: one axis fully alive, one axis dead since inception. A demotion threshold that only fires past four recorded runs, <code>BANDIT_DEMOTE_MIN_RUNS=4</code>, had been permanently unreachable, because the run counter it depends on had never once incremented.</p>
+
+<p>That's sharp enough to fool a careful reviewer. A validator working this exact case surfaced <code>win_rate</code> as the candidate to investigate, and it was overruled: the defect belonged to the dead axis, <code>runs</code>, and the investigator had attached it to the axis that was breathing. The lesson generalizes past this one table — don't ask "is this feature working," because a feature can be half alive. Ask, column by column, which ones are actually moving.</p>
+
+<p>The root cause, once isolated to the right column, was six lines: the function that executes a council panel expects its caller to hand it a ledger object, and all three real call sites in the codebase constructed the panel without passing one. Passing it revived the run counter, and as a side effect revived a demotion check that had been silently inert for the identical reason. Measured after the fix: zero demotions fired, because every connector's win rate sits at or above 0.5, comfortably over the 0.35 demotion threshold — the repair was correct, and the system it protects turned out to be healthy, which is a fine outcome for a gate to report once it's actually able to report anything at all. Nobody caught this for roughly two months, June 11 through today, because a governance document had declared the wiring "done," and a declaration of done is not a query.</p>
+
+<p>A second project turned up the same shape with a different time profile — not stale for months, but wrong at the moment the sweep found it. A live table carried exactly one row with <code>basis='event_gate'</code>; grepping the codebase for that literal string returned zero matches anywhere at the time. Every code path that was supposed to recognize that basis value fell through a silent <code>else</code> instead, and the fallback anchor became the campaign's launch date rather than the event it should have measured from. At the moment I ran the fill-rate query, that was producing one probe with a real trigger count of 2 out of 8, scored as "did not execute within deadline" — the only one of this sweep's five confirmed findings that was actively producing a wrong verdict right then, rather than sitting silent. How long it had been wrong before that, I don't know; discovering it is the only reason I know it was wrong at all. It got fixed the same day: the basis check exists in code now, and re-running the same probe returns the correct verdict.</p>
+
+<p>That contrast is the sharpest argument in this sweep for running the query before the grep. The other four confirmed findings were gates that simply never fired — the query found silence. This one was a gate that fired every time and computed the wrong thing, silently, on live data, for a span of time nobody had measured. Grep couldn't have found either kind, but a careful reading of "does this look wired" at least has a chance at the first kind. The second kind only shows up if you check what a currently running rule is actually outputting against what it should output — which is exactly what the fill-rate query, followed by reading the actual rows, forces you to do.</p>
+
+<p>A third project's version was smaller and earns one paragraph. A reproducibility gate function existed, fully implemented, called from nowhere but its own test file. Wiring it in and measuring the actual cost — 0.8 milliseconds, no network contact, no database contact — meant it didn't need the opt-in flag I'd assumed going in it would need. A gate that has to be switched on by hand is a gate that stays off.</p>
+
+<h2>Five of seven, and what the other two were doing instead</h2>
+
+<p>Run the same sweep across seven projects and five confirm this pattern in some form. The other two are worth describing precisely, because "clean" didn't mean "no gate exists." One of the two had no Python gate function at all for the case in question, and candidates were still being rejected — tracked and enforced by hand, in a disciplined judgment ledger, with one axis actually discarded after failing that judgment on the record. The right question was never "does code exist to check this." It was "when was a value for this last produced" — by a query, a script, or a person writing a line in a ledger, doesn't matter which.</p>
+
+<h2>The kind the predecessor's fixes don't reach</h2>
+
+<p>The predecessor note's two fixes both assume the missing thing is something code should have been supplying. The event-gate and internal-consistency cases above are exactly that kind — a silent fallthrough, an unpassed argument, a call site with nothing behind it — and both fixes apply to them cleanly.</p>
+
+<p>There's a fourth kind neither fix touches, because the wiring was never wrong to begin with. Some of these gates wait on a value that a human or a session supplies by hand: an outcome recorded after a decision, a report filed back into a ledger, a loop closed by somebody choosing to close it. When the session ends before that happens, the loop stays open — correctly. There was no bug in the code that opened it. Forcing an automatic fill would break the reason the field is human-populated in the first place: it exists to carry a judgment, not a computed value.</p>
+
+<p>What you can measure here isn't the value; it's the fact that the loop is still open. An existing open-loop scanner already tracked five trigger shapes for exactly this condition, and this was the sixth — one more pattern added to a surface that already existed, not a new instrument built from scratch. It runs at a threshold of 10 — deliberately higher than a neighboring constant in the same scanner, <code>WAKE_MIN_ENGINE_LOOPS = 3</code>, the floor for one of its other auto-verifiable open-loop triggers: one open item is a normal thing to see mid-session, and only an accumulating backlog is actually a signal worth acting on.</p>
+
+<p>The harder decision was what to point the scanner's dispatch at, and I left it empty on purpose. This fleet had already run the alternative once: dispatching automatically, every day, at a backlog that unattended sessions are structurally unable to close, and over eight days and thirty-three items it closed exactly none of them — it spent session time and weekly usage restating the same open count back at itself, and nothing else. Turning the sixth trigger on for the first time surfaced 95 open loops. The backlog did not shrink by running it. Making the count visible is the entire and correct scope of what this instrument should do; dispatching it at whoever structurally can't close it isn't a stronger version of the fix, it's the same non-fix with extra cost attached, and I'd rather say that plainly than let a clean-sounding number imply the backlog got smaller.</p>
+
+<h2>Honest limits</h2>
+
+<p>Every project in this sweep is code I wrote. Seven is not a sample that licenses a general claim about AI-assisted codebases, or anyone else's documentation habits — it may just as easily be a claim about mine, and I have no second author's corpus to check it against. That's the reason the query sits near the top of this note rather than the bottom: run it against your own tables before taking the rest on faith. If it comes back near 100%, that's this note's counterexample, not a failure to reproduce it.</p>
+
+<p>The fourth kind's prescription is falsifiable the same way. If a backlog stays surfaced — visible, counted, unhidden — and still doesn't shrink over a run of weeks, the honest reading isn't "surface it harder." It's that closing that particular loop costs more than it's worth from any path currently available, and what needs revisiting is where the surfaced count gets routed, not whether it gets counted at all.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why doesn't grep work as the first detector for dead gates?</strong><br>
+Because grep matches the shape of the bug you already expect, and the bug worth finding is usually the one you didn't expect. In this sweep grep produced both a false positive and a false negative in the same afternoon; the sharpest miss was a literal grep for a write path that failed to find a live <code>INSERT OR REPLACE</code> statement doing exactly the writing being searched for. A fill-rate query, counting how many rows in a table actually have a given column populated, needs no prior knowledge of the bug's shape, only the row and the column.</p>
+
+<p><strong>Q. Why is the column the right unit of analysis instead of the feature or file?</strong><br>
+Because separate columns in the same table can die independently while the table as a whole looks alive. In one seven-row table, <code>runs</code> and <code>run_failures</code> were zero in every row while <code>n</code> and <code>win_rate</code> in those same rows were current and moving normally. A reviewer working the case initially attached the defect to the live axis, <code>win_rate</code>, before it was corrected to the actually dead one, <code>runs</code>. Auditing at the feature or file level would have missed that a single table can be half alive.</p>
+
+<p><strong>Q. What causes a column like this to go permanently unfilled?</strong><br>
+In the case examined here, the function that executes the fix depended on the caller passing a ledger object, and every real call site in the codebase constructed the operation without passing one, a six-line fix once the column-level query pointed at the right function. A second case fell through a silent <code>else</code> because the basis value it should have matched appeared nowhere in the codebase at the time, misrouting a probe's reference date until the query surfaced it and it was fixed the same day. Both are ordinary wiring gaps once you know where to look; the query is what tells you where to look.</p>
+
+<p><strong>Q. What kind of dead gate does a wiring fix not repair?</strong><br>
+One where the missing value was never supposed to come from code. Some gates wait on a human or a session to record a judgment: an outcome, a report, a closed loop. If the session ends before that happens, the loop stays open correctly; there was no bug that opened it. Forcing an automatic fill would replace a judgment with a computed value, which defeats the reason the field is human-populated. The only thing measurable here is that the loop is still open, not what its value should have been.</p>
+
+<p><strong>Q. How do you know when surfacing a backlog like that has stopped being worth it?</strong><br>
+By a pre-declared falsifier: if the backlog stays visible and counted for weeks and does not shrink, the answer isn't to surface it harder. It's that closing that particular loop costs more than it's worth from any path currently available, and the fix is to reconsider where the surfaced count gets routed, not to add more instrumentation. A prior experiment already showed the wrong fix: dispatching automatically at a backlog that unattended sessions structurally can't close, which ran eight days across thirty-three items and closed none of them.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./unit-tests-pass-feature-dead-in-production.html">Unit Tests Passed. The Feature Never Ran. Three Times in One Session.</a></li>
+<li><a href="./status-column-nobody-advances.html">Our Status Column Said 30 Waiting. Six Were.</a></li>
+<li><a href="./the-denominator-was-already-on-disk.html">The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
