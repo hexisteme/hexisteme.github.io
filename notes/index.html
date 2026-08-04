@@ -300,6 +300,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></h3>
+  <p>The inverse of the note above: grep finds the call site, the scheduler entry exists, running the script by hand works — and the step still never ran, because launchd hands jobs a minimal PATH under which the wrong Python resolves. A correctly fail-soft design absorbed the failure while the heartbeat kept reporting healthy. Where a step's failure state has to live so the monitor already looking can see it.</p>
+  <span class="tag">devops</span><span class="tag">monitoring</span><span class="tag">scheduling</span>
+</div>
+
+<div class="card">
   <h3><a href="error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</a></h3>
   <p>An upstream reported throttling as HTTP 200 with an error envelope, so a rate-limited response parsed as a legitimately empty table and got memoized — serving zero rows long after the upstream recovered, with a completed walk and silent logs. Success is a verdict on the body schema, not the status code, and the cache write has to sit downstream of that verdict.</p>
   <span class="tag">API</span><span class="tag">caching</span><span class="tag">error handling</span>
