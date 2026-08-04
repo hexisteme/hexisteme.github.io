@@ -306,6 +306,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a></h3>
+  <p>A third kind of quiet check, after the two above: this one was wired in, ran to completion, and did not die — it returned PASS because the set it was checking was empty. The guard inserted its own probe row before asserting, so it stayed green through two runs where the layer it protected had produced nothing. Four instances of the same shape in one day, and the only check that caught any of them carried a population lower bound.</p>
+  <span class="tag">testing</span><span class="tag">database</span><span class="tag">devops</span>
+</div>
+
+<div class="card">
   <h3><a href="error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</a></h3>
   <p>An upstream reported throttling as HTTP 200 with an error envelope, so a rate-limited response parsed as a legitimately empty table and got memoized — serving zero rows long after the upstream recovered, with a completed walk and silent logs. Success is a verdict on the body schema, not the status code, and the cache write has to sit downstream of that verdict.</p>
   <span class="tag">API</span><span class="tag">caching</span><span class="tag">error handling</span>
