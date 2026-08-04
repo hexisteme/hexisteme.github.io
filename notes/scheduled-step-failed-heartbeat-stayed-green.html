@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Scheduled Step Failed on Night One. The Heartbeat Stayed Green. — hexisteme notes</title>
+<meta name="description" content="A nightly job's meter computation failed on its first and only scheduled run because of a launchd PATH difference invisible from an interactive shell, and a fail-soft design absorbed the failure so the job's heartbeat kept reporting healthy — nothing in the system would have reported it for the next 55 nights.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.", "datePublished": "2026-08-04", "dateModified": "2026-08-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A nightly scheduled job's dependency-computing step failed on its first and only scheduled run, because launchd hands jobs a minimal PATH under which the wrong Python interpreter resolves and cannot import a required package. A fail-soft design meant the failure was absorbed into a single log line and the job's own heartbeat kept reporting healthy, so the defect passed every static check — grep, a by-hand run, wiring review — and was found only by comparing a declared nightly cadence against the actual interval between produced rows.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did the job's heartbeat stay green while the step failed?", "acceptedAnswer": {"@type": "Answer", "text": "The failing step was deliberately fail-soft, so a failure in it could not be allowed to kill the parent job or its archive run — that part of the design was correct. But the failure was absorbed into a single WARN log line, and nothing propagated it into the heartbeat file the job already wrote. The heartbeat only ever reported the parent job's own status, which stayed ok because the parent job itself never crashed."}}, {"@type": "Question", "name": "Why does a bare python3 break under launchd but work fine when run by hand?", "acceptedAnswer": {"@type": "Answer", "text": "launchd runs scheduled jobs with PATH set to only /usr/bin:/bin:/usr/sbin:/sbin. A bare python3 inside a script resolves under that PATH to Apple's system Python, which has no third-party packages installed. An interactive terminal has a much larger PATH that resolves python3 to a framework installation with the needed dependency already present, so running the same script by hand always succeeds — which makes that manual test worthless as proof the scheduled version works."}}, {"@type": "Question", "name": "How do you verify a \"nightly\" job is actually running nightly?", "acceptedAnswer": {"@type": "Answer", "text": "Query the table or file the job is supposed to be writing to and compare its declared cadence against the actual interval between rows: SELECT run_id, computed_utc FROM meter_run ORDER BY run_id DESC LIMIT 3. If a job that is supposed to run nightly has produced one row, and that row was written by hand during a session rather than by the schedule, the schedule is dead regardless of what the crontab entry, the code, or the documentation claims."}}, {"@type": "Question", "name": "How is this different from a dead gate that grep can find?", "acceptedAnswer": {"@type": "Answer", "text": "In a dead gate with no call site, grep finds nothing because the wiring genuinely doesn't exist. Here grep finds the call site, the scheduler entry exists, and running the script by hand succeeds — everything static is correct. The defect only exists at runtime, in the gap between an interactive shell's environment and an unattended scheduler's environment, and it is the only variety in this family where the monitor doesn't just miss the problem but actively reports green while it is happening."}}, {"@type": "Question", "name": "Why not just let checkers parse the condition text to find its meter?", "acceptedAnswer": {"@type": "Answer", "text": "Condition text mixes real values, object names, and names of things entirely outside the system, so extracting identifiers from a sentence can't reliably tell those apart, not as an implementation gap but in principle. The fix is a declared meter column with a small controlled vocabulary — table:NAME, table?:NAME, guard:NAME, script:PATH, os:..., or n/a: followed by a mandatory reason — that a checker validates directly instead of inferring from prose."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-04</p>
+
+<div class="note">A nightly job's meter-computing step failed on its first scheduled run — killed silently by a launchd PATH difference that an interactive shell can never reproduce — while a correctly fail-soft design absorbed the failure and the job's own heartbeat kept reporting healthy. It passed grep, ran correctly every time I invoked it by hand, and looked wired end to end. I caught it one night in, and only because I happened to sit down to answer an unrelated question.</div>
+
+<p>I was writing a briefing about whether it was safe to just wait until September. A governance kill-condition in one of my projects is evaluated over non-overlapping 56-day blocks, and the first block closes on 2026-09-27. Before I could recommend waiting, I wanted to check that the series feeding that condition was actually accumulating. A <a href="./grep-wont-find-your-dead-gates.html">predecessor note</a> covered a related but different failure — gates whose production call site simply doesn't exist, findable once you know to ask a database instead of a shell. This one is not that. Every static check that note would have run against this system comes back clean.</p>
+
+<h2>One row, and it wasn't the schedule's</h2>
+
+<p>A nightly job at 03:00 mirrors a corpus of session transcripts to an external volume, then runs a sequence of follow-up steps. One of those steps computes the meter that the kill-condition reads. When I queried the table holding that meter's history, it had exactly one row. That row had been written by hand the previous afternoon, in the session where I built the meter — not by the schedule that was supposed to add one every night. The step had been wired into the job that same day, so the WARN line below is its entire scheduled career: one attempt, one failure.</p>
+
+<p>The archive log already had the explanation sitting in it, in plain WARN text:</p>
+
+<pre>[archive_corpus] WARN 2026-08-03T18:00:05Z: decision_trace failed (archive succeeded)
+  — ModuleNotFoundError: No module named 'pydantic'</pre>
+
+<h2>Why an interactive shell always lied to me</h2>
+
+<p>The root cause was ordinary once I looked straight at it. launchd hands a scheduled job <code>PATH=/usr/bin:/bin:/usr/sbin:/sbin</code> and nothing else. A bare <code>python3</code> inside the script resolves, under that PATH, to Apple's system Python — which ships with no third-party packages. The framework Python on the same machine, the one that answers to <code>python3</code> in an interactive terminal, is on 3.13 and has pydantic 2.12.5 installed. Every time I'd run the script by hand to sanity-check it, it worked, because my shell's PATH was never the scheduler's PATH. The check I trusted and the environment that mattered were two different machines wearing the same hostname.</p>
+
+<h2>Three layers of concealment, each reasonable on its own</h2>
+
+<p>None of these were sloppy decisions. Stacked, they made a step that had never once succeeded on schedule look exactly like one that had.</p>
+
+<ol>
+<li><strong>A sibling step in the same job succeeded every night.</strong> It's stdlib-only, so it has no dependency to lose, and it had logged INFO on all four nights the job had been alive. From outside, the job looked alive, because part of it was.</li>
+<li><strong>The failing step is fail-soft by design, and that design is correct.</strong> It must not be allowed to kill the archive run, because the archive is the only long-term preservation path for the corpus. But the failure got absorbed into a single WARN line, and the job's heartbeat file kept reporting <code>"status": "ok"</code> regardless.</li>
+<li><strong>My own resume notes declared it done.</strong> They said, in one sentence: <em>"Running. Wired into the nightly job (03:00)."</em> The wiring claim was true — the step really was in the job. The running claim was false. Both halves sat in the same sentence, and I'd read past it more than once without separating them.</li>
+</ol>
+
+<h2>What was actually at stake</h2>
+
+<p>Had I not checked, the 56-day block would have closed on 2026-09-27 with a single data point in it, and the kill-condition would have been permanently INDETERMINATE — not failing, not passing, just structurally unable to ever be evaluated, because you can't derive a rate from one measurement. "Wait until September" was, without my knowing it, a plan that produced nothing. The schedule wasn't slow. It wasn't running at all.</p>
+
+<p>I want to be exact about how I found out, because it wasn't a detector. I noticed one night in, on the morning after the only scheduled run that step ever attempted, and only because I'd sat down to answer an unrelated question about whether waiting was safe. There was nothing in the system that was going to raise its hand over the remaining 55 nights. Catching it on night one was luck; the fix below is the part that isn't.</p>
+
+<h2>The fix</h2>
+
+<p>Two parts. The first closes this specific hole; the second is the one I'd reuse anywhere.</p>
+
+<p><strong>Resolve the interpreter by capability, not by path.</strong> Pinning a version path just relocates the failure to the next Python upgrade, which will die the same silent way. Instead, probe for an interpreter that can actually import the dependency you need:</p>
+
+<pre>resolve_py_with_deps() {
+    local cand
+    for cand in /Library/Frameworks/Python.framework/Versions/Current/bin/python3 \
+                /opt/homebrew/bin/python3 /usr/local/bin/python3 python3; do
+        if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import pydantic' >/dev/null 2>&1; then
+            command -v "$cand"; return 0
+        fi
+    done
+    return 1
+}</pre>
+
+<p>If nothing qualifies, that's its own state — <code>nopy</code> — distinct from a computation that ran and failed, and distinct from a step that was deliberately skipped.</p>
+
+<p><strong>Fail-soft is correct design. Fail-silent is not.</strong> If a step is allowed to fail without killing its parent job, its state has to land somewhere the parent's own monitor already looks. Don't invent a new channel for it — nothing reads new channels. The heartbeat file already existed, so the state rides along in it:</p>
+
+<pre>write_heartbeat "ok" "files=${DST_FILES} new=${NEW_COUNT} shrunk=${SHRUNK_COUNT} ing=${ING_STATE} dt=${DT_STATE}"</pre>
+
+<p>Then the monitor has to actually read those keys, and complain when they're absent entirely — because a monitor that can quietly stop monitoring is the identical defect, one level up.</p>
+
+<h2>Verifying it for real</h2>
+
+<p>This is the part that generalizes past this one job.</p>
+
+<ol>
+<li><strong>Reproduce the target environment, not your own shell.</strong> Running a script by hand proves nothing about how a scheduler will run it: <code>env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin ./the_job.sh</code></li>
+<li><strong>Then run the actual scheduled job</strong>, not your reproduction of it — <code>launchctl kickstart -k gui/$(id -u)/com.example.job</code>. In my case the reproduction wrote the second row and the real scheduled run wrote the third, taking the meter's history from 1 row to 3, and the heartbeat came back as <code>files=3773 new=5 shrunk=2 ing=ok dt=ok</code>.</li>
+<li><strong>Compare the declared cadence against the actual output interval.</strong> This is the general-purpose detector, independent of what the job does: <code>SELECT run_id, computed_utc FROM meter_run ORDER BY run_id DESC LIMIT 3;</code> If a job that's supposed to be nightly has one row, and you're the one who wrote it, the schedule is dead — no matter what the code, the crontab entry, or the documentation says.</li>
+</ol>
+
+<h2>Why this is a different kind of defect</h2>
+
+<p>Two earlier notes in this series were about gates whose production call site didn't exist at all — grep found nothing, and a fill-rate query on the underlying table found the rest that grep missed. This one is close to the inverse. Grep finds the call site here; it's right there in the script. The scheduler entry exists. Run the script yourself and it works. Every static thing you could check about this system is correct. The defect lives at runtime, in the gap between an interactive shell's environment and an unattended scheduler's environment, and a fail-soft design is what keeps it from ever surfacing as a failure. It's the only variety in this family where the monitor doesn't just miss the problem — it actively reports green while the problem is happening.</p>
+
+<h2>The constructive complement</h2>
+
+<p>Fixing this pushed me to generalize a check that had been hardcoded to look at a single row of a governance table: does every kill-condition in the table actually have a way to be measured? Turning that single-row check into a full-table sweep immediately surfaced two more instances sitting in the same table, neither related to the launchd issue:</p>
+
+<ul>
+<li>a row whose status cell read "0 events," for a table that doesn't exist anywhere in the schema — vacuously true, and typographically identical to a genuinely measured zero;</li>
+<li>a row claiming its meter had been "included in Phase 1," when Phase 1 was already marked complete and the table that meter needs for its denominator had never existed.</li>
+</ul>
+
+<p>The lesson underneath both: don't try to parse the prose of the condition itself. Condition text mixes real values, object names, and names of things entirely outside the system, so pulling identifiers out of a sentence can't reliably tell those apart — not as an implementation gap, but in principle. The fix instead is a <strong>declared meter column</strong>, a small controlled vocabulary that a checker validates against instead of inferring from prose:</p>
+
+<p><code>table:NAME</code> (the table exists and has at least one row) · <code>table?:NAME</code> (the table exists; zero rows is itself a legitimate observation) · <code>guard:NAME</code> · <code>script:PATH</code> · <code>os:...</code> · and <code>n/a:</code> followed by a mandatory reason.</p>
+
+<p>Making that reason mandatory is what removes the silent exemption — you can no longer write <code>n/a</code> and move on without saying why. One aggravating pattern gets flagged automatically: if a condition's declared meter is <code>n/a:</code> while its status cell starts with a number, that's the exact defect above, wearing a different table. Run against the real table, this turned up 13 conditions total, of which 4 had automated meters and 9 were explicitly <code>n/a:</code> with a written reason attached to each. Having that number visible, instead of assumed, was the actual point of doing the sweep. I also wrote seven mutation tests, each one deliberately breaking a single rule — deleting the column, pointing at a table that doesn't exist, an empty reason, a status cell that's numeric where the meter says <code>n/a:</code> — and asserting that the checker fails in each case, plus two controls that assert it still passes on the pristine table and tolerates a legitimately empty one. A checker you've only ever watched pass is itself unverified; so is one you've only ever watched fail.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did the job's heartbeat stay green while the step failed?</strong><br>
+The failing step was deliberately fail-soft, so a failure in it could not be allowed to kill the parent job or its archive run — that part of the design was correct. But the failure was absorbed into a single WARN log line, and nothing propagated it into the heartbeat file the job already wrote. The heartbeat only ever reported the parent job's own status, which stayed ok because the parent job itself never crashed.</p>
+
+<p><strong>Q. Why does a bare python3 break under launchd but work fine when run by hand?</strong><br>
+launchd runs scheduled jobs with PATH set to only /usr/bin:/bin:/usr/sbin:/sbin. A bare python3 inside a script resolves under that PATH to Apple's system Python, which has no third-party packages installed. An interactive terminal has a much larger PATH that resolves python3 to a framework installation with the needed dependency already present, so running the same script by hand always succeeds — which makes that manual test worthless as proof the scheduled version works.</p>
+
+<p><strong>Q. How do you verify a "nightly" job is actually running nightly?</strong><br>
+Query the table or file the job is supposed to be writing to and compare its declared cadence against the actual interval between rows: <code>SELECT run_id, computed_utc FROM meter_run ORDER BY run_id DESC LIMIT 3</code>. If a job that is supposed to run nightly has produced one row, and that row was written by hand during a session rather than by the schedule, the schedule is dead regardless of what the crontab entry, the code, or the documentation claims.</p>
+
+<p><strong>Q. How is this different from a dead gate that grep can find?</strong><br>
+In a dead gate with no call site, grep finds nothing because the wiring genuinely doesn't exist. Here grep finds the call site, the scheduler entry exists, and running the script by hand succeeds — everything static is correct. The defect only exists at runtime, in the gap between an interactive shell's environment and an unattended scheduler's environment, and it is the only variety in this family where the monitor doesn't just miss the problem but actively reports green while it is happening.</p>
+
+<p><strong>Q. Why not just let checkers parse the condition text to find its meter?</strong><br>
+Condition text mixes real values, object names, and names of things entirely outside the system, so extracting identifiers from a sentence can't reliably tell those apart, not as an implementation gap but in principle. The fix is a declared meter column with a small controlled vocabulary — table:NAME, table?:NAME, guard:NAME, script:PATH, os:..., or n/a: followed by a mandatory reason — that a checker validates directly instead of inferring from prose.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./grep-wont-find-your-dead-gates.html">Grep won't find your dead gates. A fill-rate query will.</a></li>
+<li><a href="./unit-tests-pass-feature-dead-in-production.html">Unit Tests Passed. The Feature Never Ran. Three Times in One Session.</a></li>
+<li><a href="./where-replaying-the-logic-stops-working.html">Two of Five Gates Replayed Clean. The Other Three Read a Ledger With No History.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
