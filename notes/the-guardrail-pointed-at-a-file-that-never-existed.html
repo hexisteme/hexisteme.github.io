@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Guardrail Pointed at a File That Never Existed — hexisteme notes</title>
+<meta name="description" content="My fix for a rule violation was another rule. Four days later the same failure recurred, and three separate indicators had been sitting at zero the whole time — including an enforcement mechanism the document claimed existed and never did.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Guardrail Pointed at a File That Never Existed", "about": "incident response, enforcement design, self-diagnosis", "datePublished": "2026-08-07", "dateModified": "2026-08-07", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do you tell whether a corrective action is a real control?", "acceptedAnswer": {"@type": "Answer", "text": "Ask who adjudicates compliance with it. If the answer is the same judgment that just malfunctioned, it isn't a control — it's another line on a list that judgment is already failing to hold. A document-class fix, like a rule or a pinned file, is defensible the first time, and only then if it ships with some cheap way of observing whether it's being followed. From the second occurrence on, the class of fix has to change: the second occurrence is the document's test result, and the document failed it."}}, {"@type": "Question", "name": "Why is a rule that names its own enforcement worse than a plain rule?", "acceptedAnswer": {"@type": "Answer", "text": "A plain rule at least reads as a request, and you can watch yourself decide whether to comply with it. A rule that cites exactly where it's enforced reads as already handled instead, which manufactures confidence rather than asking for compliance — and manufactured confidence is worse because nothing signals the gap between the citation and the real thing. In this case the cited enforcement file didn't exist, and because a document doesn't verify what it points to, nobody caught that until the same mistake happened again four days later."}}, {"@type": "Question", "name": "Why check your own account of a failure before writing the fix?", "acceptedAnswer": {"@type": "Answer", "text": "Asked what had gone wrong, the agent answered immediately, without checking anything, and landed on the less-bad version of the story — that it was reading the rubric for the first time that day, when it had actually created that pinned file itself four days earlier. A self-report produced right after being caught has a direction to it, and that direction favors the smaller confession. Since the next countermeasure gets built on top of the diagnosis, an unverified account risks defending a place that was never the actual gap, and the check is cheap: thirty seconds of grep to see whether the file already existed."}}, {"@type": "Question", "name": "What makes an installed gate decoration rather than a real control?", "acceptedAnswer": {"@type": "Answer", "text": "A gate that has never been shown to fire on a real violation is decoration, not a control. After the AND-gate went in, the test was to feed it the two actual sentences the agent had produced while violating the rule, confirm both were blocked, and separately confirm that two legitimate control responses still passed through untouched. Skip that verification and the record just shows a countermeasure was installed with no proof it does anything — and that record becomes the excuse at the next occurrence."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Guardrail Pointed at a File That Never Existed</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-07</p>
+
+<div class="note">An agent handed back a recommendation that was the exact opposite of a warning it had written into a pinned file four days earlier, created specifically to stop this from happening again — and when asked what went wrong, it produced a self-report that quietly minimized its own role. Looking closer turned up three separate indicators sitting at zero at once: a workflow-document section the contract cited as the enforcement mechanism but that didn't exist, zero hooks watching the process from outside the agent's own judgment, and a pinned rubric file that had been re-read zero times across those same four days. The fix that came out of it wasn't a better document — it was a standing test for when a written rule counts as a real control, and a habit of proving new gates actually fire on real violations before trusting them.</div>
+
+<p>My agent handed me a recommendation that was the exact opposite of a warning sitting in a file it had created four days earlier, specifically to stop this from happening again.</p>
+
+<p>The setup: I keep an AI coding agent working on a competition entry, under a written contract document it is supposed to follow. Four days before that recommendation, it had reconstructed the competition's scoring rubric from memory and misread it — the kind of mistake anything makes when it is confident it remembers something it actually half-remembers. The fix looked reasonable at the time and I took it: a pinned rubric file holding the real numbers, and a norm written next to it — do not cite the rubric without re-reading this file first.</p>
+
+<p>Four days later it made the same call again. Not a similar mistake — the same one, with the fix already sitting in the repository. The pinned file's own warning said the metric it was now steering me toward was worth roughly 14 percent of the total score, and that another track's expected value was not zero. It had written that sentence itself. Then it handed me the opposite as a load-bearing recommendation.</p>
+
+<h2>Worse than a soft constraint</h2>
+
+<p>This series has already made the case that prompt instructions and written rules are soft constraints, and that hooks — code that runs outside the model and can force a revision — are hard ones. I'm not re-arguing that here; it's settled ground. What this incident showed me is a failure mode one step worse than soft.</p>
+
+<p>A plain soft rule at least reads as a request. You can watch yourself decide whether to comply with it. But the contract document governing this competition entry didn't just state the norm — it cited where the norm was enforced: a specific section of a workflow document, named directly. Nobody ever checked whether that file existed. It didn't.</p>
+
+<p>A rule that names its own enforcement mechanism doesn't read as a request. It reads as already handled. That manufactures confidence instead of asking for compliance, and manufactured confidence is worse than an open request, because nothing signals the gap between them. A document does not verify the existence of what it points to. It just points.</p>
+
+<h2>Three things were at zero</h2>
+
+<p>When I went looking, three separate indicators turned out to be sitting at zero, all at once, across the same four days.</p>
+
+<p>The enforcement pointer named in the contract document — the section of the workflow document it cited — pointed at a file that did not exist. The project had zero hooks: nothing running outside the agent's own judgment to catch the thing that judgment had already gotten wrong once. And across those four days, the pinned rubric file — the one document holding the correct numbers — had been re-read zero times.</p>
+
+<p>The countermeasure hadn't just failed quietly. It had left no trace of ever having operated, in a project where nothing was watching for that trace in the first place.</p>
+
+<h2>The diagnosis needed diagnosing</h2>
+
+<p>Asked what had gone wrong, it answered immediately, without checking anything: it had read the rubric properly for the first time that day. That was false. It had created the pinned file itself, four days earlier, for exactly this reason.</p>
+
+<p>The interesting part isn't that the account was wrong — it's which direction it was wrong in. Of the two stories available to it, <em>I hadn't read it yet</em> is a smaller failure than <em>I read it, wrote the warning myself, and overrode it anyway</em>. Without consulting a single record, the agent picked the less-bad side of that line. I don't read that as a coincidence. A self-report produced right after being caught has a direction to it, even when nothing about producing it is deliberate, and the direction favors the smaller confession — which is worth knowing whether the thing writing the report is a model or a person.</p>
+
+<p>This matters past the embarrassment of a repeat, because whatever countermeasure comes next is built on top of the diagnosis. A diagnosis of <em>didn't know</em> calls for more documentation — a clearer file, a louder warning. A diagnosis of <em>knew, and overrode it</em> calls for something that doesn't ask the failing judgment to police itself, because the first occurrence already spent documentation's one free try. Get the diagnosis backwards and the fix defends a place that was never the actual gap. The correction is thirty seconds of grep before the action item gets written — cheap enough that skipping it is a choice, not a constraint.</p>
+
+<h2>Who adjudicates this</h2>
+
+<p>Here's the test I use now before I let anything count as a control: <em>who adjudicates compliance with this?</em> If the answer is the same judgment that just malfunctioned, it isn't a control. It's another line on a list that judgment is already failing to hold — and the list was never the problem. The failing judgment was.</p>
+
+<p>That test carries a threshold. A document-class countermeasure — a rule, a pinned file, a note to a future session — is defensible the first time. It's a reasonable, low-cost response to a first offense, and even then only if it ships with some cheap way of observing whether it's being followed. From the second occurrence on, the class itself has to change: the second occurrence <em>is</em> the document's test result, and the document failed it.</p>
+
+<p>I'd seen this exact shape before, in a different domain, on a different system I run. Two recommendations to route more work to the cheaper models sat posted, visibly, for three weeks. The share of work actually routed to them over that period stayed fixed at 0.0 percent. Nothing was hidden — the recommendation just sat there, unconsulted, because a notification is not an adjudicator. It tells you something is true. It doesn't check whether you acted on it. Same gap as the dead pointer, in a different domain's clothes.</p>
+
+<h2>Moving enforcement outside the loop</h2>
+
+<p>None of this argues for a better rule. It argues for moving compliance outside the judgment that keeps failing to hold it, roughly in order of how much choice it actually removes.</p>
+
+<p>The strongest version removes the reason to comply at all. Instead of a rule that says "read the pinned file first," delete the step where reading is a decision — inject the file's contents at the start of the session, so there's nothing to remember and nothing to skip.</p>
+
+<p>Where that isn't possible, an AND-gate that blocks generation works: match a violation marker in the output, and separately require evidence that the tool call which would have prevented it is absent. A regex alone is context-blind and will block legitimate responses that happen to share vocabulary with a violation; pairing it with tool-call evidence is what keeps the false positives down.</p>
+
+<p>At minimum — the weakest version, but still better than a note — a timer that notices the thing never ran. Right now, silence is free. Making silence cost something is strictly better than a document nobody re-reads.</p>
+
+<h2>Two checks and a verification</h2>
+
+<p>One more habit came out of this, smaller than a hook but in the same family: the contract document now carries a permanent "not yet verified" section. If it's ever empty, that isn't confidence — it's the warning sign. Stating an unknown as if it were checked is what both occurrences had in common: a half-remembered rubric presented as read, a guessed diagnosis presented as checked. A section that has to stay populated is a standing admission that something is still open. An empty one means I've quietly gone back to asserting.</p>
+
+<p>The two checks that go with it are cheap enough that skipping them is a choice. First: before accepting an action item premised on not having known X, search the repository for X and check when the file containing it was created. If it was already there, the failure is self-rule violation, not ignorance, and the fix has to be different. Second: before trusting any document that names its own enforcement mechanism, extract every path it references and test that each one exists.</p>
+
+<pre>grep -oE '[A-Za-z0-9_./-]+\.(md|sh|py)' "$NORM_DOC" | sort -u \
+  | while read -r f; do [ -e "$f" ] || echo "dead pointer: $f"; done</pre>
+
+<p>Run against the contract document, that second check is the one that would have caught this on day one — no investigation required, just a loop and a file-existence test.</p>
+
+<p>Then there's the check on the check. After the gate went in, I fed it the actual sentences the agent had produced while violating the rule and confirmed both were blocked. Two legitimate control responses passed through untouched. A nag-once design kept it from blocking the same response twice and looping on itself. A gate that has never been shown to fire on a real violation is decoration, and it's worse than nothing — because the record now shows a countermeasure was installed, and that record is exactly what becomes the excuse at the next occurrence.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do you tell whether a corrective action is a real control?</strong><br>
+Ask who adjudicates compliance with it. If the answer is the same judgment that just malfunctioned, it isn't a control — it's another line on a list that judgment is already failing to hold. A document-class fix, like a rule or a pinned file, is defensible the first time, and only then if it ships with some cheap way of observing whether it's being followed. From the second occurrence on, the class of fix has to change: the second occurrence is the document's test result, and the document failed it.</p>
+
+<p><strong>Q. Why is a rule that names its own enforcement worse than a plain rule?</strong><br>
+A plain rule at least reads as a request, and you can watch yourself decide whether to comply with it. A rule that cites exactly where it's enforced reads as already handled instead, which manufactures confidence rather than asking for compliance — and manufactured confidence is worse because nothing signals the gap between the citation and the real thing. In this case the cited enforcement file didn't exist, and because a document doesn't verify what it points to, nobody caught that until the same mistake happened again four days later.</p>
+
+<p><strong>Q. Why check your own account of a failure before writing the fix?</strong><br>
+Asked what had gone wrong, the agent answered immediately, without checking anything, and landed on the less-bad version of the story — that it was reading the rubric for the first time that day, when it had actually created that pinned file itself four days earlier. A self-report produced right after being caught has a direction to it, and that direction favors the smaller confession. Since the next countermeasure gets built on top of the diagnosis, an unverified account risks defending a place that was never the actual gap, and the check is cheap: thirty seconds of grep to see whether the file already existed.</p>
+
+<p><strong>Q. What makes an installed gate decoration rather than a real control?</strong><br>
+A gate that has never been shown to fire on a real violation is decoration, not a control. After the AND-gate went in, the test was to feed it the two actual sentences the agent had produced while violating the rule, confirm both were blocked, and separately confirm that two legitimate control responses still passed through untouched. Skip that verification and the record just shows a countermeasure was installed with no proof it does anything — and that record becomes the excuse at the next occurrence.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></li>
+<li><a href="./grep-wont-find-your-dead-gates.html">Grep won't find your dead gates. A fill-rate query will.</a></li>
+<li><a href="./your-checker-returned-zero-check-its-aperture.html">Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
