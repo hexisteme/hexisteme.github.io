@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less. — hexisteme notes</title>
+<meta name="description" content="My checker printed 0. Four separate times in one audit, that 0 meant &quot;I didn't look there,&quot; not &quot;nothing is there.&quot; Two habits that actually caught it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.", "about": "verification, false negatives, positive controls, static analysis", "datePublished": "2026-08-07", "dateModified": "2026-08-07", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do you tell a real zero from an unlooked-at zero?", "acceptedAnswer": {"@type": "Answer", "text": "A zero is only real once you've done two things: opened the primary source directly instead of trusting a summary, and confirmed — via a positive control — that the checker actually fires on a known-bad case. In this audit, the second parser turning 180/180 into 174/180 came from checking a forgiving parser's output against a strict one instead of trusting the first number. A zero that hasn't cleared both tests just means the instrument hasn't looked, not that nothing is there."}}, {"@type": "Question", "name": "What does a positive control look like, concretely?", "acceptedAnswer": {"@type": "Answer", "text": "Feed the checker a case you already know the right answer to before trusting what it says about cases you don't. For the duplicate-rule detector, that meant scoring two already-confirmed duplicates — found by reading the rules, not by the tool — against the background distribution of all 16,110 pairs: one scored in the top 1.8%, the other at the 62nd percentile, statistically indistinguishable from the middle of the noise. For a reachability check, the same idea is a canary: plant a file known to be unreachable, confirm the check fails and names it, then remove it and confirm the check reports clean again."}}, {"@type": "Question", "name": "Why was the duplicate-rule detector discarded instead of tuned?", "acceptedAnswer": {"@type": "Answer", "text": "Because the failure was structural, not a threshold problem: the two confirmed duplicates it was tested against share a judgment, not a vocabulary, which a character-overlap and title-word-overlap metric can't see no matter where the threshold is set. It also surfaced 22 candidates at a top score of only 0.044, which would just become a queue cleared by hand rather than saved triage time. An independent reviewer on a different vendor's model reached the same conclusion from a different angle, and this was the only one of the instruments thrown away outright rather than fixed."}}, {"@type": "Question", "name": "What are the three layers hiding inside the claim that a check exists?", "acceptedAnswer": {"@type": "Answer", "text": "On disk, registered to run, and actually reached at runtime — three separate claims that collapse into one sentence when someone says a check exists. Only the third is evidence. The audit script that already enforces this rule stops at the second layer, which is exactly where a script quietly dropped from a wrapper would sit — so the layer that most needed confirming was the one nothing was looking at."}}]}
+</script>
+</head>
+<body>
+
+<h1>Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-07</p>
+
+<div class="note">Four separate checking instruments in one audit each printed a clean, confident number: a parser reporting 180 of 180 files parsed, a back-reference checker whose zero-violations count depended on which heading wordings it recognized, a hook-reachability scanner flagging ghosts that were all false positives, and a duplicate-rule detector surfacing 22 weak candidates. None of the underlying files or rows were actually missing — each instrument's own aperture, the slice it was built to look at, was narrower than the number it printed implied. What closed the gap wasn't a new rule but two habits: open the primary source instead of trusting a summary, and run a positive control before trusting a zero.</div>
+
+<p>My audit script prints <code>0</code>, and for a few seconds I believe it. Then I learn to ask a second question — not "is this true" but "what did this actually check" — four times over one audit, each with a different answer underneath the same zero.</p>
+
+<p>Four earlier notes in this series found checks that go quiet, each a different way; the nearest neighbor — <a href="./the-guard-passed-on-an-empty-table.html">a guard that passed because its target population was empty</a>, a vacuous truth wearing a clean result — is the one I almost filed this under. Here, though, the population was never empty: every file and every row was there the whole time, and every check ran clean. What was too narrow wasn't the population. It was the instrument's aperture — the slice it actually looked at — smaller than the number it printed let on.</p>
+
+<p>The system under audit is a personal library of 180 small rule files, each with YAML frontmatter and a body, loaded one at a time into an AI assistant's context when a rule's trigger matches the task at hand. Rules are injected independently, so two flatly contradictory ones never share a context window to notice — auditing all 180 for exactly that turned up a newer rule flipping a value while an older, still-active one kept prescribing what had been flipped: one line of context, not the subject. Four separate times, an instrument I built told me zero, and each time zero meant I hadn't looked, not that nothing was wrong.</p>
+
+<h2>The parser that said everything was fine</h2>
+
+<p>The first instrument rebuilds a searchable index over all 180 files, reading frontmatter with a hand-rolled regex plus <code>.strip('"')</code> / <code>.strip("'")</code>. It reported 180 out of 180 parsed. I said so out loud: clean, a hundred eighty for a hundred eighty.</p>
+
+<p>Out of habit I ran the same files through a standard YAML parser: 174 out of 180. Six failed — three had a value opening with a quote character the parser read as a quoted string and broke on when it closed early, three more had a colon-space inside an unquoted value, which standard YAML reads as a new key, not text. A regex-and-strip parser just grabs the field, blind to a valid scalar, so none of this tripped the tool I'd trusted — and any tool using a standard parser drops those six rules silently, no error, simply not there.</p>
+
+<p>I retracted the "180/180, clean" I'd said. My first fix re-quoted the six values with backslash-escaped quotes, the way a strict serializer would — satisfies <code>yaml.safe_load</code>, but the tolerant parser's <code>.strip('"')</code> can't unescape a backslash, so the index filled with literal <code>\"</code> instead. What worked was single-quoted scalars, verified by round-tripping through both parsers.</p>
+
+<p>When two parsers read the same file, "it parses" isn't one fact. It's two. I had only checked the forgiving one.</p>
+
+<h2>The heading nobody agreed on</h2>
+
+<p>The second instrument checks whether every rule that references another gets a reference back, reading two places: frontmatter fields, and a body section expected under the heading <code>## See also</code>. Forty-three of the 180 files use some other heading instead, and the checker's literal match skipped every one of them. Some of those were exact synonyms — the same section, worded differently, a few in another language. Renaming six of those surfaced two violations that had never appeared in any prior report — the checker could finally read a section it had been walking past since it was written.</p>
+
+<p>Both numbers I'd cited were built on that same partial surface: a baseline of 25 missing back-references, 0 after a first round of fixes. Neither meant what I'd assumed. I didn't rename the rest — no deadline forces that, and the check has to hold regardless — so I widened its pattern to accept synonyms it already knew.</p>
+
+<h2>Ghosts, and the one real file</h2>
+
+<p>The third instrument asks something more operational: is every hook script the config claims to run actually reachable, and is every script in the hooks directory reachable from somewhere. A first version found four "ghost" invocations — a wrapper calling a script that, per the scan, didn't exist. All four were false: calls to scripts living outside the tree the prototype walked, and a filename sitting inside a comment line.</p>
+
+<p>A second version walked invocations transitively and skipped comments: thirteen ghosts instead of four, real count still zero. The rest was shell variables inside paths, an f-string doing the same, and example paths in string literals never meant to be called; a few scripts were missing on purpose, their subsystem deliberately off. I deleted the check rather than iterate again — these targets resolve at runtime, past what static analysis can reach, and a check flagging thirteen for zero real ones is a queue cleared by hand, not a check.</p>
+
+<p>The half I kept was narrower: which files there does the config never reach. That returned exactly one — my first read, an accidentally dropped hook from an earlier wrapper consolidation, until I opened the wrapper it would have merged into and found the same logic inlined at lines 51 through 55. The file wasn't a lost hook, it was a leftover copy of logic that had already moved. The detector was right the whole time; only opening the wrapper settled what the mistake, mine, actually was.</p>
+
+<h2>The same blind spot, on the other side of the same file</h2>
+
+<p>The fourth instance hit the same checker, in the part I hadn't fixed: two zones hold relationship declarations, the body heading and the frontmatter, and I'd only widened the heading side.</p>
+
+<p>The frontmatter pattern was a key, a colon, then whatever text follows on the same line:</p>
+
+<pre>^(related|sources|...):\s*(.+)$</pre>
+
+<p>That matches nothing when the value is a YAML block list, where nothing follows the colon on that line:</p>
+
+<pre>related:
+  - RDU-107 (…) — chronological pair</pre>
+
+<p>So a declaration like this had been invisible since it was written, not from a later regression: six files use this block form, four of them holding twelve references between them, never once counted.</p>
+
+<p>What makes this the worst of the four: I had already widened this same checker's other surface, written up the fix, and moved on — with the identical hole still open on the other side of the same file. Widening one surface doesn't close the blind spot, it moves you to the next one, and I stopped one short. After the fix, all twelve already had their back-pointers, so the count didn't move, zero before and after — but an accidental zero became an earned one.</p>
+
+<p>I didn't catch this myself — a subagent doing a narrower, unrelated task noticed the block form wasn't in the pattern and mentioned it unrequested, a second pair of eyes on my instrument, not the audit's subject.</p>
+
+<h2>The instrument that failed its own test</h2>
+
+<p>One defect class none of the instruments above can see: two rules saying the same thing where neither declares a relationship.</p>
+
+<p>So I built a similarity prefilter: score every pair by character-level 5-gram overlap across their core sections plus title-word overlap, excluding pairs that already reference each other — across 180 files, 16,110 of them. It surfaced 22 candidates, the highest scoring 0.044, low enough that I nearly wrote "no further duplicates found."</p>
+
+<p>Before sending that anywhere, I ran a positive control: scored two already-confirmed duplicates — found by reading the rules, not by this tool — against the background distribution.</p>
+
+<table>
+<tr><th>Statistic</th><th>Score</th></tr>
+<tr><td>Background p50 (16,110 pairs)</td><td>0.0009</td></tr>
+<tr><td>Background p90</td><td>0.0046</td></tr>
+<tr><td>Background p99</td><td>0.0155</td></tr>
+<tr><td>Background max</td><td>0.0902</td></tr>
+<tr><td>Pair A — confirmed duplicate</td><td>0.0114 (top 1.8%)</td></tr>
+<tr><td>Pair B — confirmed duplicate</td><td>0.0015 (62nd percentile)</td></tr>
+</table>
+
+<p>Pair A scored well, in the top slice. Pair B scored 0.0015 — the 62nd percentile, the statistical middle. A metric that puts a confirmed duplicate there can't be trusted on anything I hadn't already checked by hand: those 22 candidates were evidence of nothing, since the instrument couldn't reliably see what it was built to find.</p>
+
+<p>Not a tuning problem: the duplicates here share a judgment, not a vocabulary, which a word-overlap metric structurally can't see.</p>
+
+<p>I didn't ship it. An independent reviewer on a different vendor's model reached the same "don't build this" conclusion from a different angle, without seeing any of these scores: false positives come back as human judgment calls, and enough of them paralyze the audit they were meant to serve.</p>
+
+<p>That same reason retired the ghost check — two instruments discarded in one audit, both for the queue they would have created. What separates them is the direction they failed in. The ghost check showed me thirteen problems that weren't there, and I could establish that by opening thirteen files. This one couldn't see the two duplicates I already held in my hand, and nothing in its output would ever have said so: a false positive argues with you, a false negative is silent. Only the control broke that silence, which is the entire case for running one before trusting a zero.</p>
+
+<h2>What actually caught these</h2>
+
+<p>Only two things did real work across all five cases — four instruments, one of them fooling me twice — and neither is a new check.</p>
+
+<p>The first is opening the primary source instead of trusting a summary. Every wrong interpretation here died the moment I did: the "lost hook" (inlined in the wrapper), the ghost invocations (real paths, elsewhere), my own "180/180" (a second parser said 174). The summary was confidently, cleanly wrong. The file was not.</p>
+
+<p>The second is a positive control run before trusting a zero, not after: prove the instrument fires before believing it when it doesn't. Plant a canary — a file known unreachable, a quote known malformed, a reference known to point at nothing — confirm the check fails and names the item, not just refuses; then remove it and confirm the check reports clean again. The second half matters as much as the first: a check can fail for an unrelated reason and still look like it caught your canary.</p>
+
+<h2>I already had the rule</h2>
+
+<p>What makes this uncomfortable: I hadn't skipped writing these habits down. This system already contains a rule saying a threshold with no meter attached isn't a measurement, and another saying a partial inventory must never be read as a closed, complete set — exactly what failed, four times, in one audit run using this system to check this system.</p>
+
+<p>So the fix can't be "write another rule": I already had both, active and correctly worded, and still walked into the same hole four times in one audit. What stopped the closer calls wasn't remembering a rule existed among 180 files — it was two mechanical habits that don't depend on memory: open the file, and prove the checker fires before you trust it when it doesn't.</p>
+
+<p>One more shape, out of the hook work: "the check exists" isn't one claim, it's three — the file is on disk, the config registers it, and the dispatcher actually reaches it at runtime. Only the third is evidence. The audit script already enforcing that rule stops at the second, which is exactly where a script quietly dropped from a wrapper would sit: the layer I most needed confirmed was the one nothing was looking at.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How do you tell a real zero from an unlooked-at zero?</strong><br>
+A zero is only real once you've done two things: opened the primary source directly instead of trusting a summary, and confirmed — via a positive control — that the checker actually fires on a known-bad case. In this audit, the second parser turning 180/180 into 174/180 came from checking a forgiving parser's output against a strict one instead of trusting the first number. A zero that hasn't cleared both tests just means the instrument hasn't looked, not that nothing is there.</p>
+
+<p><strong>Q. What does a positive control look like, concretely?</strong><br>
+Feed the checker a case you already know the right answer to before trusting what it says about cases you don't. For the duplicate-rule detector, that meant scoring two already-confirmed duplicates — found by reading the rules, not by the tool — against the background distribution of all 16,110 pairs: one scored in the top 1.8%, the other at the 62nd percentile, statistically indistinguishable from the middle of the noise. For a reachability check, the same idea is a canary: plant a file known to be unreachable, confirm the check fails and names it, then remove it and confirm the check reports clean again.</p>
+
+<p><strong>Q. Why was the duplicate-rule detector discarded instead of tuned?</strong><br>
+Because the failure was structural, not a threshold problem: the two confirmed duplicates it was tested against share a judgment, not a vocabulary, which a character-overlap and title-word-overlap metric can't see no matter where the threshold is set. It also surfaced 22 candidates at a top score of only 0.044, which would just become a queue cleared by hand rather than saved triage time. An independent reviewer on a different vendor's model reached the same conclusion from a different angle, and this was the only one of the instruments thrown away outright rather than fixed.</p>
+
+<p><strong>Q. What are the three layers hiding inside the claim that a check exists?</strong><br>
+On disk, registered to run, and actually reached at runtime — three separate claims that collapse into one sentence when someone says a check exists. Only the third is evidence. The audit script that already enforces this rule stops at the second layer, which is exactly where a script quietly dropped from a wrapper would sit — so the layer that most needed confirming was the one nothing was looking at.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a></li>
+<li><a href="./grep-wont-find-your-dead-gates.html">Grep won't find your dead gates. A fill-rate query will.</a></li>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
