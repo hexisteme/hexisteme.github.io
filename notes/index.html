@@ -126,6 +126,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="the-rule-that-triggered-on-its-own-advice.html">The Rule That Triggered on Its Own Advice</a></h3>
+  <p>I wrote a rule to stop my AI agent from delegating tasks it could do itself. The rule matched on words, and its own prescribed fix contained the exact words it was matching on — so following the rule correctly re-triggered the rule.</p>
+  <span class="tag">ai</span><span class="tag">llm</span><span class="tag">debugging</span><span class="tag">architecture</span>
+</div>
+
+<div class="card">
   <h3><a href="multi-model-fanout-triangulation-blind-spots.html">Five Models, One Shared Blind Spot: What Multi-Model Fan-Out Catches and What It Can't</a></h3>
   <p>Fanning one evidence digest out to five model families: 68/68 numeric claims survived recomputation, four models caught an anomaly the fifth missed — and all four external models missed an experiment-design flaw sitting in plain sight. Convergence on the same framing is cross-consistency, not independent evidence.</p>
   <span class="tag">multi-model</span><span class="tag">verification</span><span class="tag">llm</span>
@@ -147,6 +153,30 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="forced-dissent-slot-has-a-floor.html">A Forced Dissent Slot Has a Floor: Read It by Convergence, Not Presence</a></h3>
   <p>The field that fixed the schema bug above turned out to have a second failure mode. A mandatory "where does this overreach" slot gets filled even when there is nothing to object to, because the model cannot write nothing — so a populated field is not the signal. What is: whether two independent model families, shown the same material, land on the same objection.</p>
   <span class="tag">llm-as-judge</span><span class="tag">prompt schema</span><span class="tag">verification</span>
+</div>
+
+<div class="card">
+  <h3><a href="an-empty-prompt-is-not-a-blind-review.html">An Empty Prompt Is Not a Blind Review</a></h3>
+  <p>I thought an adversarial reviewer was blind because I left my conclusion out of its prompt, until its own search tools found the conclusion I'd already written to disk. Blind is a property of what a reviewer can reach, not of what you tell it.</p>
+  <span class="tag">ai</span><span class="tag">testing</span><span class="tag">architecture</span><span class="tag">debugging</span>
+</div>
+
+<div class="card">
+  <h3><a href="one-leg-can-raise-an-objection-not-settle-it.html">One Leg Can Raise an Objection. It Can't Settle One.</a></h3>
+  <p>Collecting a dissenting opinion and using it to overturn a conclusion are not the same operation, and they don't need the same quorum — conflating them made two of my own verification rules contradict each other.</p>
+  <span class="tag">ai</span><span class="tag">testing</span><span class="tag">architecture</span>
+</div>
+
+<div class="card">
+  <h3><a href="route-the-claim-to-its-verifier-not-more-legs.html">Route the Claim to Its Verifier - Legs Are Not Votes</a></h3>
+  <p>I stopped running every verification tool on every load-bearing claim in my agent fleet and started routing each claim type to the one verifier that can actually check it — because counting legs isn't the same as counting independent axes.</p>
+  <span class="tag">ai</span><span class="tag">llm</span><span class="tag">architecture</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-brief-poisoned-the-writer-and-the-reviewer.html">The Bug Was in the Brief, Upstream of Both Reviews</a></h3>
+  <p>A delegated writing brief fed the same four wrong factual claims to both an AI writer and an independent reviewer, and the review passed anyway — because a reviewer that only checks a draft against its source can't refute a claim the source stays silent on.</p>
+  <span class="tag">ai</span><span class="tag">llm</span><span class="tag">testing</span><span class="tag">architecture</span>
 </div>
 
 <div class="card">
@@ -230,6 +260,18 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="the-key-owner-was-not-the-spender.html">The Key's Owner Wasn't the Spender</a></h3>
+  <p>A cloud bill kept climbing and I blamed the CLI tool I was actively using — the real spender was a metered key sitting in my shell profile, silently inherited by two tools I never suspected.</p>
+  <span class="tag">ai</span><span class="tag">devops</span><span class="tag">debugging</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-fix-was-committed-the-old-value-kept-running.html">The Fix Was Committed. The Old Value Kept Running.</a></h3>
+  <p>I deleted three ambient API keys from my shell profile and confirmed they were gone with a clean-environment test. A tool reconnected minutes later and registered eight providers with one of the keys I had just removed.</p>
+  <span class="tag">devops</span><span class="tag">debugging</span><span class="tag">programming</span>
+</div>
+
+<div class="card">
   <h3><a href="measure-unit-price-before-you-ration.html">The Quota Said 100% Used. Actual Demand Was 13%.</a></h3>
   <p>An accelerator quota read 100.47% used across four concurrent projects, so I wrote a priority table to ration it — a table with ranks and not one number in it. Three measurements later: rescoring never spent the pool, a "GPU" label billed 1,043 seconds to a run that never touched a GPU, and real demand was 13%. Price the operations before you write the policy.</p>
   <span class="tag">cost accounting</span><span class="tag">observability</span><span class="tag">resource allocation</span>
@@ -300,6 +342,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="deprecation-does-not-reach-the-copies.html">Deprecation Doesn't Reach the Copies</a></h3>
+  <p>A threshold got overturned by its own counterexample, then quietly re-derived and pasted into a different rule a week later. About three months passed before an audit noticed the copy had never died.</p>
+  <span class="tag">ai</span><span class="tag">architecture</span><span class="tag">programming</span><span class="tag">devops</span>
+</div>
+
+<div class="card">
   <h3><a href="scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></h3>
   <p>The inverse of the note above: grep finds the call site, the scheduler entry exists, running the script by hand works — and the step still never ran, because launchd hands jobs a minimal PATH under which the wrong Python resolves. A correctly fail-soft design absorbed the failure while the heartbeat kept reporting healthy. Where a step's failure state has to live so the monitor already looking can see it.</p>
   <span class="tag">devops</span><span class="tag">monitoring</span><span class="tag">scheduling</span>
@@ -318,9 +366,21 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="your-reports-numbers-are-computed-its-sentences-are-not.html">Your Report's Numbers Are Computed. Its Sentences Are Not.</a></h3>
+  <p>In a generated report, the counts came from the data and the prose came from string literals. Six sentences ended up contradicting the numbers printed beside them — and the checker I wrote to catch that passed the exact bug it was built for.</p>
+  <span class="tag">ai</span><span class="tag">testing</span><span class="tag">devops</span><span class="tag">architecture</span>
+</div>
+
+<div class="card">
   <h3><a href="error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</a></h3>
   <p>An upstream reported throttling as HTTP 200 with an error envelope, so a rate-limited response parsed as a legitimately empty table and got memoized — serving zero rows long after the upstream recovered, with a completed walk and silent logs. Success is a verdict on the body schema, not the status code, and the cache write has to sit downstream of that verdict.</p>
   <span class="tag">API</span><span class="tag">caching</span><span class="tag">error handling</span>
+</div>
+
+<div class="card">
+  <h3><a href="exit-zero-empty-stdout-the-quota-died-on-stderr.html">Exit 0, Empty stdout: the Quota Died on stderr</a></h3>
+  <p>A subscription CLI hit its usage limit, wrote nothing to stdout, put the real error on stderr, and exited 0 anyway — exactly the shape of failure that any dispatcher checking only the exit code will log as success.</p>
+  <span class="tag">ai</span><span class="tag">devops</span><span class="tag">debugging</span>
 </div>
 
 <div class="card">
@@ -359,6 +419,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="the-guardrail-pointed-at-a-file-that-never-existed.html">The Guardrail Pointed at a File That Never Existed</a></h3>
   <p>The sequel to the note above, from the other direction: here the fix for a rule violation was another rule, and the same failure came back four days later. Three indicators were at zero the whole time — the enforcement mechanism the document cited had never been built, the project had no hooks, and the pinned file had been re-read zero times. Plus the part nobody checks: the account of what went wrong was itself wrong, and it leaned toward the less-bad story.</p>
   <span class="tag">postmortem</span><span class="tag">enforcement</span><span class="tag">ai agents</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-gate-pinned-a-model-that-no-longer-exists.html">The Gate Pinned a Model That No Longer Exists</a></h3>
+  <p>An adversarial-review gate that forced every trading thesis through an outside model turned out to hard-pin that model by version string. The audit found both the pinned primary and its emergency backup already dead.</p>
+  <span class="tag">ai</span><span class="tag">llm</span><span class="tag">architecture</span><span class="tag">testing</span>
 </div>
 
 <div class="foot"><a href="../">← hexisteme home</a> · CC-BY 4.0</div>
