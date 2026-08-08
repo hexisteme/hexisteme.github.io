@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Route the Claim to Its Verifier - Legs Are Not Votes — hexisteme notes</title>
+<meta name="description" content="I stopped running every verification tool on every load-bearing claim in my agent fleet and started routing each claim type to the one verifier that can actually check it — because counting legs isn't the same as counting independent axes.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Route the Claim to Its Verifier - Legs Are Not Votes", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Routing verification claims to the correct checking instrument instead of running every verification tool in series on every load-bearing decision", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What does \"route the claim to its verifier\" mean in practice?", "acceptedAnswer": {"@type": "Answer", "text": "It means classifying a claim before checking it — arithmetic or formal-logic claims go to a calculation engine, checkable facts go to a model from a genuinely different lineage than the one that produced the claim, and pure value judgments get marked explicitly as unverifiable instead of forced through a check that doesn't test anything."}},
+{"@type": "Question", "name": "Why not just run every verification tool on every important claim?", "acceptedAnswer": {"@type": "Answer", "text": "Because the number of verification legs isn't a passing stamp — what matters is how uncorrelated the axes are with each other. A leg sent to the wrong kind of claim doesn't add an independent check, it adds decoration, and it can silently fail or silently duplicate another leg without anyone noticing."}},
+{"@type": "Question", "name": "How do I know if two verification legs are actually independent?", "acceptedAnswer": {"@type": "Answer", "text": "Check what model or engine is actually underneath each leg, not what the leg is named. Two differently-named checks that both resolve to the same underlying model after a fallback are one leg, not two, even if the pipeline reports them separately."}},
+{"@type": "Question", "name": "What happens if a required verification axis can't run, like a quota limit or an outage?", "acceptedAnswer": {"@type": "Answer", "text": "It gets logged as loudly as a failed test, not silently skipped. If a session lets a dead axis pass without comment, the final summary can read as \"orthogonal verification complete\" when a whole leg of it never actually ran."}},
+{"@type": "Question", "name": "Should a multi-persona deliberation tool count as a verification axis?", "acceptedAnswer": {"@type": "Answer", "text": "No. Its job is to generate and argue the claim from multiple angles, not to check it afterward. Counting it as a verification axis alongside ground truth, a calculation engine, and cross-vendor crossing quietly dilutes the weight of the axes that actually verify something."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Route the Claim to Its Verifier - Legs Are Not Votes</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">I used to run every load-bearing claim in my agent fleet through the same three-tool pipeline, in series, every time — a deliberation pass, a cross-vendor check, and a calculation engine. An audit of my own rule files found that this was decoration more than it was verification: legs sent to the wrong kind of claim don't add an independent axis, they just pad the count. The fix was routing each claim to the one instrument that can actually check it.</div>
+
+<h2>The rule I trusted</h2>
+<p>I run a small fleet of Claude-based agents that make decisions touching money, deployments, and architecture. For anything in that category I made myself route it through three tools before acting: a multi-persona deliberation tool that argues a question from several angles, a cross-vendor router that sends the same claim to model families outside my main line (different labs, different training pipelines, so a blind spot baked into one lineage doesn't silently pass), and a calculation engine bridge for anything that reduces to arithmetic or formal logic. I wrote this down as a house rule in June, and it read like belt-and-suspenders: if all three go through a claim, what could still be wrong with it?</p>
+
+<h2>What the audit found</h2>
+<p>Two of my own house rules were both right and both wrong at the same time, and I hadn't noticed until an August audit of my own rule files caught it. The routing rule, written 2026-06-10, said: when a decision matters, put it through the deliberation pass, then the cross-vendor check, then the calc engine, in series, no exceptions. A different rule that governs my whole verification stack, last revised 2026-07-30, said something narrower: only three things count as verification axes — ground truth, the calculation engine, and cross-vendor model crossing — and the multi-persona deliberation tool isn't one of them. It's the stage that <em>generates</em> the claim, not the stage that checks it. The two rules never referenced each other. Depending on which one a session happened to load, the same "important decision" got a differently shaped pipeline. A full audit of my rule files in August caught the mismatch and forced a decision: which rule wins?</p>
+<p>The resolution wasn't "run all three, always" and it wasn't "run whichever one is cheaper." It was: stop treating the three tools as interchangeable votes, and start asking what kind of claim is actually in front of you before picking one.</p>
+
+<h2>Route the claim, not the decision</h2>
+<p>The branching table I ended up with looks like this:</p>
+<ul>
+<li><strong>Claim reduces to arithmetic, algebra, calculus, units, or formal logic</strong> → send it to a calculation engine (I chain a symbolic math tool, then a computational-knowledge engine, then a formal proof checker if it still needs settling) — never a language model, mine or anyone else's. Asking an LLM to re-check its own arithmetic is asking the wrong instrument to grade itself.</li>
+<li><strong>Claim is a checkable fact that isn't reducible to math</strong> — does this configuration still hold, is this permission still valid, did this API actually change — send it to a model from a genuinely different lineage than whichever model produced the original claim: different provider, different training pipeline, run as an adversarial attempt to refute the claim rather than confirm it.</li>
+<li><strong>Claim is a value judgment</strong> — this design is more elegant, this is worth the added complexity, we should prioritize X — don't verify it. Write down explicitly that it isn't verifiable, and stop before inventing a check that doesn't actually test anything.</li>
+</ul>
+<p>The third branch is the one I used to skip past most easily, and shouldn't have. Manufacturing a check for a value claim just so the process feels complete isn't verification — it's theater with a checkbox at the end.</p>
+
+<h2>The one time it actually mattered</h2>
+<p>On 2026-06-10 I was running an orthogonal verification pass on an account-separation decision, and the cross-lineage check I ran actually reversed a conclusion I'd already reached. I had decided a particular CLI tool's permission could be left as-is; the crossing lineage pointed at a cross-contamination vector I'd missed, and the permission got revoked instead of kept. That's the case that earns cross-vendor crossing its keep as a required axis for fact-type claims — not as a ritual, but because it's the one tool that structurally catches what a single lineage will miss: a blind spot shared by the model that produced the original claim and the model checking it, if they're close enough kin.</p>
+<p>That single flip is also the reason I don't apply the same tool everywhere. It worked because the claim was a checkable fact and the check came from a genuinely different lineage. It was never asked to work, and wouldn't have, on a value judgment or an arithmetic claim.</p>
+
+<h2>When a leg is decoration, not an axis</h2>
+<p>The deeper principle sits above the branching table: counting legs is not the same as counting axes. The house rule that governs this whole area states it plainly — don't use the number of verification legs as a passing stamp; the only thing that counts is how uncorrelated the axes are with each other. Two live incidents from the same audit month show what happens when that check is skipped:</p>
+<ul>
+<li><strong>A verification pass silently failed.</strong> On 2026-07-30, a cross-vendor call hit a quota wall and came back with a rate-limit error, and the session moved on as if the axis had run. It hadn't. If a required axis dies and nobody says so out loud, the summary reads "orthogonal verification complete" when a whole leg of it was never actually there.</li>
+<li><strong>Two verification passes weren't actually orthogonal.</strong> On the same day, two differently-named cross-checks in my deliberation setup — one billed as a local on-device check, one as a cloud-side check — turned out to be running the identical underlying model, because the on-device path had quietly fallen back to the same model the other check was already using after the local runtime had been disabled. Two legs, one model.</li>
+</ul>
+<p>Both incidents are the same failure at different points: a leg that looks like an axis but isn't. A dead leg you don't flag and a duplicate leg you don't notice do the same damage — they let you write "verified" on something that wasn't.</p>
+
+<h2>The deliberation tool's job is to generate, not to referee</h2>
+<p>The multi-persona tool's role had to be explicitly reframed as upstream of verification, not a branch of it. One specific failure of the old framing showed up as literal dilution: a table that folded the deliberation tool into the set of verification axes quietly cut cross-vendor's actual share of the verification weight from one out of three to one out of five — without anyone deciding that on purpose. The fix wasn't adding a fourth axis. It was noticing the deliberation tool was never an axis to begin with — it's the divergent-thinking stage that produces the claim you're about to route, not one of the things doing the routing.</p>
+
+<h2>This isn't only an AI-harness problem</h2>
+<p>If you run a CI pipeline, you've probably already built half of this without calling it "claim routing." A pure formatting change doesn't need a security review; a change that touches an auth path does, no matter how small the diff looks. A performance claim in a pull request doesn't get settled by a second engineer reading the code more carefully — it gets settled by a benchmark, because a benchmark is the calculation engine for that specific claim, and a code reviewer is the wrong instrument for it. The failure mode is the one I had: running the full checklist on every change because it feels safer than deciding which check actually applies, until someone counts how many of those checks were decorative for the change in front of them.</p>
+
+<h2>What I actually do now</h2>
+<ol>
+<li>Before routing anything, name the claim type out loud — arithmetic, checkable fact, or value judgment — in the log, not just in my head.</li>
+<li>Computable claims go to the calculation engine only. A model that "double-checked the math" isn't verification; it's a second guess from the same kind of instrument that produced the first one.</li>
+<li>Fact claims go to a genuinely different lineage, checked against model identity, not against a tool's label. Two different tool names resolving to the same underlying model is not two legs.</li>
+<li>Value claims get a written "not verifiable" note instead of an invented check.</li>
+<li>If a required axis fails to run — quota, outage, timeout — that gets logged as loudly as a failed test, never silently skipped.</li>
+<li>I close the loop by recording what actually happened once a check runs, the same way I'd record a test result, so the next claim of the same type doesn't require re-deriving the routing table from scratch.</li>
+</ol>
+
+<h2>Related territory I'm not covering here</h2>
+<p>A separate note in this series looks at what a wide fan-out across many models actually buys in blind-spot coverage, and where it stops paying off — that's a coverage question, not a routing one. Another looks at what a cross-family audit shares across model families rather than what any single check catches. A third asks how many dissenting legs it takes before one objection is allowed to overturn a conclusion outright — a quorum question, distinct from deciding which verifier a claim should go to in the first place. All of them assume the claim has already been sent somewhere; this note is about making that first decision correctly, before any of the rest start arguing.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does "route the claim to its verifier" mean in practice?</strong><br>
+It means classifying a claim before checking it — arithmetic or formal-logic claims go to a calculation engine, checkable facts go to a model from a genuinely different lineage than the one that produced the claim, and pure value judgments get marked explicitly as unverifiable instead of forced through a check that doesn't test anything.</p>
+
+<p><strong>Q. Why not just run every verification tool on every important claim?</strong><br>
+Because the number of verification legs isn't a passing stamp — what matters is how uncorrelated the axes are with each other. A leg sent to the wrong kind of claim doesn't add an independent check, it adds decoration, and it can silently fail or silently duplicate another leg without anyone noticing.</p>
+
+<p><strong>Q. How do I know if two verification legs are actually independent?</strong><br>
+Check what model or engine is actually underneath each leg, not what the leg is named. Two differently-named checks that both resolve to the same underlying model after a fallback are one leg, not two, even if the pipeline reports them separately.</p>
+
+<p><strong>Q. What happens if a required verification axis can't run, like a quota limit or an outage?</strong><br>
+It gets logged as loudly as a failed test, not silently skipped. If a session lets a dead axis pass without comment, the final summary can read as "orthogonal verification complete" when a whole leg of it never actually ran.</p>
+
+<p><strong>Q. Should a multi-persona deliberation tool count as a verification axis?</strong><br>
+No. Its job is to generate and argue the claim from multiple angles, not to check it afterward. Counting it as a verification axis alongside ground truth, a calculation engine, and cross-vendor crossing quietly dilutes the weight of the axes that actually verify something.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./multi-model-fanout-triangulation-blind-spots.html">Multi-Model Fan-Out: What Triangulation Actually Covers, and Where It Doesn't</a></li>
+<li><a href="./cross-family-llm-audit-shared-blind-spots.html">A Cross-Family LLM Audit Still Shares Blind Spots</a></li>
+<li><a href="./forced-dissent-slot-has-a-floor.html">A Forced Dissent Slot Has a Floor</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
