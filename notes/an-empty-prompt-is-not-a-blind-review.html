@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>An Empty Prompt Is Not a Blind Review — hexisteme notes</title>
+<meta name="description" content="I thought an adversarial reviewer was blind because I left my conclusion out of its prompt, until its own search tools found the conclusion I'd already written to disk. Blind is a property of what a reviewer can reach, not of what you tell it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "An Empty Prompt Is Not a Blind Review", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why an empty prompt does not make an LLM adversarial reviewer blind when the reviewer has file or search tools that can reach the conclusion on disk.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What does \"blind\" mean in an adversarial LLM review?", "acceptedAnswer": {"@type": "Answer", "text": "Blind means the reviewer's conclusion-reachable surface — every path readable through its tools, mounts, search scope, and network — does not contain my conclusion. It is not simply the absence of my conclusion from the prompt text."}},
+{"@type": "Question", "name": "Why isn't an empty prompt enough to make a review blind?", "acceptedAnswer": {"@type": "Answer", "text": "A tooled agent has channels into information beyond the prompt string: it can read files, grep a repository, walk a search index, or check version-control history. If a reviewer's job is to search the repository and my conclusion is already written to disk somewhere in that repository, the reviewer will find it regardless of what the prompt says."}},
+{"@type": "Question", "name": "What should I check before launching an adversarial reviewer with file tools?", "acceptedAnswer": {"@type": "Answer", "text": "Confirm the conclusion artifact is not yet on disk, or move it outside the reviewer's reachable path until the review finishes. Check whether the tools you hand the reviewer can actually reach that conclusion. Check whether the reviewer's mission is literally to search the repository or codebase. If you cannot control the surface, do not call the review blind — log it as contaminated and read the verdict accordingly."}},
+{"@type": "Question", "name": "Does this mean cross-vendor or adversarial review is useless?", "acceptedAnswer": {"@type": "Answer", "text": "No. This is one confirmed contamination event, not a measured rate. In this specific case the reviewer still reached the same conclusion I would have wanted anyway, so the anchor did not visibly push it toward agreement. The finding is that the leak is real and the mechanism is real, not that the technique is worthless."}},
+{"@type": "Question", "name": "Does this apply to plain API-only model calls?", "acceptedAnswer": {"@type": "Answer", "text": "No. A pure API leg that receives nothing but a prompt string has no reachable surface beyond that string, so an empty prompt is sufficient for blindness there. The reachable-surface definition matters specifically for tooled sub-agents and workflow verification stages that can read files or search a repository."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>An Empty Prompt Is Not a Blind Review</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">I thought an adversarial reviewer was blind because I never put my conclusion in its prompt. Then the reviewer's own search tools found the conclusion I'd already written to disk, quoted it, and reacted to it. Blind is a property of what a reviewer can reach — not of what you tell it.</div>
+
+<p>I run adversarial review stages inside my own agent harness: after a sub-agent produces a verdict, I fire off a second agent whose only job is to try to break it. For a while my working definition of "blind" was simple — don't put my conclusion in the second agent's prompt, and the review counts as blind. On 2026-08-04 that definition failed, in a way that's obvious in hindsight and completely invisible while you're building it.</p>
+
+<h2>What I was checking</h2>
+<p>I had run a batch that classified 18 backlog items — reader comments on an earlier post, each proposing a fix to my review harness — into "already implemented," "real gap," or "rejected under adversarial review." Every "real gap" verdict got its own adversarial pass: a fresh sub-agent told to go find a device already in the repository that does what the comment asks, using nothing but file reads and greps over the codebase. I wrote up the whole batch, including the reasoning for every item, into one report file on disk.</p>
+<p>The backlog itself turned out to hold 19 open items, not 18 — one comment had arrived after I generated the worklist, so it never made it into the batch. I caught the gap afterward and ran that leftover item through the same adversarial procedure, on its own, after the 18-item report already existed as a file sitting right next to it.</p>
+
+<h2>The leak</h2>
+<p>The adversarial agent's mission, in substance, was to search the repository for a device that already covers this. It searched forty-nine skill directories, fifty-nine LaunchAgents, the twelve slots of my session-start script, and an unrelated project's scripts — a genuinely wide sweep — and came back empty on all of it. Its verdict, that the comment described a real gap, held.</p>
+<p>But its own write-up gave away what had happened: it noted that the first-pass verdict it had been handed matched a passage it had found quoted verbatim in a file — the 18-item report I'd already written. I hadn't put my conclusion in its prompt. I had put my conclusion on disk, in a file sitting inside the exact directory tree its own instructions told it to search. It found the file, read the section describing my reasoning, and reacted to it. That's not a blind review. That's a review that read my notes before writing its own.</p>
+
+<h2>Blind is not a prompt property</h2>
+<p>The instinct that "empty prompt equals blind" comes from a world where the prompt is the only channel into a model. A tooled agent doesn't live in that world. It has a filesystem it can read and grep, a repository it can walk, sometimes a search index, sometimes network access. Every one of those is a channel, and none of them run through the prompt string at all. An agent whose job description is "search the repo" will search the repo — including the part of the repo where I, minutes earlier, wrote down what I think the answer is.</p>
+<p>So the operational definition has to move. Blind isn't about what's in the prompt. It's about what's reachable:</p>
+<p><strong>Verifier reachable surface</strong> — every path readable through the tools, mounts, search scope, and network attached to that agent.<br>
+<strong>Blind</strong> — my conclusion is absent from that surface. An empty prompt is necessary for that, but nowhere near sufficient.</p>
+
+<h2>The checklist I run before launching a reviewer</h2>
+<p>Before I hand a task to an adversarial agent that has file or search tools, I now walk through this, in order:</p>
+<ul>
+<li>Is the conclusion artifact not yet written to disk? If it already exists, move it outside the reviewer's reachable path until the review is done.</li>
+<li>Can the tools I'm handing the reviewer actually reach that conclusion — file reads, grep, a search index, version-control history, even the conversation transcript?</li>
+<li>Is the reviewer's mission literally "search the repository" or "search the codebase"? If so, controlling the surface matters more than wording the prompt carefully.</li>
+<li>If I couldn't control the surface, I don't get to call the review blind. I log it as "not blind — contamination path: <code>&lt;path&gt;</code>" and read the verdict accordingly.</li>
+</ul>
+<p>The sequencing is the actual control: write the conclusion after the review finishes, not before with a promise to hide it later. Hiding after the fact is a race you can lose. Writing late isn't a race at all.</p>
+<p>One caveat that matters in practice: this only applies to reviewers that carry file or search tools. A pure API call to an external model that receives nothing but a prompt string has no reachable surface beyond that string — for that kind of leg, an empty prompt really is sufficient.</p>
+
+<h2>What this one incident does and doesn't prove</h2>
+<p>I want to be precise about how much this buys me, because it's tempting to round up after catching a real bug. What I actually have is one confirmed contamination event. I do not have a measurement of whether the contamination changed the verdict — the reviewer that read my notes still came back with the conclusion I'd have wanted it to reach anyway (real gap, not already-done), which makes this particular case an example of the anchor <em>not</em> pulling the reviewer toward agreement. One incident tells me the leak exists and the mechanism is real. It tells me nothing about how often it flips an outcome, and I'm not going to turn that into a bigger claim than the evidence supports.</p>
+<p>The same shape had already bitten me once earlier the same day, one layer up: I'd shown a cross-vendor reviewer my own conclusion before asking it to weigh in, anchoring it the same way — just through the prompt that time, instead of through the filesystem. Two instances of the identical failure mode in one day, at two different layers of the same pipeline, is enough for me to treat "define blind by reachable surface, not by prompt content" as a standing procedure rather than a one-off patch. It's now one of my house rules.</p>
+
+<h2>The transfer past AI review</h2>
+<p>You don't need an LLM verifier to hit this. Anything you call "independent review" fails the same way the moment the reviewer's job includes looking at shared state you already touched. A code reviewer told to look at a diff with fresh eyes isn't blind if your resolution comment is already sitting at the top of the ticket they're assigned to read, or if your commit message spells out the conclusion before they open the diff. A monitoring job told to check whether a target actually ran isn't independent of the last person who ran it if it reads the same status file that person just wrote. The fix isn't "trust your reviewers more" — it's the same checklist: know what your reviewer's tools can reach, and don't write your answer inside that reach until the review is over.</p>
+
+<h2>Related lessons, not this one</h2>
+<p>Two things this incident is not about, in case the shape looks familiar from elsewhere on this site. How many independent legs a verdict needs before you act on it is a separate question from whether any single leg was blind — that's a companion piece on verification quorum, not this one. And a verifier that makes up its own output entirely, rather than reading mine, is a different failure with a different fix, covered on its own. This post is only about the one gap: an empty prompt was never the whole definition of blind.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does "blind" mean in an adversarial LLM review?</strong><br>
+Blind means the reviewer's conclusion-reachable surface — every path readable through its tools, mounts, search scope, and network — does not contain my conclusion. It is not simply the absence of my conclusion from the prompt text.</p>
+
+<p><strong>Q. Why isn't an empty prompt enough to make a review blind?</strong><br>
+A tooled agent has channels into information beyond the prompt string: it can read files, grep a repository, walk a search index, or check version-control history. If a reviewer's job is to search the repository and my conclusion is already written to disk somewhere in that repository, the reviewer will find it regardless of what the prompt says.</p>
+
+<p><strong>Q. What should I check before launching an adversarial reviewer with file tools?</strong><br>
+Confirm the conclusion artifact is not yet on disk, or move it outside the reviewer's reachable path until the review finishes. Check whether the tools you hand the reviewer can actually reach that conclusion. Check whether the reviewer's mission is literally to search the repository or codebase. If you cannot control the surface, do not call the review blind — log it as contaminated and read the verdict accordingly.</p>
+
+<p><strong>Q. Does this mean cross-vendor or adversarial review is useless?</strong><br>
+No. This is one confirmed contamination event, not a measured rate. In this specific case the reviewer still reached the same conclusion I would have wanted anyway, so the anchor did not visibly push it toward agreement. The finding is that the leak is real and the mechanism is real, not that the technique is worthless.</p>
+
+<p><strong>Q. Does this apply to plain API-only model calls?</strong><br>
+No. A pure API leg that receives nothing but a prompt string has no reachable surface beyond that string, so an empty prompt is sufficient for blindness there. The reachable-surface definition matters specifically for tooled sub-agents and workflow verification stages that can read files or search a repository.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./one-leg-can-raise-an-objection-not-settle-it.html">One Leg Can Raise an Objection, Not Settle It</a></li>
+<li><a href="./ai-subagent-faked-verification-output.html">AI Subagent Faked Verification Output</a></li>
+<li><a href="./cross-family-llm-audit-shared-blind-spots.html">Cross-Family LLM Audit, Shared Blind Spots</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
