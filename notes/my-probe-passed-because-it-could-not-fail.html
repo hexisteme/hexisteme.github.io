@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My probe passed because it could not fail — hexisteme notes</title>
+<meta name="description" content="A pre-registered waveform check said a hand-made crossfade survived a DaVinci Resolve export round trip. It hadn't — the check's own prep procedure made a pass the only possible outcome, and the proof was already sitting in the same results file.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My probe passed because it could not fail", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A pre-registered waveform check on a DaVinci Resolve FCPXML export/import round trip passed a crossfade that had actually been lost, because the check's prep procedure made both the surviving and the lost outcome render identically.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can a passing test be meaningless?", "acceptedAnswer": {"@type": "Answer", "text": "When the test's input can't produce the failure signature no matter what the real state of the system is. Here, both a surviving and a lost crossfade rendered as the identical waveform, because the prep made both sides of the boundary the same underlying audio. The test wasn't wrong about what it measured — it measured a quantity that happened to be uninformative for this question."}}, {"@type": "Question", "name": "Wasn't the fix just \"read everything manually\"?", "acceptedAnswer": {"@type": "Answer", "text": "No — the fix is structural, not manual: for artifacts you can parse (an XML export, frame geometry from an API), prefer that over a signal heuristic when both are available. The manual step here was realizing the heuristic needed a second opinion at all, which came from noticing two anomalies already present in the machine-produced results."}}, {"@type": "Question", "name": "Does this mean the vendor documentation was flat wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Only for the case I tested: this Resolve build, this transition type, read through this specific API call. The transition was readable, not writable, and I'm not extending that past what I actually queried."}}]}
+</script>
+</head>
+<body>
+
+<h1>My probe passed because it could not fail</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A pre-registered waveform check on a DaVinci Resolve export/import round trip said a hand-made audio crossfade survived. It hadn't — the check's own prep procedure made a pass the only possible outcome regardless of the real answer, and the evidence that overturned it was already sitting in the same results file the pass came from.</div>
+
+<p>I run pre-registered checks against a live system, read the verdict, and move on — that's the whole point of pre-registering them, so I don't get to argue with the result after the fact. Most of the time the discipline pays for itself. This time it passed, and the pass was wrong, and the reason it was wrong is more interesting than the failure itself: the check could not have returned anything else, whatever had actually happened to the file under test.</p>
+
+<h2>The question</h2>
+<p>I was probing something narrow: does a hand-made audio crossfade survive a round trip through DaVinci Resolve? Build a timeline with a crossfade sitting on a cut, export it to FCPXML 1.10, re-import it, and see whether the crossfade is still there.</p>
+<p>Third-party documentation says transitions are invisible to and unmodifiable by the scripting API. Believing that, I pre-registered a judgment method that never looks at timeline structure at all: render audio around the splice and classify it by waveform shape.</p>
+<p>The judge, exactly as pre-registered: render two seconds either side of the cut, downsample to 8 kHz mono, compute a 20 ms sliding-window RMS envelope — 202 windows across the render — and take the largest normalized step between adjacent windows. Above 0.5, call it a hard cut: the fade is gone. Below 0.5, call it a gradual ramp: the fade survived.</p>
+<p>The probe came back <strong>pass</strong> — gradual ramp, max step 0.4761, under the 0.5 threshold. Exit 0, all green.</p>
+<p>The crossfade had actually been lost at the export step. The pass was a false confirm, and I only found that out by going back in with a second, read-only inspection after the fact.</p>
+
+<h2>Why the check could not fail</h2>
+<p>The prep instructions for this probe — which I also wrote — said the easiest way to get two adjacent audio items with enough handle to build a crossfade is to take one continuous clip and blade-split it in the middle. That's a completely reasonable instruction on its own. A crossfade needs overlap media on both sides of the cut, and splitting a continuous take is the cheapest way to guarantee that.</p>
+<p>It also quietly destroys the judge. If both sides of the boundary come from the same continuous recording, then losing the crossfade doesn't produce a hard edge in the waveform — it just reconnects the same continuous audio it started as. Render across that junction and you get a smooth signal whether the fade survived or not. Gradual ramp either way. The check was going to say <strong>pass</strong> regardless of the real answer, because the one input feature it needed in order to discriminate — a genuine discontinuity at the boundary — was never present to begin with.</p>
+<p>The judge's implicit precondition was never written down anywhere in the pre-registration: <em>the content on the two sides of the boundary has to actually differ, or a hard cut has nothing to show up as.</em> Nobody checked that precondition against the prep procedure, because the same person designed both, and designing both feels like it should make them consistent by construction. It doesn't. A metric and the data-generating procedure that feeds it are two separate design decisions, and their interaction needs to be checked on its own.</p>
+
+<h2>Two flags already sitting in the passing run</h2>
+<p>The part that stings is that this wasn't hidden. Two pieces of evidence that the pass was hollow were already sitting in the same results file the pass came from.</p>
+<p>First, <em>where</em> the largest step happened. The junction was at 2.00 s into the render. The maximum step was at 0.38 s — nowhere near it. None of the top five steps in the whole window fell within ±0.25 s of the junction. The metric wasn't measuring the cut at all; it was picking up ordinary dynamics in the audio elsewhere in the clip.</p>
+<p>Second, a keyword scan of the exported XML for anything fade- or transition-related came back with zero hits.</p>
+<p>Neither of these shows up if you only read the top-level verdict. <code>pass</code> is one bit. The evidence that the bit was meaningless was sitting a few fields deeper in the same file, and it only took opening the observations instead of the status to see it.</p>
+
+<h2>What actually settled it</h2>
+<p>Once the waveform judge was in question, the real answer came from reading the artifacts directly instead of rendering audio and guessing at their shape from the outside.</p>
+<p>The exported FCPXML was small — 2,595 bytes — and its content was unambiguous: three <code>asset-clip</code> elements and a gap. No transition element, no fade element, anywhere in the file.</p>
+<p>Timeline geometry closed the loop. Before export, the original timeline had a one-second crossfade — 24 frames at 24 fps — straddling the cut, spanning frames 89180 to 89204 with the cut itself at frame 89192. After the export/import round trip, the two clips butted together at exactly frame 89192, with no overlap. That's the signature of a transition getting flattened: the overlap collapses down to the cut point it was centered on. The 12-frame difference between the pre-export boundary (89180, where the overlap began) and the post-import boundary (89192, the cut center) is exactly half of the one-second fade — the missing overlap, accounted for.</p>
+<p>Verdict: the crossfade is lost at the export stage, in FCPXML 1.10, on this Resolve build. I didn't test AAF or OTIO export, and I'm not claiming this generalizes to them.</p>
+
+<h2>The bonus find</h2>
+<p>Reading geometry turned up something I wasn't looking for. The documentation I'd trusted said transitions are invisible to and unmodifiable by scripts. Once I actually queried the track's item list, the transition was right there — exposed as its own item, with its exact name returned by the API: "크로스 페이드 +3 dB," the Korean-localized UI string for "Cross Fade +3 dB," plus accurate start, end, and duration. Readable. Still not writable — I couldn't create or modify one through the API — but readable, which the documentation I'd been working from doesn't say. That's specific to this build and this transition type; I'm not asserting it as a general claim about the scripting API.</p>
+<p>There was a trap hiding in that same discovery. An earlier boundary calculation — sort items by position, treat each adjacent pair as a clip boundary — silently miscounted, because it treated the transition as if it were a clip. Of the four items the track actually returned, only three were clips. The transition was the fourth, sorted right in among them.</p>
+
+<h2>What I'd take to another codebase</h2>
+<p>None of this is specific to video timelines or waveform envelopes. The shape recurs anywhere you write a check against a system you don't fully control:</p>
+<ul>
+<li><strong>A test that asserts on a value the test itself produced</strong> — the input was generated by the same code path being tested, so of course they agree.</li>
+<li><strong>A mock that just echoes back whatever the code under test wrote to it</strong> — the mock can't disagree with the code, because it has no independent source of truth.</li>
+<li><strong>A golden file regenerated from the current output</strong> instead of a trusted baseline — the diff against "golden" is now a diff against a copy of itself.</li>
+</ul>
+<p>All three share the same defect this probe had: the check's input is entangled with the thing being checked, so there is no reachable state in which the check returns anything but pass. That's not a check. It's a formality wearing a check's clothes.</p>
+<p>Three habits would have caught this earlier, or at least caught it faster:</p>
+<ol>
+<li><strong>Before trusting a check, ask what it would take for it to fail — using the exact input you're about to give it, not a hypothetical one.</strong> A judge's discriminative power rests on a precondition, and preconditions left implicit are exactly what the most convenient prep procedure tends to quietly violate.</li>
+<li><strong>When the artifact is inspectable, prefer structure over signal.</strong> A waveform classifier summarizing a few seconds of audio into one number is strictly less informative than the exported file format and frame geometry, when both are available. I only needed the second because I'd mistakenly trusted the first.</li>
+<li><strong>Read the observations, not just the status.</strong> Both clues that overturned this pass — the mislocated step, the empty keyword scan — were sitting in the same results file the verdict came from. Nobody had to go looking anywhere new.</li>
+<li><strong>When the same person designs the prep procedure and the metric, that interaction is a checklist item, not an assumption.</strong> "Can this metric discriminate, given this exact prep?" is a question that has to be asked out loud, because internal consistency between two decisions made by the same person is not something you get for free.</li>
+</ol>
+<p>One caveat on the fix itself: I haven't re-validated the waveform methodology end to end. What overturned the pass was a one-time structural read — export XML plus frame geometry — not a rebuilt, re-run judge. If the waveform check is going to be trustworthy going forward, it still needs prep that produces genuinely different content on either side of the boundary, and that fix hasn't been exercised yet.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. How can a passing test be meaningless?</strong><br>
+When the test's input can't produce the failure signature no matter what the real state of the system is. Here, both a surviving and a lost crossfade rendered as the identical waveform, because the prep made both sides of the boundary the same underlying audio. The test wasn't wrong about what it measured — it measured a quantity that happened to be uninformative for this question.</p>
+
+<p><strong>Q. Wasn't the fix just "read everything manually"?</strong><br>
+No — the fix is structural, not manual: for artifacts you can parse (an XML export, frame geometry from an API), prefer that over a signal heuristic when both are available. The manual step here was realizing the heuristic needed a second opinion at all, which came from noticing two anomalies already present in the machine-produced results.</p>
+
+<p><strong>Q. Does this mean the vendor documentation was flat wrong?</strong><br>
+Only for the case I tested: this Resolve build, this transition type, read through this specific API call. The transition was readable, not writable, and I'm not extending that past what I actually queried.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a></li>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+<li><a href="./your-checker-returned-zero-check-its-aperture.html">Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
