@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Report's Numbers Are Computed. Its Sentences Are Not. — hexisteme notes</title>
+<meta name="description" content="In a generated report, the counts came from the data and the prose came from string literals. Six sentences ended up contradicting the numbers printed beside them — and the checker I wrote to catch that passed the exact bug it was built for.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Report's Numbers Are Computed. Its Sentences Are Not.", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A report-generation script split computed numbers from literal prose sentences, so six sentences drifted or were wrong independent of the data; the checker written to catch that defect initially passed the exact sentence shape it was built to catch, and fixing it surfaced a second blind spot one level up in a newly added check that could not fail.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What's the core problem this piece describes?", "acceptedAnswer": {"@type": "Answer", "text": "In a script that turns an evaluation run into a report, the numbers come from f-strings computed from live data, but the explanatory sentences are string literals sitting in the same function. A literal has no dependency on the data it describes: when the data changes, the literal stays, so the report can print a correct number right next to a sentence that is now false."}},
+{"@type": "Question", "name": "How did the six failing sentences break down?", "acceptedAnswer": {"@type": "Answer", "text": "An adversarial review found six prose claims contradicted by the report's own data, and they failed in four different ways: two were drift, where a count changed and the sentence didn't; two were wrong from the first commit, including one that described a state machine backwards; and two were unsupported assertions, attributing an outcome to a cause with no stored evidence to establish it."}},
+{"@type": "Question", "name": "Why didn't deriving every sentence from source data fully fix it?", "acceptedAnswer": {"@type": "Answer", "text": "Of the six, three became expressions that now read from the same data structure that produces the number printed next to them, instead of restating it by hand. The other three couldn't be derived at all — there was no stored counterfactual and no artifact for a value from a previous session. For those, the fix was to write the reason no source exists directly into the sentence, turning an unverifiable claim into a verifiable statement about its own unverifiability."}},
+{"@type": "Question", "name": "What went wrong with the checker built to catch this class of bug?", "acceptedAnswer": {"@type": "Answer", "text": "According to the change log — the old rule's code is gone from the repo, so it can't be re-run directly — the first version exempted a conclusion word from scrutiny if a hedge marker appeared within about a hundred characters of it, treating character distance as a stand-in for clause membership. In a real contrasting sentence like 'A did not fire, but B did,' the hedge and the conclusion sit a few words apart but belong to different clauses, so the checker exempted the wrong clause and passed exactly the sentence shape it was built to catch. Its own tamper test had reverted a whole paragraph rather than one sentence, so a pass there proved nothing about the specific claim under test."}},
+{"@type": "Question", "name": "What happened after the checker was fixed?", "acceptedAnswer": {"@type": "Answer", "text": "One level up, a newly added check on two previously uncovered table rows passed even with the original false claim reinserted, because that check only tested whether an evidence item was mentioned anywhere in the whole row — and the missing item happened to be named again elsewhere in the same row for an unrelated reason. The fix was to narrow the check to the clause making the claim rather than the whole row, and that case is now a permanent mutation test: on every run it prints what its own result would have been without the clause-narrowing step, and its registry documents that eight of its nine entries still lack that narrowing."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Your Report's Numbers Are Computed. Its Sentences Are Not.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A report-generation script computes its numbers from data but writes its explanatory sentences as string literals sitting in the same function — so when the data changes, the number moves and the sentence doesn't. An adversarial review of one such report found six prose claims contradicted by the report's own data, failing in four different ways, and the checker built to catch that class of bug passed the exact sentence shape it existed to catch. Fixing the checker then produced, one level up, a stronger-looking check that verified nothing at all.</div>
+
+<h2>The split that is the whole defect</h2>
+<p>I have a script that turns an evaluation run into a markdown report. Numbers come from f-strings. Sentences come from string literals sitting in the same function. That split is so ordinary I never looked at it — and it is the whole defect.</p>
+<p>A literal exists independently of the data. When the data changes, the literal stays. It compiles. It renders. Nothing complains. The number two lines above it moves, and the sentence does not.</p>
+
+<h2>Six sentences, four failure paths</h2>
+<p>An adversarial review of my own report found six prose claims that its own data contradicted. What surprised me was that they had not failed the same way:</p>
+<ul>
+<li>Two were <strong>drift</strong>. One said "6 blocked" after the candidate set grew from 27 to 28 items — the count moved, the sentence did not. Another cited a record ID as a worked example; that ID existed in an earlier snapshot and not in the current run.</li>
+<li>Two were <strong>wrong from the first commit</strong>. One described a state machine backwards: it said a blocking condition meant "replanning was never even attempted," when in the code that same condition is precisely what <em>triggers</em> replanning. It had never been true.</li>
+<li>Two were <strong>unsupported assertions</strong>. One attributed an outcome to a specific earlier fix as "the direct result." The counterfactual snapshot that would establish that was never saved.</li>
+</ul>
+<p>The common structure is not rot. It is that a literal has no dependency on the thing it describes. Drift is one way that hurts you. Being wrong on day one is another. Neither is detectable by reading the sentence, because the sentence always reads fine.</p>
+
+<h2>The prescription is not "derive everything"</h2>
+<p>My first instinct was: replace every literal with an expression that reads from the source. That is the right instinct and it does not fully work.</p>
+<p>Of the six, <strong>three</strong> became derived expressions — three of the six now read from the same data structure that produces the number printed next to them, instead of restating it by hand.</p>
+<p>The other <strong>three could not be derived at all</strong>. There is no stored counterfactual for "would this have happened without that fix." There is no artifact for a value observed in a previous session. Forcing derivation there would have meant inventing a source.</p>
+<p>So the rule I actually landed on is a pair:</p>
+<div class="warn">Derive what has a source. For what has none, write the reason it has none into the sentence itself.</div>
+<p>The second half matters more than it looks. "This is a session note, not reproducible from this run's artifacts" is eleven words that convert an unverifiable claim into a verifiable statement about verifiability. Leave it as a bare literal and it rots on the next round. Mark it and the next reader — including future you — stops asking whether it should have been derived.</p>
+<p>If you write this down as "we replaced all the literals with derived values," you have just written a seventh literal. I know because that is the subheading I wrote in the correction log, with a table two lines below listing the two counterexamples I had personally just written. The review caught it. That sentence is now struck through in the document, above the table that refutes it.</p>
+
+<h2>Then the checker passed the bug it was built for</h2>
+<p>Because this class kept recurring, a previous round added a checker: for a registry of specific claims, pull the supporting evidence out of the JSON, and if that evidence set is empty, refuse to let the corresponding paragraph state a confident conclusion. Conclusion vocabulary near an empty evidence set is a failure.</p>
+<p>The obvious false-positive problem is hedged language. A paragraph can legitimately say "this did not fire" right next to a sentence about something that did. So the first version exempted a conclusion word if a hedge marker appeared within roughly a hundred characters.</p>
+<p>Character distance is not clause membership.</p>
+<p>Real sentences contrast. "A did not fire, <strong>but</strong> B did" puts the hedge and the conclusion a few words apart and pointing at different things. According to the change log — the old rule's code is gone from the repo, so I can't re-run it myself — the checker exempted the second clause because of a marker belonging to the first, and it passed exactly the sentence shape it existed to catch.</p>
+<p>Worse: according to that same change log, the checker's own built-in tamper test said it worked. That test reverted the <strong>whole paragraph</strong> to its pre-fix text and confirmed a failure was raised. But the failure came from an unrelated sentence elsewhere in that paragraph, not from the headline under test. The test passed by coincidence, and the coincidence read as proof.</p>
+<p>Two fixes:</p>
+<ol>
+<li><strong>Split by clause, not by distance.</strong> Boundaries are sentence terminators plus the adversative and coordinating connectives the language actually uses to pivot. (In my case an em dash is <em>not</em> a boundary — in this document it almost always introduces elaboration, not contrast, so treating it as a boundary would misclassify most of the corpus. Check your own corpus rather than copying my list.)</li>
+<li><strong>Mutate one sentence, not one block.</strong> The tamper test now substitutes a single headline and leaves the body honest. If reverting a whole section is what makes your test go red, your test is measuring the section, not the rule.</li>
+</ol>
+
+<h2>The same mistake, one layer up</h2>
+<p>Here is the part I did not expect.</p>
+<p>Having fixed the rule, I extended coverage to two table rows that had gone unchecked — including one that had contained a live misattribution. Then I put the original false claim back into the real file and ran the checker.</p>
+<p>It passed.</p>
+<p>The reason had nothing to do with clauses. That registry entry uses a different axis: when evidence is <em>non-empty</em>, the check is simply "is each evidence item mentioned somewhere in the unit?" The unit was the whole table row — and that row happened to name the missing item again, several clauses later, for a completely unrelated reason. Substring containment was satisfied by an accident.</p>
+<p>So the entry I had just added to strengthen the guard was a guard that could not fail. Fixing the checker had produced, one level up, precisely the thing the checker exists to prevent: something that looks like verification and verifies nothing.</p>
+<p>The fix was to let a registry entry narrow its check to the clause making the claim, rather than the whole row. But the durable lesson is the ordering: I only found it because I injected the defect <strong>after</strong> the change, into the real artifact, and watched. Nothing in the passing run would have told me.</p>
+<p>That case is now a permanent mutation test. It prints, on every run, what the result would have been without the narrowing — "no missing items, i.e. a false negative" — so the reason the narrowing exists cannot quietly detach from the code.</p>
+
+<h2>What I would take to another codebase</h2>
+<ul>
+<li>If a document is generated, grep it for sentences that assert a fact and are <em>not</em> built from an expression. Every one is a candidate.</li>
+<li>Derive the ones with a source. For the rest, state in the sentence why no source exists. Both halves, or the second group rots.</li>
+<li>Count before you summarize. "All of them" in a correction log is the same defect, one meta-level up.</li>
+<li>A check that has never failed has not been tested. Inject the specific defect it targets and confirm red.</li>
+<li>Mutate minimally. Whole-block reverts pass for the wrong reason and then get cited as evidence the guard works.</li>
+<li>After you strengthen a guard, re-inject the original defect. The strengthening is exactly when a new blind spot gets introduced, and it arrives wearing the guard's uniform.</li>
+<li>Consider a freshness tie: have the prose carry a digest of the artifact it describes, and have the checker rehash the artifact. Otherwise you can regenerate one side, verify the other, and get a clean pass on a stale pair. That one bit me too.</li>
+<li>The same split shows up outside generated reports: a CI dashboard's hardcoded "all tests green" caption sitting next to a computed pass count, or a changelog entry that was never regenerated from the diff it describes.</li>
+</ul>
+<p>The checker now catches the shapes I have actually seen. It prints, on every run, what its own result would have been without the clause-narrowing step — a standing false-negative warning — and its registry documents that eight of its nine entries still lack that narrowing. Those limits are not a disclaimer. They are the part of the report that is still a literal.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What's the core problem this piece describes?</strong><br>
+In a script that turns an evaluation run into a report, the numbers come from f-strings computed from live data, but the explanatory sentences are string literals sitting in the same function. A literal has no dependency on the data it describes: when the data changes, the literal stays, so the report can print a correct number right next to a sentence that is now false.</p>
+
+<p><strong>Q. How did the six failing sentences break down?</strong><br>
+An adversarial review found six prose claims contradicted by the report's own data, and they failed in four different ways: two were drift, where a count changed and the sentence didn't; two were wrong from the first commit, including one that described a state machine backwards; and two were unsupported assertions, attributing an outcome to a cause with no stored evidence to establish it.</p>
+
+<p><strong>Q. Why didn't deriving every sentence from source data fully fix it?</strong><br>
+Of the six, three became expressions that now read from the same data structure that produces the number printed next to them, instead of restating it by hand. The other three couldn't be derived at all — there was no stored counterfactual and no artifact for a value from a previous session. For those, the fix was to write the reason no source exists directly into the sentence, turning an unverifiable claim into a verifiable statement about its own unverifiability.</p>
+
+<p><strong>Q. What went wrong with the checker built to catch this class of bug?</strong><br>
+According to the change log — the old rule's code is gone from the repo, so it can't be re-run directly — the first version exempted a conclusion word from scrutiny if a hedge marker appeared within about a hundred characters of it, treating character distance as a stand-in for clause membership. In a real contrasting sentence like 'A did not fire, but B did,' the hedge and the conclusion sit a few words apart but belong to different clauses, so the checker exempted the wrong clause and passed exactly the sentence shape it was built to catch. Its own tamper test had reverted a whole paragraph rather than one sentence, so a pass there proved nothing about the specific claim under test.</p>
+
+<p><strong>Q. What happened after the checker was fixed?</strong><br>
+One level up, a newly added check on two previously uncovered table rows passed even with the original false claim reinserted, because that check only tested whether an evidence item was mentioned anywhere in the whole row — and the missing item happened to be named again elsewhere in the same row for an unrelated reason. The fix was to narrow the check to the clause making the claim rather than the whole row, and that case is now a permanent mutation test: on every run it prints what its own result would have been without the clause-narrowing step, and its registry documents that eight of its nine entries still lack that narrowing.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a> — a different way a gate can look like it's working while measuring the wrong thing: the checker's aperture, not the target it exists to protect.</li>
+<li><a href="./the-guardrail-pointed-at-a-file-that-never-existed.html">The Guardrail Pointed at a File That Never Existed</a> — the same audit habit of injecting a live defect to see if a guard actually catches it, applied to an enforcement mechanism that had been sitting at zero all along.</li>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a> — the sibling case: a gate whose escape condition was a keyword in the agent's own prose, the same family of defect as a checker that reads substrings instead of claims.</li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
