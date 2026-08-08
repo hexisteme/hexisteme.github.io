@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Fix Was Committed. The Old Value Kept Running. — hexisteme notes</title>
+<meta name="description" content="I deleted three ambient API keys from my shell profile and confirmed they were gone with a clean-environment test. A tool reconnected minutes later and registered eight providers with one of the keys I had just removed.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Fix Was Committed. The Old Value Kept Running.", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An ambient API key was deleted from a shell profile and confirmed removed with a clean-environment test, yet a reconnected tool kept authenticating with it because a long-lived parent process had frozen the old environment at its own startup and kept reinjecting it into every child it spawned.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why doesn't env -i prove a removed environment variable is really gone?", "acceptedAnswer": {"@type": "Answer", "text": "env -i spawns a brand-new process with no inherited environment, so it can only read what your current shell profile puts there. That proves the profile on disk is clean. It says nothing about processes that were already running before you edited the profile, because those processes already have their own frozen copy of the environment and never re-read the file."}},
+{"@type": "Question", "name": "What is a long-lived parent process in this context?", "acceptedAnswer": {"@type": "Answer", "text": "Any process that starts once and keeps running for a long time and then spawns other processes later: an editor or IDE, a terminal multiplexer session, a scheduler daemon, an old shell. It reads environment variables once at its own startup and hands that frozen snapshot to every child it spawns afterward, no matter how much later that is or how much the source profile has changed since."}},
+{"@type": "Question", "name": "How do you check whether a running process is still holding a stale environment value?", "acceptedAnswer": {"@type": "Answer", "text": "Inspect the live process directly with something like ps eww -p <PID> to see its actual environment, and compare its start time (ps -o lstart= -p <PID>) against the modification time of the profile you edited. If the process started before the edit, it is guaranteed to still be carrying the old value."}},
+{"@type": "Question", "name": "If a parent process is holding a stale value, how do you actually fix it?", "acceptedAnswer": {"@type": "Answer", "text": "Restart the parent process. Re-editing the profile or re-running a clean-environment test does not help, because the parent already has its own frozen copy in memory and only reads the world again at its own startup."}},
+{"@type": "Question", "name": "Does this problem only apply to shell environment variables?", "acceptedAnswer": {"@type": "Answer", "text": "No. The same shape appears anywhere a long-lived process holds a cached snapshot instead of a live read: a connection pool still using a credential from before a rotation, a daemon that only reads its config at boot and needs a restart rather than a reload signal, or a build agent that cached a registry token before it was revoked. In every case, changing the source of truth and the change taking effect are two separate claims."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The Fix Was Committed. The Old Value Kept Running.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">I deleted three ambient API keys from my shell profile and confirmed with a clean-environment test that they were gone. Minutes later a reconnected tool registered eight providers using one of the keys I had just removed — because the process hosting the reconnect had started days before my edit and had been carrying a frozen copy of the old environment the whole time.</div>
+
+<p>I deleted three ambient API keys from my shell profile. Then I ran the standard clean-room check — spawn a shell with no inherited environment at all, <code>env -i HOME="$HOME" /bin/zsh -lc 'echo "${VARNAME:-unset}"'</code>, and read <code>unset</code> back for all three. That command doesn't lie: a shell started with an empty environment can only see what the current profile puts there, so if it reports the variable missing, the <em>profile</em> is clean.</p>
+
+<p>I closed the loop, reconnected my tools, and moved on.</p>
+
+<p>Minutes later I reconnected a review tool I run for cross-vendor sanity checks, and it came back healthy — with eight providers registered, one of them authenticated with a key I had just deleted. Not a cached credential from an old response. A live, working authentication, using a value that no longer existed anywhere on disk.</p>
+
+<p>The fix was committed. The old value kept running.</p>
+
+<h2>Two different questions that sound like one</h2>
+<p>"Did I fix the config?" and "Is the fix in effect?" collapse into a single question in your head, because in the common case they're the same event: you edit a file, the next thing that reads the file gets the new value, done. <code>env -i</code> answers the first question perfectly. It says nothing about the second, because it doesn't test any process that already exists — it only tests a brand-new one, freshly spawned, that has no choice but to read the current profile because it has no environment of its own yet.</p>
+<p>Every process that was already running before you made the edit is a different story. It read the profile once, at its own startup, copied whatever it found into its own memory, and has not looked at the file since. From that point forward it is not a <em>reader</em> of your shell profile — it is a <em>cache</em> of it. And caches don't invalidate themselves.</p>
+
+<h2>Finding the actual culprit</h2>
+<p>The process holding the stale value here was the editor I was working in — the same long-lived process that hosts my coding sessions and manages tool connections through MCP. I compared two timestamps: when that process had started, and when I had last modified the profile.</p>
+<p>The process had started days before the edit. The profile edit landed after midnight on a night when the process itself had already been running since the afternoon several days earlier — the gap was the better part of a week. It didn't matter that the file on disk was correct. The parent process had frozen its own copy of the environment back when it launched, and it had been silently reinjecting that frozen copy into every child it spawned ever since — including, on reconnect, the review tool that came back with eight providers wired to a key I no longer had.</p>
+<p>That's the mechanism in full: a long-lived parent — an editor, an IDE, a scheduler daemon, an old shell or terminal multiplexer session, anything that starts once and lives a long time — freezes environment variables at boot and hands that frozen snapshot to every process it spawns afterward, no matter how long ago the profile changed. Reconnecting a tool through that parent doesn't re-read the profile. It re-reads the parent's memory.</p>
+
+<h2>Three layers, not one</h2>
+<p>The fix wasn't a better command. It was accepting that "did this take effect" is not a single yes/no question but three separate ones, and that passing the first tells you nothing about the other two:</p>
+<ol>
+<li><strong>The profile, on disk.</strong> What will a brand-new process see? This is what <code>env -i</code> actually checks.</li>
+<li><strong>The live parent process.</strong> What did <em>this specific already-running process</em> freeze at its own startup, and when did that startup happen relative to your edit? A parent whose start time predates your edit is guaranteed to be carrying the old value, no matter what the file now says.</li>
+<li><strong>The child, in practice.</strong> What does the thing that actually consumes the value receive when it's spawned right now? This is the only layer that tells you what's really happening, and it's downstream of both of the others.</li>
+</ol>
+<p>Checking layer 1 and reporting "fixed" is reporting one-third of the answer as if it were the whole thing. The honest report, until you've checked all three, is "profile cleaned up; not yet confirmed in effect" — not "done."</p>
+
+<h2>A verification shape, not a one-off script</h2>
+<p>The concrete checks generalize past this one incident:</p>
+<pre>
+# Layer 1 — profile: what will a fresh process see?
+env -i HOME="$HOME" /bin/zsh -lc 'echo "${VARNAME:-unset}"'
+
+# Layer 2 — live parent: did it start before or after your edit?
+ps eww -p &lt;PID&gt; | tr ' ' '\n' | grep -c "^VARNAME="
+ps -o lstart= -p &lt;PID&gt;          # compare this to the profile's mtime
+</pre>
+<p>If the parent's start time is earlier than the edit, you already have your answer for layer 3 without even testing it: any child that parent spawns will inherit the frozen value, because that's the only value the parent has ever had. The only remedy is restarting the parent — not re-editing the file, not re-running the clean-room test, not reconnecting the child again. Nothing downstream of a stale parent can fix itself; the parent has to actually restart and re-read the world.</p>
+
+<h2>This isn't really about environment variables</h2>
+<p>The shape of the bug is: a value lives in two places — the source of truth and a cache of it taken at some point in the past — and something changed the source of truth without touching the cache. Environment variables are just the version that happens to have a convenient debugging command (<code>env -i</code>) that looks like it proves more than it does.</p>
+<p>The same shape shows up anywhere a long-lived process holds a snapshot instead of a live read: a connection pool that keeps using a credential from before a rotation because nobody recycled the pool; a daemon that only reads its config file at boot and needs a restart, not a <code>SIGHUP</code> that never got wired up, before a change takes effect; a build agent that cached a package registry token before it was revoked and keeps authenticating fine until the day the agent itself finally restarts and the failure shows up completely detached in time from the change that caused it. In every case, "I changed the setting" and "the setting took effect" are separate claims, and the gap between them is exactly as wide as the lifetime of the longest-lived thing that cached the old value.</p>
+<p>The lesson I took from this wasn't "check twice." It was to stop treating "verified" as a single checkbox. If a fix can be cached upstream of where you tested it, the test you ran only rules out the layer it actually touched — and every other layer needs its own, separate confirmation before you get to say it's done.</p>
+
+<p><em>(This key removal was itself the fix for a separate attribution problem — that story is <a href="./the-key-owner-was-not-the-spender.html">a different post</a>.)</em></p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why doesn't env -i prove a removed environment variable is really gone?</strong><br>
+env -i spawns a brand-new process with no inherited environment, so it can only read what your current shell profile puts there. That proves the profile on disk is clean. It says nothing about processes that were already running before you edited the profile, because those processes already have their own frozen copy of the environment and never re-read the file.</p>
+
+<p><strong>Q. What is a long-lived parent process in this context?</strong><br>
+Any process that starts once and keeps running for a long time and then spawns other processes later: an editor or IDE, a terminal multiplexer session, a scheduler daemon, an old shell. It reads environment variables once at its own startup and hands that frozen snapshot to every child it spawns afterward, no matter how much later that is or how much the source profile has changed since.</p>
+
+<p><strong>Q. How do you check whether a running process is still holding a stale environment value?</strong><br>
+Inspect the live process directly with something like <code>ps eww -p &lt;PID&gt;</code> to see its actual environment, and compare its start time (<code>ps -o lstart= -p &lt;PID&gt;</code>) against the modification time of the profile you edited. If the process started before the edit, it is guaranteed to still be carrying the old value.</p>
+
+<p><strong>Q. If a parent process is holding a stale value, how do you actually fix it?</strong><br>
+Restart the parent process. Re-editing the profile or re-running a clean-environment test does not help, because the parent already has its own frozen copy in memory and only reads the world again at its own startup.</p>
+
+<p><strong>Q. Does this problem only apply to shell environment variables?</strong><br>
+No. The same shape appears anywhere a long-lived process holds a cached snapshot instead of a live read: a connection pool still using a credential from before a rotation, a daemon that only reads its config at boot and needs a restart rather than a reload signal, or a build agent that cached a registry token before it was revoked. In every case, changing the source of truth and the change taking effect are two separate claims.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="https://hexisteme.github.io/notes/unit-tests-pass-feature-dead-in-production.html">Unit Tests Pass. Feature Dead in Production.</a></li>
+<li><a href="https://hexisteme.github.io/notes/scheduled-step-failed-heartbeat-stayed-green.html">Scheduled Step Failed. Heartbeat Stayed Green.</a></li>
+<li><a href="https://hexisteme.github.io/notes/monitor-green-nothing-shipped-score-the-effect.html">Monitor Green, Nothing Shipped: Score the Effect</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
