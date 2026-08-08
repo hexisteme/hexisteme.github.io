@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Rule That Triggered on Its Own Advice — hexisteme notes</title>
+<meta name="description" content="I wrote a rule to stop my AI agent from delegating tasks it could do itself. The rule matched on words, and its own prescribed fix contained the exact words it was matching on — so following the rule correctly re-triggered the rule.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Rule That Triggered on Its Own Advice", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A keyword-based anti-delegation rule for an AI coding agent whose own prescribed correct output contained the exact words it flagged as violations, and how replacing the word list with a grammatical-subject axis fixed it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What does it mean for a rule to trigger on its own advice?", "acceptedAnswer": {"@type": "Answer", "text": "The rule listed literal words — \"directly,\" \"find,\" \"confirm\" — as signals that an AI agent was wrongly delegating a task back to the user. But the rule's own prescribed correct output, for when the agent should do the task itself, used the same words: \"I'll handle this myself, directly\" and \"I'll go find it myself.\" The compliant, correct output contained the exact strings the rule was scanning for, so following the rule correctly could re-trigger the rule's own check."}},
+{"@type": "Question", "name": "Why did a keyword-matching rule fail here?", "acceptedAnswer": {"@type": "Answer", "text": "Keyword matching only sees substrings, not who the sentence is about. \"You should confirm this\" and \"I confirmed this myself\" both contain \"confirm,\" but only one is the delegation failure the rule was meant to catch. A word list has no way to distinguish the two because it never looks at the grammatical subject of the sentence."}},
+{"@type": "Question", "name": "What was the actual fix?", "acceptedAnswer": {"@type": "Answer", "text": "The word list was replaced with a two-row table keyed on grammatical subject instead of vocabulary: outputs where the subject is the user (\"please provide,\" \"you should confirm\") still trip the check, while outputs where the subject is the agent itself (\"I'll handle this directly,\" \"I'll go look it up\") are explicitly exempted regardless of which verbs they contain."}},
+{"@type": "Question", "name": "Was this a one-off bug in a single rule?", "acceptedAnswer": {"@type": "Answer", "text": "No. The same internal audit found a defect from the same family, on the same day, in a separate sibling rule that also used a literal word list — this time of verbs — to decide when it should fire. It got the same fix: the word list was replaced with an axis based on scope rather than vocabulary. Two separate rules, unrelated in subject matter, converged on the same failure because they used the same technique to define their trigger."}},
+{"@type": "Question", "name": "Does the fix have a known gap?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: sentences with no explicit subject at all (common in Korean, the language the rule is written and applied in) haven't been tested against the subject-based fix. If that gap causes missed detections in practice, the planned response is not to revert to word lists but to add a narrower rule: treat a subject-less sentence as delegation by default. Separately, the whole checklist is self-check prose the agent is supposed to run before speaking, not a hook wired into the runtime — nothing currently enforces that the check actually happens."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The Rule That Triggered on Its Own Advice</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A house rule was supposed to stop an AI coding agent from delegating tasks it could do itself, using a list of banned words to detect the failure. The rule's own prescribed correct answer — what the agent should say once it does the task itself — used the same words. The fix wasn't a better word list; it was replacing vocabulary with grammatical subject as the actual signal.</div>
+
+<h2>The incident that started it</h2>
+<p>I run a small library of house rules for the AI coding agent I work with daily — short, specific corrections written down the first time the agent does something wasteful, so it doesn't do it again. One of them exists because of an incident where I'd asked the agent to help with an app and it needed some animal expression artwork. Instead of using any of the tools it already had available — browser automation, web search, an image-generation service — it turned around and asked me to draw the expressions myself. It had the means to do the task end to end and chose the cheapest exit: hand it back to the human.</p>
+<p>So I wrote a rule for that. The shape is standard for this kind of house rule: a <strong>Trigger</strong> (the moment right before the agent is about to say "please provide X" or "could you check Y"), a <strong>Judgment</strong> (three gates — do you have a tool for this, can tools be combined to get there, is this actually something only a human can do), and an <strong>Action</strong> (a checklist to run before speaking, plus a table of banned delegation phrasings next to their honest replacements). The rule earned its keep. It's been revised twice since — and the second revision is the interesting part, because the revision caught the rule contradicting itself.</p>
+
+<h2>How the self-contradiction got in</h2>
+<p>The enforcement section of the rule — the part meant to make the judgment mechanically checkable rather than just aspirational — worked by string matching. It listed literal words that should never appear in an agent's output to the user: "directly," "find/look up," "confirm." The idea was that if the agent's sentence contains one of these near a request phrasing, that's delegation leaking through, and the checklist should fire.</p>
+<p>Here's the problem. The same rule's Action section prescribes exactly what the agent should say instead of delegating: "I'll handle this myself, directly." When a search is called for instead of asking the user to look something up: "I'll go find it myself." When something needs confirming instead of asking the user to confirm it: the honest self-executed version, phrased with the same verb.</p>
+<p>Read those two pieces side by side and the shape is obvious: the rule's list of banned words and the rule's own model answer share vocabulary. "Directly," "find," "confirm" are not delegation-specific words — they're just common verbs, and they show up whether the sentence's subject is "you" (I'm asking the user to act) or "I" (I'm telling the user I already acted). A rule that fires whenever those strings appear anywhere in the output doesn't distinguish the two. It just fires. Which means the correct, compliant, rule-following output — the one where the agent takes ownership of the work and reports back that it did the task directly — trips the same detector as the failure the rule exists to prevent.</p>
+<p>This wasn't theoretical. When the rule set went through a full internal audit, someone actually laid the trigger word list and the Action section's prescribed wording side by side and checked. Three words overlapped, verbatim, between "words that mean you're delegating" and "words the rule tells you to use when you're correctly not delegating."</p>
+
+<h2>The fix wasn't a better word list</h2>
+<p>The instinct when a keyword filter misfires is to patch the list — remove the offending word, add an exception, tune the match. That doesn't work here, because the defect isn't in which words were chosen. It's in treating a string as the unit of detection when the thing that actually matters is direction: who is the grammatical subject of the sentence. "You should check this" and "I checked this myself" both contain a verb about checking. Only one of them is the failure mode.</p>
+<p>The fix replaced the word list with a two-row table keyed on subject instead of vocabulary. One row: outputs where the subject is the user — "please provide," "you should confirm," "this is on you to decide" — those are the ones that should still trip the check. The other row: outputs where the subject is the agent itself — "I'll handle this directly," "I'll go look it up," "I'm confirming this now and reporting back" — those are explicitly exempted, no matter which verbs they contain. Direction, not vocabulary, is the actual signal. A keyword list is blind to direction by construction; it can only ever see substrings.</p>
+
+<h2>It wasn't a one-off bug in one rule</h2>
+<p>What made this worth writing down rather than just quietly patching is that the same audit found a defect from the same family, on the same day, in a sibling rule — a completely different house rule that also used a literal list, this time of verbs, to decide when it should trigger. It got the same fix: the verb list was replaced with an axis based on the scope of what the sentence was actually about, rather than which verbs it happened to contain. Two separate rules, unrelated in subject matter, converged on the same failure because they used the same lazy technique to define "trigger." Whenever a self-check rule is implemented as "does this string appear," and the rule's own prescribed correct behavior is itself described in natural language, there's a real chance the correction contains the trigger. String matching has no notion of who's speaking or in what role — only a structural axis (subject, scope, direction) can tell those apart.</p>
+
+<h2>Where this still might not hold, and where it definitely doesn't reach</h2>
+<p>The subject-based fix has a known edge it hasn't been tested against yet: sentences with no explicit subject at all. Korean, the language this rule is written and applied in, allows subject-less requests — the equivalent of "confirmation appreciated" with no stated "you" or "I." If that gap turns out to actually cause missed detections in practice, the fix on the table isn't to abandon the subject axis and go back to word lists — it's to add a narrower rule on top: treat a subject-less sentence as delegation by default, since silence about who's doing the work is itself informative.</p>
+<p>And there's a harder limitation that no rewrite of the trigger logic fixes: this whole checklist is prose I'm supposed to run through mentally before I let an output go out, not a hook wired into the runtime that can actually block anything. Nothing enforces that the check happens. It's a discipline, not a gate — worth distinguishing clearly from the sibling piece in this series about a Stop hook that mechanically blocks an agent from punting a <em>decision</em> back to the user, which does have runtime teeth. This rule doesn't, yet.</p>
+
+<h2>The general shape, past AI agents entirely</h2>
+<p>None of this is specific to language models. Any system that filters or reacts to its own output using the same vocabulary it uses to describe the problem is exposed to this. An alerting rule that pages on the string "error" will page on its own "error rate has recovered" resolution message if nobody thought to check the two against each other. A linter configured to flag a banned pattern will flag its own auto-fix suggestion if the suggestion text quotes the pattern back to explain what changed. A spam filter trained to catch messages that mention "your account" and "verify" will quarantine its own account-verification notification email. In every one of these, the fix is never "pick better keywords" — it's noticing that the filter's input domain and its own output domain are the same domain, and that keyword matching alone cannot tell a description of the problem from an instance of the fix.</p>
+<p>The check that would have caught this before it shipped is cheap and doesn't need any tooling: whenever you write a rule that lists words or phrases to detect a behavior, put your own prescribed correct output next to that list and read them side by side. If a word appears in both columns, the rule isn't measuring the behavior — it's measuring vocabulary, and vocabulary doesn't know which side of the sentence it's standing on.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does it mean for a rule to trigger on its own advice?</strong><br>
+The rule listed literal words — "directly," "find," "confirm" — as signals that an AI agent was wrongly delegating a task back to the user. But the rule's own prescribed correct output, for when the agent should do the task itself, used the same words: "I'll handle this myself, directly" and "I'll go find it myself." The compliant, correct output contained the exact strings the rule was scanning for, so following the rule correctly could re-trigger the rule's own check.</p>
+
+<p><strong>Q. Why did a keyword-matching rule fail here?</strong><br>
+Keyword matching only sees substrings, not who the sentence is about. "You should confirm this" and "I confirmed this myself" both contain "confirm," but only one is the delegation failure the rule was meant to catch. A word list has no way to distinguish the two because it never looks at the grammatical subject of the sentence.</p>
+
+<p><strong>Q. What was the actual fix?</strong><br>
+The word list was replaced with a two-row table keyed on grammatical subject instead of vocabulary: outputs where the subject is the user ("please provide," "you should confirm") still trip the check, while outputs where the subject is the agent itself ("I'll handle this directly," "I'll go look it up") are explicitly exempted regardless of which verbs they contain.</p>
+
+<p><strong>Q. Was this a one-off bug in a single rule?</strong><br>
+No. The same internal audit found a defect from the same family, on the same day, in a separate sibling rule that also used a literal word list — this time of verbs — to decide when it should fire. It got the same fix: the word list was replaced with an axis based on scope rather than vocabulary. Two separate rules, unrelated in subject matter, converged on the same failure because they used the same technique to define their trigger.</p>
+
+<p><strong>Q. Does the fix have a known gap?</strong><br>
+Yes: sentences with no explicit subject at all (common in Korean, the language the rule is written and applied in) haven't been tested against the subject-based fix. If that gap causes missed detections in practice, the planned response is not to revert to word lists but to add a narrower rule: treat a subject-less sentence as delegation by default. Separately, the whole checklist is self-check prose the agent is supposed to run before speaking, not a hook wired into the runtime — nothing currently enforces that the check actually happens.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a> — a neighboring case from the same audit, where a gate could be <em>cleared</em> by a keyword in the agent's prose; this one is about a rule <em>firing on itself</em>.</li>
+<li><a href="./stop-hook-decision-ownership-ai-agent.html">The "You Decide" Reflex: Blocking AI-Agent Decision Punting with a Stop Hook</a> — the sibling rule about punting judgment rather than tasks, with an actual runtime hook behind it.</li>
+<li><a href="./quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a> — another case of a gate that looked disciplined but wasn't measuring what it claimed to measure.</li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
