@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exit 0, Empty stdout: the Quota Died on stderr — hexisteme notes</title>
+<meta name="description" content="A subscription CLI hit its usage limit, wrote nothing to stdout, put the real error on stderr, and exited 0 anyway — exactly the shape of failure that any dispatcher checking only the exit code will log as success.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Exit 0, Empty stdout: the Quota Died on stderr", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why an exit code of 0 from a subscription-gated CLI worker does not mean the worker succeeded, and how to check stdout and the expected artifact instead.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why does a quota-exhausted CLI exit with code 0 instead of a nonzero code?", "acceptedAnswer": {"@type": "Answer", "text": "Because many subscription-gated command-line tools treat hitting a usage limit as a billing condition rather than a program error, so they route the real message to stderr and let the process exit cleanly rather than breaking a caller's shell pipeline with a nonzero status."}},
+{"@type": "Question", "name": "Is this specific to one vendor's CLI?", "acceptedAnswer": {"@type": "Answer", "text": "No. I saw the identical shape — real error on stderr, empty stdout, exit 0 — in two unrelated CLIs from two different vendors, which is what turned it from \"one weird tool\" into an assumption I now hold about any subscription CLI I shell out to."}},
+{"@type": "Question", "name": "Why does macOS make this worse?", "acceptedAnswer": {"@type": "Answer", "text": "macOS does not ship the GNU timeout binary, so a dispatch script that wraps a worker call in timeout without checking that it resolves can have the shell fail to find the command and still hand back exit code 0, producing a second, independent path to a false success signal."}},
+{"@type": "Question", "name": "What should an orchestrator check instead of the exit code?", "acceptedAnswer": {"@type": "Answer", "text": "Whether stdout is non-empty, and whether the expected artifact (a file, a result payload) actually exists with the content it should have. The exit code should be treated as a weak, advisory signal, not the verdict."}},
+{"@type": "Question", "name": "Is this the same bug as \"wrapper failure is not capability failure\"?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, the same family of bug — trusting a signal layer instead of the real output — but pointed in the opposite direction: that case is a false negative (a wrapper failing while the capability still works); this one is a false positive (dead on arrival, but the harness says yes)."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Exit 0, Empty stdout: the Quota Died on stderr</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A subscription-gated CLI worker hit its usage cap, printed the real error to stderr, left stdout at 0 bytes, and exited 0 anyway. Any dispatcher that only checks the exit code will log that as a completed task. This is what that failure looks like, why macOS makes it easier to hit by accident, and the check that actually catches it.</div>
+
+<h2>The setup: workers as ephemeral subprocesses</h2>
+<p>Part of how I run background coding tasks is by shelling out to a subscription-gated CLI from a different vendor than my main assistant, one task at a time. No daemon, no shared server — each worker starts, does one job, and exits, and I read back whatever it produced. That pattern itself is fine.</p>
+<p>What I got wrong for a while was how I decided whether a worker had actually done anything.</p>
+
+<h2>The failure: exit 0, nothing on stdout</h2>
+<p>On 2026-08-07, one of these workers — OpenAI's Codex CLI, invoked non-interactively — hit its own usage cap mid-task. The real failure message was:</p>
+<pre>ERROR: You've hit your usage limit</pre>
+<p>printed to <strong>stderr</strong>. Meanwhile:</p>
+<ul>
+<li><strong>stdout was 0 bytes</strong> — no output, no partial result, nothing.</li>
+<li><strong>the exit code was 0.</strong></li>
+</ul>
+<p>If a dispatcher only checks <code>$?</code>, this looks identical to a worker that quietly finished a trivial task and had nothing to say. There's no crash, no nonzero status, no exception to catch anywhere in the normal control flow. The failure is completely real; it's just filed under the wrong file descriptor, and the exit code actively lies about it.</p>
+
+<h2>Why this is worse than an ordinary silent failure</h2>
+<p>A tool that fails loudly — nonzero exit, a stack trace, a <code>panic:</code> line — is annoying but honest: an <code>if $? -ne 0</code> branch catches it whether or not you anticipated the specific failure mode. This is a different shape of problem. The interface contract the orchestration is trusting — exit code as the success/failure signal — stays green, while the actual work product (stdout) is empty. Anyone who wires "exit code equals 0" to "mark the task done, move on" will silently record a quota death as a completed job.</p>
+
+<h2>A compounding trap: macOS doesn't ship <code>timeout</code></h2>
+<p>It gets worse on macOS specifically: there's no <code>timeout</code> binary by default, so wrapping a worker call in <code>timeout ...</code> on a machine where it doesn't resolve hands back a shell "command not found" as exit 0 — a second, independent path to the same false-success signal.</p>
+
+<h2>Not a one-vendor quirk</h2>
+<p>I'd already tripped over a version of this once before, with a different vendor's CLI, and filed it away as "that tool is just weird about how it reports quota." Watching the identical shape — real error on stderr, empty stdout, exit 0 — show up in a completely separate CLI from a completely different vendor changed the diagnosis: this isn't a bug in one wrapper, it's how subscription-gated command-line tools tend to communicate "you're out of quota." They treat it as a billing condition rather than a program error, so the message goes to stderr and the process exits cleanly rather than breaking a caller's shell pipeline with a nonzero status.</p>
+<p>Once that's the assumption, you stop trusting exit codes from any subscription CLI by default.</p>
+
+<h2>The fix: judge the artifact, not the exit code</h2>
+<p>The rule I apply to every worker dispatch now is boring and mechanical, which is the point:</p>
+<ol>
+<li><strong>Exit code is advisory, not authoritative.</strong> A 0 means the process didn't crash. It says nothing about whether it produced anything.</li>
+<li><strong>Empty stdout is a failure</strong>, independent of exit code. If the contract is "the worker prints its result to stdout," zero bytes there is a hard fail, full stop.</li>
+<li><strong>Check for the expected artifact</strong>, not the worker's own claims about it. If it was supposed to write a file, look for that file at the path you expected, with content that resembles what you asked for.</li>
+<li><strong>Read stderr even when stdout looks fine and the exit code is 0.</strong> The actual diagnostic here was sitting one file descriptor away from where the dispatcher was looking.</li>
+<li><strong>Verify your own wrapper's dependencies before trusting its exit code.</strong> If a dispatch script assumes a binary like <code>timeout</code> exists on every machine it runs on, that assumption is itself a failure mode to check for — not just the worker's behavior.</li>
+</ol>
+<p>None of this requires knowing anything vendor-specific ahead of time. It requires treating "exit 0" as one weak signal among several, not the whole verdict.</p>
+
+<h2>Where the same shape shows up outside AI tooling</h2>
+<p>This isn't specific to LLM CLIs — any pipeline-friendly tool tends to swallow certain failure classes into stderr-plus-exit-0 rather than a hard nonzero exit, because tool authors don't want a quota, rate-limit, or auth condition to break a caller's pipeline. The fix generalizes too: treat the exit code of anything you didn't write as a hint, and check the actual output before marking a step done.</p>
+
+<h2>Related failure, opposite direction</h2>
+<p>I've also hit the mirror-image bug elsewhere — a wrapper failing while the underlying capability still works (a false negative); this one is the opposite: dead on arrival, but the harness says yes (a false positive).</p>
+<p>The same distrust-the-green-light instinct applies at the HTTP layer — I've separately seen a <code>200 OK</code> with an error payload inside get cached as if it were good data; same root cause, different transport.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does a quota-exhausted CLI exit with code 0 instead of a nonzero code?</strong><br>
+Because many subscription-gated command-line tools treat hitting a usage limit as a billing condition rather than a program error, so they route the real message to stderr and let the process exit cleanly rather than breaking a caller's shell pipeline with a nonzero status.</p>
+
+<p><strong>Q. Is this specific to one vendor's CLI?</strong><br>
+No. I saw the identical shape — real error on stderr, empty stdout, exit 0 — in two unrelated CLIs from two different vendors, which is what turned it from "one weird tool" into an assumption I now hold about any subscription CLI I shell out to.</p>
+
+<p><strong>Q. Why does macOS make this worse?</strong><br>
+macOS does not ship the GNU <code>timeout</code> binary, so a dispatch script that wraps a worker call in <code>timeout</code> without checking that it resolves can have the shell fail to find the command and still hand back exit code 0, producing a second, independent path to a false success signal.</p>
+
+<p><strong>Q. What should an orchestrator check instead of the exit code?</strong><br>
+Whether stdout is non-empty, and whether the expected artifact (a file, a result payload) actually exists with the content it should have. The exit code should be treated as a weak, advisory signal, not the verdict.</p>
+
+<p><strong>Q. Is this the same bug as "wrapper failure is not capability failure"?</strong><br>
+Yes, the same family of bug — trusting a signal layer instead of the real output — but pointed in the opposite direction: that case is a false negative (a wrapper failing while the capability still works); this one is a false positive (dead on arrival, but the harness says yes).</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./wrapper-failure-is-not-capability-failure.html">Wrapper Failure Is Not Capability Failure</a></li>
+<li><a href="./error-inside-http-200-poisoned-the-cache.html">Error Inside HTTP 200 Poisoned the Cache</a></li>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">Scheduled Step Failed, Heartbeat Stayed Green</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
