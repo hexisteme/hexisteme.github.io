@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deprecation Doesn't Reach the Copies — hexisteme notes</title>
+<meta name="description" content="A threshold got overturned by its own counterexample, then quietly re-derived and pasted into a different rule a week later. About three months passed before an audit noticed the copy had never died.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Deprecation Doesn't Reach the Copies", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why superseding a rule doesn't retire an inline copy of it pasted into a different document, and why a reference-graph audit alone can't catch that.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What's the actual bug here — a broken link or something else?", "acceptedAnswer": {"@type": "Answer", "text": "Neither, exactly. A broken link (a reference pointing at something that's been deleted) fails loudly — something tries to resolve it and can't. This was the opposite: a rule copied a fact by value instead of by reference, so when the original fact was overturned, there was no link to break. The copy kept working, correctly, on outdated information."}},
+{"@type": "Question", "name": "Why didn't the reference-graph audit catch it immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Because a reference-graph audit only checks edges — what points at what, what supersedes what. A pasted-in restatement of an already-overturned rule doesn't create an edge; there's nothing wired to the original rule to walk backward from. The same audit sweep did catch a related but different problem: a missing backward link between a rule and the older rule it had superseded."}},
+{"@type": "Question", "name": "What's the concrete number behind the internal-consistency gate in this story?", "acceptedAnswer": {"@type": "Answer", "text": "The rule that got superseded rejected any panel response scoring under 70% internal consistency. The counterexample that broke it was a response scoring 21%, which still contained three insights the reviewer hadn't reached on its own; a fourth low-scoring response in the same batch was a straightforward hallucination and was discarded separately, on its own merits."}},
+{"@type": "Question", "name": "How do you actually search for this pattern instead of just describing it?", "acceptedAnswer": {"@type": "Answer", "text": "Take the literal text of every deprecated or superseded rule, config value, or threshold, and grep the full body of every other active rule for a recognizable restatement of it — not just check whether something references it by name. The reference graph tells you what's wired together; only a body-text scan tells you what's been silently re-derived."}},
+{"@type": "Question", "name": "Does this only apply to AI agent rules?", "acceptedAnswer": {"@type": "Answer", "text": "No. The same failure shows up in vendored dependencies (a forked copy of a library doesn't receive the upstream security patch), pinned config snippets copy-pasted into onboarding docs, and duplicated constants across services. Anywhere a fact can be pasted by value instead of imported by reference, deprecation stops at the paste."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Deprecation Doesn't Reach the Copies</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A threshold got overturned by its own counterexample — a panel response with 21% internal agreement that still hid three insights I'd missed. A week later, a different rule silently re-derived the same discarded 70% threshold and pasted it in as if it were still true. It sat there, active, for about three months before anyone noticed.</div>
+
+<p>I keep my operating judgment in small, versioned files — one file per decision, each with a status, a list of what it supersedes, and a change history. It's a lightweight way to stop re-litigating the same argument every few weeks: write the judgment down once, and the next time the situation comes up, read the file instead of re-deriving the answer from scratch. Most of the time this works exactly as intended — a rule gets written, a rule gets proven wrong, a newer rule replaces it, done. This is the story of the one time that didn't happen, and why "didn't happen" doesn't look like an error. It looks like a rule sitting there, marked active, doing precisely what it was told to do.</p>
+
+<h2>The gate</h2>
+<p>One of my rules governed how to use a panel of eight simulated reviewers I sometimes convene for open-ended judgment calls — different personas critiquing the same plan from different angles. The panel's response includes, among other things, an "internal consistency" score: roughly, how much the eight answers agree with each other. Early on I wrote a gate around that number: if internal consistency comes back under 70%, don't adopt the panel's conclusion on its own. Low agreement, the reasoning went, meant the panel hadn't converged on anything trustworthy.</p>
+
+<h2>The supersession, with receipts</h2>
+<p>The gate lasted exactly as long as it took to hit a counterexample. I ran the panel on an architecture question and got back a response at 21% internal consistency — a reject, by the gate's own arithmetic. Except when I actually read the eight answers instead of just their agreement score, three of them were pointing at things I hadn't considered at all: a missing measurement step behind a database-performance claim, a conflation of a plan's stated purpose with its surface description, and one persona's terse near-empty answer that turned out to be a legitimate signal — a comment that the question itself wasn't well-formed for consensus, not a dodge. A fourth response in the same batch was a straightforward hallucination, a decision flow that didn't exist anywhere in the plan, and got discarded on its own merits, unrelated to the consistency score.</p>
+<p>None of those three catches would have survived the 70% gate. The gate wasn't filtering noise — it was filtering the panel's actual value, which was never agreement in the first place. It was the angles I hadn't thought of. I wrote a new rule the same day: consistency isn't a pass/fail threshold, it's a diversity reading. A low score means the eight answers disagree with each other, and disagreement is exactly the condition under which reading each one individually is worth the most, not the least. The new rule named "reject any response scoring under some cutoff" as the textbook anti-pattern it was correcting.</p>
+<p>A second, unrelated check came back at a reassuring 79% consistency and still hid a real disagreement — no fixed threshold works in either direction.</p>
+
+<h2>Three months later</h2>
+<p>About a week after writing the rule that killed the gate, I wrote an unrelated rule about diagnosing app growth after launch — a rule that also happens to call the same reviewer panel. That rule needed its own checklist for what to discard from a panel response, and one of the four discard conditions I wrote into it was: reject if internal consistency is under 70%. I didn't copy-paste it consciously. I reasoned my way back to the same number, because it was the number I remembered as correct, and I wrote it in as a self-contained bullet instead of pointing at the rule that had already overturned it. I re-derived a fact I had personally already retired, and pasted it, inline, into a different document, as if it were still true.</p>
+<p>It sat there, active, for about three months. Then a full sweep across every rule file caught it — not because anything had broken, but because someone went looking for supersession chains and found that this one hadn't reached where it should have. The fix was one paragraph: strike the old bullet, cross-reference the rule that had already made it obsolete, and note explicitly that the consistency score is a diagnostic reading now, not a rejection gate. The same sweep turned up a smaller, adjacent gap in the very rule that had done the overturning: it had never recorded which older rule it superseded, so the link only worked in one direction — you could walk forward from the old rule to its replacement, but not backward from the replacement to confirm what it had replaced. Both are graph problems, but they're different kinds of graph problems, and only one of them shows up if all you check is references.</p>
+
+<h2>Vendoring without the patches</h2>
+<p>This is the same failure mode as vendoring a dependency instead of importing it. You copy a library's code into your own repo because you want a small local change, or you don't trust its release cadence, or it's just easier at the time. Months later, a security patch lands upstream. Nothing in your build breaks. Nothing tells you to update, because as far as your build is concerned, you don't depend on that library anymore — you own a fork of it, and forks don't subscribe to anyone's changelog. The patch doesn't reach the copy because the copy was never wired to receive it. It just sits there, correctly compiled, silently wrong.</p>
+<p>The deprecation graph has the identical shape. A reference — an import, a pointer, a "see rule X" — is a live wire: patch the source, and everything downstream that follows the wire either gets the patch for free or at least gets flagged as stale. A copy is a wire that's been cut and spliced into a wall socket that no longer carries current. From the outside it looks identical to a live wire. It only behaves differently at the exact moment you need it not to.</p>
+<p>If you run CI, this is the reason a pinned dependency doesn't pick up a CVE fix and a forked utility function doesn't pick up the bugfix its sibling got. If you maintain onboarding docs, this is the reason a "quick start" page that pastes in a config snippet instead of linking to the canonical one is the page that's still wrong six months later. The mechanism doesn't care whether the copied thing is code, a config value, a threshold, or a paragraph of policy — anywhere a fact can be pasted by value instead of referenced by name, deprecation stops at the paste. I've also written about the mirror-image failure — a reference that stays wired to something that no longer exists behind it, which fails loudly the moment anything tries to resolve it (<a href="https://hexisteme.github.io/notes/the-guardrail-pointed-at-a-file-that-never-existed.html">a guardrail pointed at a file that never existed</a>). This one is quieter, because nothing ever tries to resolve a copy; it just sits there being read as true.</p>
+
+<h2>What changed</h2>
+<p>Two changes came out of this, and only one of them is about writing better rules.</p>
+<p>The first is a discipline change: when a new rule needs a fact, a threshold, or a judgment call that already lives somewhere else, it references that source by name instead of restating it. If the growth-diagnostic rule had said "see the panel-value rule for how to treat a low consistency score" instead of writing its own bullet, the supersession would have reached it automatically — there would have been nothing to go stale, because there would have been nothing local to keep in sync.</p>
+<p>The second is an audit change, and it's the more important one, because the first change only prevents new copies — it does nothing about the copies that already exist. An audit that walks the reference graph will correctly find the kind of gap where a link is simply missing, the way it found the one-directional supersession link in this same sweep. It will not find a paragraph that says the same thing as a superseded rule in different words, because there's no edge in the graph to walk — the copy isn't wired to anything, which is exactly the problem. The only way to catch that is to pull the literal content out of every deprecated or superseded rule — the specific numbers, thresholds, clauses — and search the full text of every other active rule for a recognizable restatement. It's slower and uglier than walking a graph, and across a body of about 180 rule files, it was the only method that would have caught this one before three months passed. I keep these rules in a system I've called my <a href="https://hexisteme.github.io/notes/rdu-reusable-decision-units.html">reusable decision units</a> elsewhere, one file per judgment, meant to supersede cleanly — this is the specific way that promise broke.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What's the actual bug here — a broken link or something else?</strong><br>
+Neither, exactly. A broken link (a reference pointing at something that's been deleted) fails loudly — something tries to resolve it and can't. This was the opposite: a rule copied a fact by value instead of by reference, so when the original fact was overturned, there was no link to break. The copy kept working, correctly, on outdated information.</p>
+
+<p><strong>Q. Why didn't the reference-graph audit catch it immediately?</strong><br>
+Because a reference-graph audit only checks edges — what points at what, what supersedes what. A pasted-in restatement of an already-overturned rule doesn't create an edge; there's nothing wired to the original rule to walk backward from. The same audit sweep did catch a related but different problem: a missing backward link between a rule and the older rule it had superseded.</p>
+
+<p><strong>Q. What's the concrete number behind the internal-consistency gate in this story?</strong><br>
+The rule that got superseded rejected any panel response scoring under 70% internal consistency. The counterexample that broke it was a response scoring 21%, which still contained three insights the reviewer hadn't reached on its own; a fourth low-scoring response in the same batch was a straightforward hallucination and was discarded separately, on its own merits.</p>
+
+<p><strong>Q. How do you actually search for this pattern instead of just describing it?</strong><br>
+Take the literal text of every deprecated or superseded rule, config value, or threshold, and grep the full body of every other active rule for a recognizable restatement of it — not just check whether something references it by name. The reference graph tells you what's wired together; only a body-text scan tells you what's been silently re-derived.</p>
+
+<p><strong>Q. Does this only apply to AI agent rules?</strong><br>
+No. The same failure shows up in vendored dependencies (a forked copy of a library doesn't receive the upstream security patch), pinned config snippets copy-pasted into onboarding docs, and duplicated constants across services. Anywhere a fact can be pasted by value instead of imported by reference, deprecation stops at the paste.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-guardrail-pointed-at-a-file-that-never-existed.html">The Guardrail Pointed at a File That Never Existed</a></li>
+<li><a href="./rdu-reusable-decision-units.html">RDU: Reusable Decision Units</a></li>
+<li><a href="./grep-wont-find-your-dead-gates.html">Grep Won't Find Your Dead Gates</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
