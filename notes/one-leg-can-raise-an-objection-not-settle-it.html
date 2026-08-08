@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One Leg Can Raise an Objection. It Can't Settle One. — hexisteme notes</title>
+<meta name="description" content="Collecting a dissenting opinion and using it to overturn a conclusion are not the same operation, and they don't need the same quorum — conflating them made two of my own verification rules contradict each other.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "One Leg Can Raise an Objection. It Can't Settle One.", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why collecting a dissenting review and acting on it require different verification quorums, and how conflating them creates contradictory rules.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why do two rules that both sound reasonable end up contradicting each other?", "acceptedAnswer": {"@type": "Answer", "text": "Because they're silently answering different questions while looking like they answer the same one. In my case, one rule was about whether a single dissenting opinion can be collected, and the other was about whether a single dissenting opinion can be acted on. Those are different operations with different stakes, but nothing in the wording flagged that they needed different thresholds, so following both literally produced a contradiction every time a real objection showed up."}},
+{"@type": "Question", "name": "How many reviewers does it take to raise an objection versus to act on one?", "acceptedAnswer": {"@type": "Answer", "text": "Raising an objection (collection) only needs one reviewer or one review pass — the output is a hypothesis, not a decision, so the cost of admitting a wrong candidate is low. Acting on an objection (a verdict) needs either a direct check against ground truth (the source text, the actual code, an actual measurement) or convergence from two genuinely independent reviewers or model lineages. One unconfirmed voice is enough to notice a problem; it is not enough to change a conclusion."}},
+{"@type": "Question", "name": "Does the second confirmation for a verdict have to come from a second reviewer?", "acceptedAnswer": {"@type": "Answer", "text": "No. The second check can be a ground-truth check instead of a second opinion. A single dissenting reviewer whose objection is confirmed directly against the primary source has effectively satisfied a two-axis requirement, because the two things that can close a verdict are ground truth and independent convergence, not two reviewers by definition."}},
+{"@type": "Question", "name": "Why can two reviewers agreeing be weaker evidence than one reviewer checked against the source?", "acceptedAnswer": {"@type": "Answer", "text": "Because two reviewers agreeing can just mean they share the same blind spot, especially if they were trained or briefed on overlapping material — agreement doesn't rule out a shared error. Checking a single objection directly against the primary source doesn't have that failure mode: either the objection matches what the source says or it doesn't, independent of how many people believe it."}},
+{"@type": "Question", "name": "What has to be true before a ground-truth check is allowed to settle a dispute?", "acceptedAnswer": {"@type": "Answer", "text": "The instrument producing the ground-truth reading has to be independently verified as correct first. A ground-truth check built on a broken or overly lenient measuring tool doesn't settle anything — it just launders an error as if it had been confirmed. Establish that the checker itself is accurate before letting its output outrank a dissenting opinion."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>One Leg Can Raise an Objection. It Can't Settle One.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">I ran two review rules literally and they contradicted each other: one said a single dissenting reviewer can't settle whether a conclusion is right, the other said one review pass is normally enough. The fix wasn't picking a number — it was noticing that collecting an objection and acting on one aren't the same operation, and they don't need the same quorum.</div>
+
+<h2>Two rules, followed literally, that can't both be true</h2>
+<p>I run a small fleet of AI agents that check each other's work — one drafts a conclusion, another (usually a different model vendor) is asked to find holes in it. For a while I had two house rules governing that setup. Rule one: a single dissenting reviewer's opinion cannot be used to settle whether a conclusion is right — you need more than one independent voice before acting on an objection. Rule two: in ordinary, non-load-bearing situations, one cross-vendor review pass is enough; don't multiply reviewers past that.</p>
+<p>Read together those two rules can't both survive contact with a real decision. If a single reviewer flags a problem, do I need a second reviewer first, or was the first pass already sufficient? Every time I actually had one dissenting opinion in hand, I had to pick which rule to obey with no principled way to choose. Either verification bloats to two-plus passes every time, quietly violating the "one pass is enough" default, or I quietly ignore the first rule and act on one voice anyway.</p>
+
+<h2>The bug wasn't in either number</h2>
+<p>My first instinct was to argue about the numbers — is one enough, or do you need two? Wrong axis. The two rules were answering different questions I had been treating as one question: "can I collect a dissenting opinion from a single source?" and "can I act on it?" are not the same operation, and there's no reason they should require the same quorum.</p>
+<p>Collecting an objection is cheap. One reviewer is completely sufficient, because the output isn't a decision yet — it's a hypothesis worth having on the table even if the reviewer who raised it turns out to be wrong. Turning that objection into an actual verdict — reversing a conclusion, rewriting a rule, shipping a fix — is a different act, and it's the one that needs a real quorum: either a ground-truth check (the original source, the actual code, an actual measurement) or convergence from two genuinely independent lineages. Only then is it something you're allowed to act on.</p>
+<p>The part that actually resolved the contradiction was realizing the second thing a verdict needs doesn't have to be a second reviewer at all — it can be a fact check against the primary source. My rule for picking verification tools already treats "ways to close uncertainty" as three distinct axes (ground truth, a computational engine, or an independent model family), with a multi-perspective panel treated as a step that generates and disperses candidate objections rather than one of the closing axes itself. Once the second axis reads as "ground truth OR a second lineage" instead of "a second lineage, full stop," a single dissenting leg plus a ground-truth check <em>is</em> two axes — the peacetime default and the settle-requires-more-than-one-voice rule stop fighting because they were never about the same step.</p>
+
+<h2>Why a confirmed single voice beat two that agreed</h2>
+<p>A ground-truth-confirmed single objection can outrank two reviewers nodding in agreement, and it isn't intuitive at first: two reviewers agreeing on the same wrong idea is exactly what you'd expect if they share overlapping training or briefing material. Agreement can just be the same blind spot showing up twice. A single objection checked directly against the source text doesn't have that failure mode — it either matches what the source says or it doesn't.</p>
+<p>I tested this directly. During a full audit pass over my own rulebook, one reviewer running solo raised three objections to a draft. I checked each one against the actual source document instead of taking the reviewer's word for it. Two of the three held up, and I accepted them, changing the underlying judgment. The third didn't — the reviewer had misread how a piece of automation actually behaved, and the ground-truth check caught that misreading. A second reviewer wouldn't necessarily have caught it either; a second opinion doesn't verify a misreading, it just adds another guess. Checking the primary source did the actual work.</p>
+
+<h2>The two catches that came with it</h2>
+<p>I put the resolved rule in front of a third, independent reviewer specifically to attack it. Two of its objections survived scrutiny and got folded into the rule; a third did not.</p>
+<p>First: ground truth only counts as an axis if the instrument producing it is actually correct. In that same audit pass, I had been treating a count from my own parsing script as settled fact, when the script was more lenient than the standard it was supposed to check against — a stricter, correct parser produced a meaningfully different count on the same input. A "ground truth" check built on a broken measuring instrument doesn't outrank anything; it launders an error as if it were confirmed. You have to establish the checker is accurate before letting it settle a dispute.</p>
+<p>Second: "independent" can't just mean "a different vendor's name on the API call." Two providers can serve models descended from the same underlying weights or training lineage, in which case counting them as two independent checks double-counts one data point. Independence has to be judged by lineage, not by brand.</p>
+<p>A third objection — that picking a weaker model from the same vendor family should invalidate the check — I rejected. That's a complaint about the quality of a given leg, not about whether the axis itself is structurally sound.</p>
+
+<h2>What would prove this wrong</h2>
+<p>If a ground-truth-confirmed single-leg verdict later turns out to have been wrong, and that happens twice, the bar goes up — a verdict would then require two independent lineages converging <em>and</em> a ground-truth check. But before counting those two failures, I have to first rule out that the ground-truth instrument itself was broken in those cases — a bad measuring tool produces failures that look like verdict failures but are actually instrument failures.</p>
+
+<h2>Where this shows up outside AI review</h2>
+<p>None of this is specific to LLMs checking each other. A single code reviewer commenting "this looks like it could deadlock" is worth recording and investigating — that's collection, and one reviewer is plenty. Actually reverting a merged change on the strength of that comment is a different act, and it deserves a different bar: reproduce the deadlock against the real system, or get a second reviewer who independently reaches the same conclusion without seeing the first comment. Teams that skip this distinction end up in the same trap — either every offhand review comment triggers a full second review cycle, or comments get acted on without anyone checking them against reality, and which one happens depends on who's in a hurry that day. The fix isn't a magic reviewer count. It's writing down which quorum applies to noticing a problem and which applies to acting on it — and making sure a fact check against the actual system counts toward the second one.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why do two rules that both sound reasonable end up contradicting each other?</strong><br>
+Because they're silently answering different questions while looking like they answer the same one. In my case, one rule was about whether a single dissenting opinion can be collected, and the other was about whether a single dissenting opinion can be acted on. Those are different operations with different stakes, but nothing in the wording flagged that they needed different thresholds, so following both literally produced a contradiction every time a real objection showed up.</p>
+
+<p><strong>Q. How many reviewers does it take to raise an objection versus to act on one?</strong><br>
+Raising an objection (collection) only needs one reviewer or one review pass — the output is a hypothesis, not a decision, so the cost of admitting a wrong candidate is low. Acting on an objection (a verdict) needs either a direct check against ground truth (the source text, the actual code, an actual measurement) or convergence from two genuinely independent reviewers or model lineages. One unconfirmed voice is enough to notice a problem; it is not enough to change a conclusion.</p>
+
+<p><strong>Q. Does the second confirmation for a verdict have to come from a second reviewer?</strong><br>
+No. The second check can be a ground-truth check instead of a second opinion. A single dissenting reviewer whose objection is confirmed directly against the primary source has effectively satisfied a two-axis requirement, because the two things that can close a verdict are ground truth and independent convergence, not two reviewers by definition.</p>
+
+<p><strong>Q. Why can two reviewers agreeing be weaker evidence than one reviewer checked against the source?</strong><br>
+Because two reviewers agreeing can just mean they share the same blind spot, especially if they were trained or briefed on overlapping material — agreement doesn't rule out a shared error. Checking a single objection directly against the primary source doesn't have that failure mode: either the objection matches what the source says or it doesn't, independent of how many people believe it.</p>
+
+<p><strong>Q. What has to be true before a ground-truth check is allowed to settle a dispute?</strong><br>
+The instrument producing the ground-truth reading has to be independently verified as correct first. A ground-truth check built on a broken or overly lenient measuring tool doesn't settle anything — it just launders an error as if it had been confirmed. Establish that the checker itself is accurate before letting its output outrank a dissenting opinion.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./forced-dissent-slot-has-a-floor.html">Forced Dissent Slot Has a Floor</a></li>
+<li><a href="./multi-model-fanout-triangulation-blind-spots.html">Multi-Model Fanout: Triangulation Has Blind Spots</a></li>
+<li><a href="./challenge-triggered-reverification.html">Challenge-Triggered Reverification</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
