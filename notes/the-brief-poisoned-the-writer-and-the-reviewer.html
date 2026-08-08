@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Bug Was in the Brief, Upstream of Both Reviews — hexisteme notes</title>
+<meta name="description" content="A delegated writing brief fed the same four wrong factual claims to both an AI writer and an independent reviewer, and the review passed anyway — because a reviewer that only checks a draft against its source can't refute a claim the source stays silent on.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Bug Was in the Brief, Upstream of Both Reviews", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A delegation brief supplied the same wrong factual claims to an AI writer and an independent reviewer, and a compare-to-source review cannot refute claims the source stays silent on.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why couldn't the independent reviewer catch a wrong claim about how often something happened?", "acceptedAnswer": {"@type": "Answer", "text": "Because the reviewer's job was to compare the draft against a declared source document, and that document never mentioned a frequency at all. A claim that isn't contradicted by the source passes a compare-only check — silence isn't refutation, it's agreement by default."}},
+{"@type": "Question", "name": "Did the reviewer catch anything?", "acceptedAnswer": {"@type": "Answer", "text": "Yes — two of the four wrong claims in the brief, plus two unrelated defects it found on its own. But the two it caught were the ones the source document actually described differently; the two it missed were the ones the source never mentioned at all."}},
+{"@type": "Question", "name": "Whose fault is this, the writer or the reviewer?", "acceptedAnswer": {"@type": "Answer", "text": "Neither, structurally. The writer copying the brief faithfully is normal, correct behavior, and the reviewer comparing a draft to its declared source is normal, correct behavior. The brief itself is the single point that fed both of them the same wrong premise."}},
+{"@type": "Question", "name": "What actually fixed it?", "acceptedAnswer": {"@type": "Answer", "text": "Going back to primary measurement — the full log file and the full database table, not summarized or half-remembered — before the claims went into the brief at all, and rewriting every surface (title, slug, structured data) once the numbers changed."}},
+{"@type": "Question", "name": "Does this mean compare-to-source review is useless?", "acceptedAnswer": {"@type": "Answer", "text": "No — in other cases the same kind of review caught distortions and even material the source never mentioned, once it applied a strict no-exceptions rule that every claim must trace back to the source. The blind spot is narrow: it only opens when that rule is applied loosely, and only for claims about counts, durations, and existence, not claims the source actively contradicts."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The Bug Was in the Brief, Upstream of Both Reviews</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A delegated writing brief fed the same four wrong factual claims to both an AI writer and an independent reviewer, and the review passed anyway. The reviewer only compares a draft against its declared source — and a source that stays silent on a number can't be contradicted by a claim about that number, no matter how wrong the claim is.</div>
+
+<p>I write these essays with a lot of delegation. I draft a brief describing what happened and what the essay should argue, hand it to a writer instance, and then hand the draft to an independent reviewer instance whose only job is to compare the draft against the source material I pointed it at. That pipeline has worked well enough, often enough, that I mostly stopped worrying about it. Then I wrote a brief with four confident factual claims in it, and all four turned out to be wrong — and the reviewer caught exactly two.</p>
+
+<p>The essay in question was about a scheduled background job that silently failed while its own status output kept reporting green (a different story, told elsewhere — I won't retell it here). What matters for this piece isn't the job or the bug. It's the four sentences I put in the brief describing how bad the failure had been, and what happened when I went back and actually measured them.</p>
+
+<h2>Four claims, one brief, one blind spot</h2>
+<p>Here's what I told the writer, and what the primary data said once I checked it properly.</p>
+
+<table>
+<tr><th>What the brief said</th><th>What the measurement actually showed</th><th>Did the reviewer catch it?</th></tr>
+<tr><td>It died every night</td><td>The complete log file contained exactly one failure line, at one timestamp — one scheduling attempt, zero successes</td><td>No</td></tr>
+<tr><td>The stale fallback data was weeks old</td><td>The database row in question was timestamped the previous afternoon</td><td>No</td></tr>
+<tr><td>One real run took a counter from 1 to 3</td><td>Two separate runs did that — a manual reproduction, then a direct invocation through the real launchd job (a manual kickstart, not a wait for the scheduled slot)</td><td>Yes</td></tr>
+<tr><td>A unit test for the failing function passes</td><td>No test file anywhere in the test directory even references that function</td><td>Yes</td></tr>
+</table>
+
+<p>The writer copied all four claims faithfully into the draft. That's the writer doing its job correctly — a writer's task is to turn a brief into prose, not to audit the brief.</p>
+
+<p>The reviewer's job was different: compare the draft against the source document I'd pointed it at, and flag anything the draft says that the source doesn't support. It reported four blockers. Two of them were the claims in the table above marked "yes" — the ones where the source document actually described events differently than the brief claimed. The other two blockers were things the reviewer found on its own, unrelated to my brief: a missing field in a code snippet, and a count of failing tests that was off by two. All four of those catches were correct, and I fixed all four.</p>
+
+<p>But notice what's missing. The reviewer's four blockers and the brief's four wrong claims overlap in exactly two places. The two claims about frequency and age — "every night," "weeks old" — sailed through untouched. Not because the reviewer was careless. Because the source document the reviewer was checking against never said how many times the job had failed, or how old that database row was. It was silent on both counts. And a draft that repeats a claim the source is silent about does not contradict the source. It matches it — vacuously, but it matches.</p>
+
+<h2>Why a compare-to-source reviewer can't catch this</h2>
+<p>A review built as "does the draft say anything the source doesn't support" is a refutation engine. It's very good at catching claims the source actively disputes — dates that don't line up, a sequence of events told out of order, a fact the source states differently. It has no leverage at all over claims the source simply never addresses, because there's nothing there to disagree with. Silence isn't evidence against a claim; it's the absence of evidence either way. A reviewer running a pure compare-to-source check treats absence of contradiction as a pass, which is the same thing as treating silence as agreement.</p>
+
+<p>The part that makes this worth writing about is where the wrong claims came from. Not the writer, who copied faithfully. Not the reviewer, who compared faithfully. Both of them received the same four claims from the same single document — the brief — and had every reason to trust it, because that's what a brief is for. The brief is the one point in the pipeline that supplies both the writer and the reviewer with the same factual premises, before either of them does any independent checking of its own. If a wrong number gets into the brief, it doesn't hit one gate and get caught. It hits both gates, because both gates were built to trust the same upstream source.</p>
+
+<p>What eventually caught the two missed claims wasn't a smarter reviewer. It was going back to the raw material directly — reading the complete log file rather than trusting a remembered impression of "seems like it fails a lot," and pulling every row from the relevant database table in order rather than assuming an age. Once I had those numbers in hand, the two false claims collapsed immediately, and I had to correct the essay's title, its URL slug, its summary, and both of its structured-data blocks, because the wrong numbers had already spread into every one of those surfaces.</p>
+
+<h2>Verification isn't uniformly blind — this is a narrow gap</h2>
+<p>I want to be careful not to overclaim here, because I've watched the same review method work in other cases, and I don't want this piece to read as "compare-to-source review is useless." In one case, the same kind of reviewer caught a place where a draft described an event as something unrelated when the source had actually described it happening as part of the same ongoing task — that's a contradiction, not a silence, and the reviewer caught it as a blocker. In another case, a reviewer applying a strict rule — every descriptive sentence must trace back to something the source actually says, no exceptions — deleted three sentences describing a person's reputation that the source had simply never mentioned. Not contradicted. Just absent. The reviewer caught it anyway, because it was enforcing "must be supported" rather than "must not be contradicted," and those are different rules that happen to look identical on the claims that get explicitly disputed.</p>
+
+<p>That distinction is the whole story. The blind spot doesn't open because compare-to-source review is weak in general. It opens specifically on quantitative and existence claims — counts, durations, "this already exists," "this already passes" — and specifically when the review is checking for contradiction rather than requiring support. A related case from the same pipeline backs this up from a different angle: a brief once instructed the writer to violate an established formatting convention, and the automated gate that checks drafts before publishing simply had no rule covering that convention at all — the gate's checklist was silent, not the source, but the shape of the failure is the same. A brief-originated error passes any check whose scope doesn't happen to cover it.</p>
+
+<h2>What I changed</h2>
+<p>Three things, none of them exotic.</p>
+
+<p>First, before a number, a count, or a duration goes into a brief, I confirm it against the primary material directly — the full log file with an actual count, not a remembered impression; a full, ordered dump of the relevant table rows, not a guess at recency; a direct listing of what test files actually exist, not an assumption that surely something covers it. Memory and a plausible-sounding estimate are exactly what put the wrong claims in the brief in the first place.</p>
+
+<p>Second, every quantitative claim in a brief now gets a citation — the exact command or file location that backs it up. A claim with no citation either doesn't go in, or goes in explicitly marked unconfirmed. Counting how many claims lack a citation is itself useful information; a brief where every number traces to a command is a very different artifact from one where half of them are "I'm pretty sure."</p>
+
+<p>Third, and this is the part that's specific to using an independent reviewer at all: I stopped assuming that "compare it to the source" was a complete instruction. Now the reviewer gets an explicit list of which claims the source doesn't confirm or deny, with instructions to either re-verify them directly against primary material and show its work — the actual command and its actual output, not a sentence claiming to have checked — or mark them "source silent, unverified" and report those separately from genuine blockers. A reviewer's report of "N blockers, everything else is fine" now gets read as a checklist to reconcile against the brief's claim list, not as a certificate that the facts have been settled. In this case the two sets — the reviewer's four blockers and the brief's four wrong claims — only overlapped by half. That gap is exactly what "N blockers, rest is clean" hides if you don't go looking for it.</p>
+
+<h2>The pattern outside writing pipelines</h2>
+<p>None of this needs an AI writer or an AI reviewer to happen. Any workflow where one document seeds two downstream checks that are supposed to be independent has the same shape. A bug ticket that says "reproduces every time" feeds both the engineer who writes the fix and the regression test that's supposed to confirm the fix later — if the frequency claim was wrong, the test has no basis to disagree, because nobody built the test to question the ticket's premise. A design doc that states "this endpoint has three callers" feeds both the migration plan and the reviewer checking the migration plan against that same doc — if the real number is five, the reviewer isn't checking a fact, it's checking consistency with a document that was wrong from the start. The fix in both cases is the one I ended up with: pull the count from the system directly before it becomes a written premise, and make sure whoever reviews the downstream work has a way to say "the spec doesn't actually establish this" instead of just "the spec and the draft agree."</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why couldn't the independent reviewer catch a wrong claim about how often something happened?</strong><br>
+Because the reviewer's job was to compare the draft against a declared source document, and that document never mentioned a frequency at all. A claim that isn't contradicted by the source passes a compare-only check — silence isn't refutation, it's agreement by default.</p>
+
+<p><strong>Q. Did the reviewer catch anything?</strong><br>
+Yes — two of the four wrong claims in the brief, plus two unrelated defects it found on its own. But the two it caught were the ones the source document actually described differently; the two it missed were the ones the source never mentioned at all.</p>
+
+<p><strong>Q. Whose fault is this, the writer or the reviewer?</strong><br>
+Neither, structurally. The writer copying the brief faithfully is normal, correct behavior, and the reviewer comparing a draft to its declared source is normal, correct behavior. The brief itself is the single point that fed both of them the same wrong premise.</p>
+
+<p><strong>Q. What actually fixed it?</strong><br>
+Going back to primary measurement — the full log file and the full database table, not summarized or half-remembered — before the claims went into the brief at all, and rewriting every surface (title, slug, structured data) once the numbers changed.</p>
+
+<p><strong>Q. Does this mean compare-to-source review is useless?</strong><br>
+No — in other cases the same kind of review caught distortions and even material the source never mentioned, once it applied a strict no-exceptions rule that every claim must trace back to the source. The blind spot is narrow: it only opens when that rule is applied loosely, and only for claims about counts, durations, and existence, not claims the source actively contradicts.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">Scheduled Step Failed, Heartbeat Stayed Green</a></li>
+<li><a href="./ai-subagent-faked-verification-output.html">An AI Subagent Faked Its Verification Output</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
