@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Gate Pinned a Model That No Longer Exists — hexisteme notes</title>
+<meta name="description" content="An adversarial-review gate that forced every trading thesis through an outside model turned out to hard-pin that model by version string. The audit found both the pinned primary and its emergency backup already dead.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Gate Pinned a Model That No Longer Exists", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An adversarial-review gate that hard-pinned its reviewer model by version string, and what it took for an audit to find both pinned models already dead.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why pin a model at all if pins rot?", "acceptedAnswer": {"@type": "Answer", "text": "The original reason was reasonable: someone has to write the actual API call, so a name has to go somewhere. But what the gate actually needs isn't a specific model, it's a requirement — the reviewer has to be a different model family than the one that wrote the thesis under review. That requirement can be satisfied by whichever model is currently registered and strongest, so it gets resolved with a live call at the moment the gate runs instead of hardcoded once and left to rot."}},
+{"@type": "Question", "name": "What actually broke, a bug in the model or a bug in the pipeline?", "acceptedAnswer": {"@type": "Answer", "text": "Neither had a bug in the usual sense. The review tool's access to that model family ran through a free tier, and that tier had quietly been throttled down to a zero-request allowance, confirmed with an HTTP 429 on 2026-07-30 — both pinned model names rode that same tier, so both were effectively dead. Only a live check surfaced it."}},
+{"@type": "Question", "name": "How is a hardcoded model name different from a normal dependency pin?", "acceptedAnswer": {"@type": "Answer", "text": "It isn't, structurally. It's the same category of problem as pinning a package version, a container tag, or an API version header: anything that names an external catalog identity instead of an external property inherits an expiration date that the pinning code has no way to see coming."}},
+{"@type": "Question", "name": "What replaced the hardcoded model name?", "acceptedAnswer": {"@type": "Answer", "text": "A requirement plus a live resolution step: call list-models at the time the gate runs and pick the strongest registered option that isn't the same family as the thesis writer, with a fallback path through a different vendor's tooling if that call fails. The record schema also changed to store whichever model ID was actually invoked, not the one the rule intended to call — an audit trail instead of a promise."}},
+{"@type": "Question", "name": "Does the outside review actually change anything, or is it theater?", "acceptedAnswer": {"@type": "Answer", "text": "It changed a real thesis: an outside reviewer scored one thesis 2 out of 10 and flagged four structural problems, which turned directly into two new machine-checkable falsifiers. The reason self-review can't substitute for that: the same model, given the same context, hands back a materially different verdict on roughly one out of every five re-asks."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The Gate Pinned a Model That No Longer Exists</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">An adversarial-review gate forces every investment thesis I write through an outside model before it can become a live trade gate — the point being to catch structural flaws my own self-review can't see. The gate itself worked. What didn't work was how it named its reviewer: a hardcoded version string. An audit later found both the primary and the backup pinned models already dead, killed by the same quietly-throttled free tier, and the fix wasn't a better model — it was resolving the reviewer at call time and making the gate fail loud instead of silently passing.</div>
+
+<p>I keep a decision journal for stock and crypto trades. Every thesis I write down — "buy X because Y, and here's exactly how I'll know I'm wrong" — has to survive one more step before it's allowed to become an actual trade gate: an outside model has to attack it. Not the model that wrote the thesis. A different one.</p>
+
+<p>The reason for that rule is a specific embarrassment. I'd written an INTC thesis with six falsifiers I called "machine-checkable" and was pretty pleased with it. I sent it to an outside reviewer anyway, on principle, and it came back scored 2 out of 10 with four concrete structural problems: two of the falsifiers only measured whether the trade had made money, which is tautological, not predictive; a "down" signal built on a competitor's stock moving +10% turned out to be useless because that competitor moves <em>with</em> my target on sector beta, not against it, so the signal couldn't actually fire in the direction I'd assigned it; a "flat" condition depended on "no major news," which is a judgment call, not a check; and the base rate I'd leaned on was pooled across 45 unrelated tickers, which quietly erases the one thing that made this ticker's situation unusual in the first place. None of that was something I was going to catch by rereading my own thesis. It's the kind of flaw that survives self-review precisely because self-review is being done by the same reasoning that produced the flaw.</p>
+
+<p>So I made outside adversarial review mandatory: no new thesis gets to graduate into a real pre-trade gate until an external model has scored it, and either passed it (5 or higher out of 10) or forced concrete new falsifiers into it in response to what it found. In the case above, the review's two sharpest objections turned directly into two new checkable conditions — a relative-strength-ratio falsifier and a close-vs-gap-close falsifier — replacing vague ones with things a script can actually evaluate. That's the whole value of the rule: it's not about the score, it's about whether the criticism was specific enough to change the thesis.</p>
+
+<h2>The part that broke: a review gate that named its reviewer</h2>
+
+<p>Here's the part I didn't get right the first time. The rule that mandates outside review also had to say <em>which</em> outside model to call, because someone has to write the actual API call. So the first version of the rule named one directly, with a named backup for emergencies. Both were spelled out as literal version strings, sitting in the rule text and in the code that consumed it, the same way you'd hardcode a package version or a base image tag.</p>
+
+<p>At the time that felt like the responsible thing to do — pin something so specific there's no ambiguity about what runs. What it actually did was smuggle an expiration date into a safety gate, and nobody wrote that expiration date down anywhere.</p>
+
+<h2>The audit that found two dead pins</h2>
+
+<p>Months later, during an unrelated pass where I was auditing every standing rule for internal consistency, I went back to check this one. The free tier both pinned names ride on had died — throttled to limit:0, confirmed with an HTTP 429 on 2026-07-30. Both pins were effectively dead: the gate was one call away from silently failing. The gate would have just started failing every call it made, indistinguishable at a glance from a transient network hiccup, on a thesis-review step that nobody was watching closely enough to notice going quiet.</p>
+
+<p>That's the shape of the trap, and it's a different shape from a reference that never worked in the first place — that one was broken from day zero. This one worked, then rotted. This failed slow: the pin was correct on the day it was written, kept being correct for a while, and then stopped being correct underneath code that had no mechanism for finding out.</p>
+
+<h2>Why swapping the model name isn't the fix</h2>
+
+<p>The tempting fix is: pick a name that's less likely to rot, put it in the rule, move on. I don't think that's actually a fix, because it doesn't change what's structurally wrong — it just moves the same failure to a later date with a different name attached. The actual defect was that the rule pinned an <em>identity</em> when what it needed was a <em>requirement</em>.</p>
+
+<p>So that's what changed. The rule no longer names a model at all. It states a requirement — "the strongest currently-registered model that isn't the same family as the one being reviewed" — and resolves that requirement with a live list-models call at the moment the gate actually runs, not at the moment someone wrote the rule. The routing table also grew a second leg: a fallback path through a different vendor's tooling entirely, for when the primary review tool itself is unreachable. And the record schema stopped storing the model name the rule <em>intended</em> to call and started storing whichever model ID was <em>actually</em> invoked — a trail you can audit after the fact instead of a promise you have to hope was kept.</p>
+
+<p>The other half of the fix matters just as much: if resolution fails — nothing satisfies the requirement, or the resolved call errors out — the gate has to say so out loud, something like "review not performed: reason," rather than let the thesis through on the technicality that nothing technically failed. A gate whose dependency can die silently and still show green is worse than no gate, because it costs you the discipline of remembering to check it yourself.</p>
+
+<h2>The reason this can't just be dropped</h2>
+
+<p>It would be simpler to skip outside review altogether and trust my own second look. I don't trust that, based on watching it happen: the same model, given the same context, will hand back a materially different verdict on roughly one out of every five re-asks. That's not a small number — it's close to a coin flip on the margin, and it's exactly the instability that makes a model's self-review of its own reasoning worthless as a check on that reasoning. The outside reviewer isn't a nice-to-have layer of extra rigor; it's the only part of the system actually doing the job the gate exists for. Which is precisely why it can't also be the part of the system quietly allowed to stop existing.</p>
+
+<h2>The general shape of it</h2>
+
+<p>None of this is specific to reviewing trading theses with language models. It's the same failure as a CI pipeline pinned to a container tag that its registry later garbage-collects, a service hardcoded against a specific vendor API version that eventually gets sunset, or a dependency pinned to a version resolved through an internal mirror that goes away without anyone updating the lockfile. Grepping the codebase for the pinned string wouldn't have caught any of this, either — the string is still there, spelled correctly, syntactically fine to read. Only a live call tells you whether what it points to is still breathing. Anywhere a build step, a gate, or a reviewer resolves an external catalog identity — a model version, a package version, an API version header, a preview channel — that resolution failing needs to fail the gate, not silently skip it. And it's worth separating this from a related but different trap: a reference surviving past the point its target was deprecated is a story about copies outliving their original; this one is the opposite direction — the original moved on, and the copy pinned inside a rule file just never found out.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why pin a model at all if pins rot?</strong><br>
+The original reason was reasonable: someone has to write the actual API call, so a name has to go somewhere. But what the gate actually needs isn't a specific model, it's a requirement — the reviewer has to be a different model family than the one that wrote the thesis under review. That requirement can be satisfied by whichever model is currently registered and strongest, so it gets resolved with a live call at the moment the gate runs instead of hardcoded once and left to rot.</p>
+
+<p><strong>Q. What actually broke, a bug in the model or a bug in the pipeline?</strong><br>
+Neither had a bug in the usual sense. The review tool's access to that model family ran through a free tier, and that tier had quietly been throttled down to a zero-request allowance, confirmed with an HTTP 429 on 2026-07-30 — both pinned model names rode that same tier, so both were effectively dead. Only a live check surfaced it.</p>
+
+<p><strong>Q. How is a hardcoded model name different from a normal dependency pin?</strong><br>
+It isn't, structurally. It's the same category of problem as pinning a package version, a container tag, or an API version header: anything that names an external catalog identity instead of an external property inherits an expiration date that the pinning code has no way to see coming.</p>
+
+<p><strong>Q. What replaced the hardcoded model name?</strong><br>
+A requirement plus a live resolution step: call list-models at the time the gate runs and pick the strongest registered option that isn't the same family as the thesis writer, with a fallback path through a different vendor's tooling if that call fails. The record schema also changed to store whichever model ID was actually invoked, not the one the rule intended to call — an audit trail instead of a promise.</p>
+
+<p><strong>Q. Does the outside review actually change anything, or is it theater?</strong><br>
+It changed a real thesis: an outside reviewer scored one thesis 2 out of 10 and flagged four structural problems, which turned directly into two new machine-checkable falsifiers. The reason self-review can't substitute for that: the same model, given the same context, hands back a materially different verdict on roughly one out of every five re-asks.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-guardrail-pointed-at-a-file-that-never-existed.html">The Guardrail Pointed at a File That Never Existed</a></li>
+<li><a href="./grep-wont-find-your-dead-gates.html">grep Won't Find Your Dead Gates</a></li>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">Verification Gate Cleared on a Keyword</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
