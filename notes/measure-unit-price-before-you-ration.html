@@ -60,6 +60,15 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 
 <p>Two of the five rows in the thing I was supposedly rationing cost nothing at all.</p>
 
+<p><strong>Correction, 2026-08-08.</strong> A reader pointed out that this table carries no falsifier and no measured-on date, unlike the priority table it replaced, and that in three months it would be the same confident unchecked artifact with numbers in it. I went to add those two columns. The re-run broke three of the five rows.</p>
+
+<p>Smoke commit is not &#8776;0.4h; it is 1.45h (5,211s). The measurement refuting it sits in a document timestamped the same morning I wrote the source notes for this post. The post went out six days later, and nothing compared the two. Local probe was never measured at all: the source called it an expectation, and the qualifier didn't survive the trip into a table of measured unit prices. Local eval-120 later came in around 5.2h against the &#8776;10.2h above, still unreconciled &mdash; the two may not even be measuring the same operation, which is its own problem. Rescoring = 0 holds as a finding, but the citation behind it was misattributed: the file I pointed at doesn't contain the number, and the exact before-and-after comparison described earlier in this post isn't in any file I can find. Most likely it was a live API call inside a session and only the rounded value was ever written down &mdash; but I can't confirm that either. CPU-only = 0 holds, and is the only row that was measured the way this table implies.</p>
+
+<p>The multiplier above is also not the constant I stated. My own logs already had it moving from 0.485 to 0.869 per GPU-hour with the machine shape unchanged &mdash; a 1.79x swing &mdash; because the dominant variable is occupancy, and short runs are dominated by startup that pins every accelerator for the duration.</p>
+
+<p>An essay arguing that you should price the operations before you ration them shipped a price table that had never been re-checked against its own sources. The full accounting is in the comment thread below.</p>
+
+
 <h2>Recomputed: real demand was 13% of the pool</h2>
 
 <p>With unit prices in hand, I profiled what each competition on the account was actually running. Four were active; a fifth was scaffolded but hadn't started work yet.</p>
@@ -90,6 +99,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <tr><td>A separate competition</td><td>GPU time</td><td>Per-decision CPU budget — 0.3–30s used against a 600s ceiling, 1,340x of it sitting unused</td><td>Instrumenting actual per-decision usage</td></tr>
 </table>
 
+<p><strong>Correction, 2026-08-08.</strong> Both ratios in the first row were already refuted before this post went out: 25x cheaper is 7.0x, and 14x more precise in sigma is about 2.3x. The direction survives &mdash; a submission still wins on both axes &mdash; but both magnitudes were badly overstated. And 7.0x is itself computed against the &#8776;10.2h figure corrected above, so if that settles nearer 5.2h it falls again, to roughly 3.6x. I'm not citing it as final either.</p>
+
 <p>Three different names for "the thing we're rationing." Three different real answers underneath. That third row stings the most: while I was carefully protecting GPU time, that same competition was sitting on 99.93% of an already-allocated CPU decision budget, unused. The scarcity I was managing and the slack I was ignoring were right next to each other.</p>
 
 <p>The pattern across all three rows is identical: treat the <em>name</em> of a resource as the bottleneck, and never price the operations charged against it. It's a related failure to one I've written about before — a quality gate whose own measurement noise turned out to exceed the thing it was guarding — but it's a different mistake: that one measured the wrong way, this one never measured at all before deciding how to ration. And because the answer changed each time, "what's scarce this time" has to be asked fresh at every phase of a project. Carrying forward last cycle's answer as if it were a constant is exactly how the next misdiagnosis gets seeded.</p>
@@ -119,7 +130,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <ul>
 <li>If any of the concurrent competitions turns on real GPU training — an offline model, say — the "13% of the pool" figure stops holding. The unit-price table stays valid; only the allocation recalculation changes.</li>
 <li>The billing behavior itself — that rescoring left personal quota untouched — is platform policy, measured on one account in one window. Platform policy can change without notice. That bit-identical check needs to be re-run periodically, not treated as a fact fixed at measurement time — otherwise this essay becomes the source of the next misdiagnosis instead of the fix for the last one.</li>
-<li>The 1.94x wall-clock multiplier is a function of the accelerator count on that specific machine shape. It doesn't transfer to a different shape without re-measuring.</li>
+<li>The 1.94x wall-clock multiplier is a function of the accelerator count on that specific machine shape. It doesn't transfer to a different shape without re-measuring. <strong>(Correction, 2026-08-08: this falsifier was too narrow. A shape change is not the only thing that invalidates the multiplier &mdash; holding the shape fixed and changing run length alone swings it 1.79x, because occupancy is the dominant variable. See the correction above.)</strong></li>
 </ul>
 
 <h2>FAQ</h2>
