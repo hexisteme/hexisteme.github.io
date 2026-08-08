@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Key's Owner Wasn't the Spender — hexisteme notes</title>
+<meta name="description" content="A cloud bill kept climbing and I blamed the CLI tool I was actively using — the real spender was a metered key sitting in my shell profile, silently inherited by two tools I never suspected.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Key's Owner Wasn't the Spender", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Metered API credentials, shell profile exports, and billing attribution", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why did I blame the wrong tool for a rising cloud bill?", "acceptedAnswer": {"@type": "Answer", "text": "The tool I suspected was the one I used most that month, so its usage happened to rise on the same days as the bill. But a correlation check between its daily call volume and the billed project's daily request volume came out at Pearson r = 0.089 and Spearman rho = 0.133 — essentially zero. The tool's busiest day was the billed project's lowest-traffic day, which ruled it out."},
+"@type": "Question"},
+{"@type": "Question", "name": "What was actually causing the charges?", "acceptedAnswer": {"@type": "Answer", "text": "A Gemini API key exported globally in a shell profile. Two unrelated tools — an image-generation server and a cross-vendor model-verification step defaulting to a paid-only preview model — silently inherited that key and were the real consumers, without either of them being the tool I originally suspected."}},
+{"@type": "Question", "name": "Why is exporting a metered key in a shell profile a problem even on a single-user machine?", "acceptedAnswer": {"@type": "Answer", "text": "Because the risk isn't access control, it's billing attribution. A vendor's invoice is itemized by project or service, never by process. Once a metered key is exported shell-wide, every process that starts afterward inherits it silently, so the set of consumers becomes open-ended and unanswerable after the fact — regardless of how many humans have access to the machine."}},
+{"@type": "Question", "name": "Why didn't identifying the real consumers stop the overspend?", "acceptedAnswer": {"@type": "Answer", "text": "The consumers had already been correctly identified in an earlier investigation, but the shell export was never removed. Four days later, a budget kill switch fired for real and auto-revoked billing. Diagnosis and containment are separate steps: naming the consumer doesn't shrink the consumer set, only removing the credential from the shared location does."}},
+{"@type": "Question", "name": "What is the actual fix for this class of problem?", "acceptedAnswer": {"@type": "Answer", "text": "Inject metered credentials at the process that spends them, not at the shell that starts every process: a server gets the key in its own launch config, a scheduled job reads it from a permissioned file only its wrapper touches, and an interactive one-off gets it prefixed inline for that single command. None of these let the value outlive the process it was meant for."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The Key's Owner Wasn't the Spender</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A cloud bill kept climbing and I blamed the CLI tool I was actively using — audit logs and a correlation check (r = 0.089) cleared it. The real spender was a metered API key exported globally in my shell profile, quietly inherited by two tools that had nothing to do with the one I suspected. The deeper lesson: on a single-user machine, access control is the wrong axis entirely — the actual failure was treating billing attribution as solved once I'd named the culprit, instead of once I'd closed the exposure.</div>
+
+<h2>The suspect that had an alibi</h2>
+<p>I run a small fleet of AI agents on one machine, and one month the cloud bill for it started climbing. I had a suspect ready before I had any evidence: a CLI tool I was using daily to burn a Gemini subscription. Newest thing in the loop, heavy daily use, timing that lined up — so I opened an audit trail expecting to confirm what I already believed.</p>
+<p>The tool's own GitHub project had a public maintainer statement that API-key auth wasn't supported at all — OAuth only, keychain-backed. That's checkable against my own logs. Ninety-two session logs, all tagged with the OAuth consumer auth method and an empty billing-project field. All 5,409 model calls in that window routed through the free consumer endpoint, not a billed one. The tool's internal state held zero project IDs anywhere. Three independent signals pointing the same way.</p>
+<p>Then the number that actually settled it: correlating the tool's daily call volume against the billed project's daily request volume gave Pearson r = 0.089, Spearman ρ = 0.133 — functionally zero. The day I used the tool most was the day the billed project saw the least traffic. My prime suspect had a perfect alibi.</p>
+
+<h2>Finding the real spender</h2>
+<p>The actual answer was hiding in a shell profile I'd stopped thinking of as billing infrastructure. A Gemini API key was exported globally near the top of the file. Two tools were reading it: an image-generation server and a cross-vendor model-verification step whose default model turned out to be a paid-only preview tier, not the free one I'd assumed. Neither had anything to do with the CLI tool I'd suspected — but both tended to run in the same working sessions as it, because that's when I did agent-heavy work generally. Same sessions, same days, rising together: a common-cause correlation that looks exactly like causation until you separate it by authentication method and endpoint instead of by "what was I doing that day."</p>
+<p>This generalizes past AI tooling entirely. Swap "Gemini key in a shell profile" for "payment-provider key exported in a CI runner's shared environment" or "an analytics token baked into a base image every service inherits" — the shape is identical. A metered credential, injected somewhere broad enough that you can no longer enumerate who's using it. The bill arrives itemized by project or service. It never arrives itemized by process. Once a key crosses that inheritance boundary, "who's spending this" stops being hard and becomes unanswerable in principle — there's no record of which process read the variable, only that the value was available to be read.</p>
+
+<h2>Why the credit made it worse</h2>
+<p>A monthly credit against the account made the corrected diagnosis feel less urgent than it should have. The credit offsets the <em>net</em> bill; the budget guard actually watching my spend was configured to exclude all credits and evaluate the <em>gross</em> number. So while I mentally filed this as "effectively free," gross was climbing toward a threshold that had nothing to do with what I'd actually owe. Reassurance computed on the wrong side of a limit isn't reassurance.</p>
+
+<h2>Knowing the culprit didn't stop it</h2>
+<p>Here's the part I still think about. An earlier, narrower investigation had already correctly identified the two real consumers and noted they were inheriting the key via shell export. The right answer was on record before the bill blew past the threshold.</p>
+<p>I just didn't act on it. The export stayed in the profile. Four days after the consumers were correctly named, a budget kill switch fired for real and auto-revoked billing on the account.</p>
+<p>That gap is the actual failure, and it's a different failure from "didn't investigate carefully enough." I had. Diagnosis and containment are separate pieces of work, and finishing the first produces a satisfying sense of closure that has nothing to do with whether the second happened. Naming the consumer doesn't shrink the consumer set — only removing the credential from the shared location does. A root-cause writeup that ends at "found it" isn't a fix; it's a well-documented exposure.</p>
+<p>Waiting had collateral cost, too: the kill switch is blunt by design and doesn't distinguish unwanted paid-tier calls from legitimate ones. When it tripped, it also took down a paid-only image model I actually wanted, for close to three weeks, alongside the leak it was meant to stop. (Scoping the key correctly afterward turned out to have its own gap between "fixed" and "in effect" — a separate story, not a detour here.)</p>
+
+<h2>The fix is a framing change, not a config change</h2>
+<p>The natural reaction to "a key I own is being spent by processes I didn't intend" is to reach for access control — file permissions, gitignore, who can read this. On a single-user machine that instinct runs out of road fast: there's one account, so "who can access it" is trivially "me," and it feels like nothing's left to secure.</p>
+<p>That's the wrong axis for a metered credential. The question was never who can access the key, it was which process the billing account is holding responsible for it right now. One person running three tools that all inherit one exported key is exactly as unattributable, from the vendor's billing side, as three separate people sharing one key. The number of humans doesn't change the shape of the problem; the fact that the charge is metered does. The rule I keep for this class of failure collapses to one sentence: a metered key's consumer set has to stay closed, and the only thing that keeps it closed is injecting it at the process that needs it, not at the shell that starts every process.</p>
+<p>Concretely: a server process gets the value in its own launch config, a scheduled job reads it from a permissioned file only its wrapper touches, a one-off interactive command gets it prefixed inline for that single invocation. None of those let the value outlive the process it was meant for. A shell-wide export does, and does it silently — that's the whole problem.</p>
+
+<h2>The universal version</h2>
+<p>Take the AI-specific nouns out and this is a shape every backend engineer has stepped in at least once: a payment gateway's secret key gets exported in a shared <code>.env</code> sourced by every local script; a staging job and someone's personal debugging session both pick it up without either of them declaring it; three weeks later a finance ops person asks why the sandbox account has real transaction volume, and there's no log anywhere that says <em>which</em> script did it, only that the key was live everywhere. The postmortem always converges on the same two mistakes: treating a billing-identity problem as an access-control problem, and treating "we found who did it" as equivalent to "we made sure it can't happen again." Those are different jobs, and the second one is the one that actually protects the next billing cycle.</p>
+<p>If a key is metered, it doesn't go in the profile everything sources. It goes to exactly the thing spending it, and nowhere it can outlive that thing.</p>
+<p>(A different fleet-health metric turned out to be its own false alarm — a separate story.)</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did I blame the wrong tool for a rising cloud bill?</strong><br>
+The tool I suspected was the one I used most that month, so its usage happened to rise on the same days as the bill. But a correlation check between its daily call volume and the billed project's daily request volume came out at Pearson r = 0.089 and Spearman rho = 0.133 — essentially zero. The tool's busiest day was the billed project's lowest-traffic day, which ruled it out.</p>
+
+<p><strong>Q. What was actually causing the charges?</strong><br>
+A Gemini API key exported globally in a shell profile. Two unrelated tools — an image-generation server and a cross-vendor model-verification step defaulting to a paid-only preview model — silently inherited that key and were the real consumers, without either of them being the tool I originally suspected.</p>
+
+<p><strong>Q. Why is exporting a metered key in a shell profile a problem even on a single-user machine?</strong><br>
+Because the risk isn't access control, it's billing attribution. A vendor's invoice is itemized by project or service, never by process. Once a metered key is exported shell-wide, every process that starts afterward inherits it silently, so the set of consumers becomes open-ended and unanswerable after the fact — regardless of how many humans have access to the machine.</p>
+
+<p><strong>Q. Why didn't identifying the real consumers stop the overspend?</strong><br>
+The consumers had already been correctly identified in an earlier investigation, but the shell export was never removed. Four days later, a budget kill switch fired for real and auto-revoked billing. Diagnosis and containment are separate steps: naming the consumer doesn't shrink the consumer set, only removing the credential from the shared location does.</p>
+
+<p><strong>Q. What is the actual fix for this class of problem?</strong><br>
+Inject metered credentials at the process that spends them, not at the shell that starts every process: a server gets the key in its own launch config, a scheduled job reads it from a permissioned file only its wrapper touches, and an interactive one-off gets it prefixed inline for that single command. None of these let the value outlive the process it was meant for.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-fix-was-committed-the-old-value-kept-running.html">The Fix Was Committed, the Old Value Kept Running</a></li>
+<li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">Agent Fleet Audit: Scary Metric, False Alarm</a></li>
+<li><a href="./the-denominator-was-already-on-disk.html">The Denominator Was Already on Disk</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
