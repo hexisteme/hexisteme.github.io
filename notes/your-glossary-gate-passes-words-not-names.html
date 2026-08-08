@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your glossary gate passes words, not names — hexisteme notes</title>
+<meta name="description" content="In a glossary gate, a coined name passed because every word in it was real — dictionary-listed, attested on the page — while the name itself read like a translation. Two of three reader challenges were right, and the discriminator that could have caught it was already sitting in two other names I hadn't checked against.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your glossary gate passes words, not names", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "validating coined names against a domain's naming pattern, not just corpus/dictionary membership", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why isn't corpus membership enough to validate a coined name?", "acceptedAnswer": {"@type": "Answer", "text": "Because it only checks whether the words are real — dictionary-listed, attested in the text — not whether the way they're combined follows the domain's own naming pattern. A candidate can pass every morpheme check and still read as a literal translation or a field-guide entry."}}, {"@type": "Question", "name": "How do you find the naming principle to check candidates against?", "acceptedAnswer": {"@type": "Answer", "text": "Pull two or three names in the domain that already work, and write down in one line why each one got its name. That's the principle, extracted from the domain's own good examples rather than invented in the abstract, and it changes from domain to domain."}}, {"@type": "Question", "name": "Does a stricter gate mean rejecting anything unfamiliar?", "acceptedAnswer": {"@type": "Answer", "text": "No. A gate that rejects everything is a wall, not a discriminator. One of three challenged names survived a three-question gate because it used a live, productive construction already common in the language. A useful gate lets some unfamiliar-looking names through and rejects others on structure."}}]}
+</script>
+</head>
+<body>
+
+<h1>Your glossary gate passes words, not names</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-08</p>
+
+<div class="note">A machine-checked glossary let a bad coined name through because every word in it was real — the gate checked corpus membership, not naming pattern. Two of three reader challenges to a batch of six coined names turned out to be right, one survived on structure, and the naming principle that should have caught the bad one was already sitting in two other names in the same chapter.</div>
+
+<p>I run a machine-checked glossary for a long-form fiction project I'm writing. Every proper noun goes into a YAML file, and a deterministic gate at build time greps the manuscript for the same terms and counts them per chapter. The check I trusted for months was simple: is this word attested? Pull the morphemes apart, look them up in the dictionary, grep the manuscript for the compound. If everything shows up, the term is real, so it passes.</p>
+
+<p>That check has a hole in it, and I found the hole by getting called out.</p>
+
+<h2>The word was real. The name was not.</h2>
+
+<p>I had just replaced six coined terms in the glossary — old placeholder handles swapped for names I thought were final. My reader pushed back on three of them, all with the same question: "Isn't this just a literal English translation?" Two of the three challenges were right.</p>
+
+<p>The one that stung was a bread name I'd translated compositionally from a source term — <em>cross-scored round bread</em>, describing a loaf with a cross cut into the top before baking. Every morpheme in that name is real. It's attested on the page (a chapter literally describes "a round loaf with a cross cut through it"), and every word in it is in the dictionary. My gate — corpus membership, are the words real — passed it without hesitation.</p>
+
+<p>It's also a bad name. A page over from it are two other bread names in the same world: <em>chimney bread</em>, because smoke leaking through a crack in the loaf looks like a thread rising from a tiny chimney, and <em>bell-ring bread</em>, because tapping the bottom of the loaf rings like a bell. Both are named after something that <em>happens</em> to the bread — a sensory event, not its shape. Cross-scored round bread breaks that pattern. It's not named after an event at all. It's a shape description, and a shape description reads like a field-guide entry, not like a name the world's own people would actually use for the thing they eat.</p>
+
+<p>The gate had no way to catch that, because it was never checking for it. It checks whether words exist. It does not check whether the <em>name</em> is right. Those are orthogonal questions, and I had been treating one as a stand-in for the other.</p>
+
+<h2>The discriminator was already in the manuscript</h2>
+
+<p>Here's what actually stung: I didn't need new information to catch this. The naming principle that cross-scored round bread violates was already sitting in the same chapter, in the two other bread names. Chimney bread and bell-ring bread are both coined from a sensory event that happens to the object. That's the domain's naming convention, in plain sight, before I ever looked at the bad candidate. I just hadn't extracted it into something I checked against.</p>
+
+<p>So the fix isn't a better dictionary. It's asking, before you judge any candidate: what do the two or three best existing names in this domain have in common, and why did they get their name? Write that answer down in one line before you look at the next candidate. For a different domain the principle might be function, or origin, or an action rather than an event — the point isn't "always name things after sensory events," it's that the domain you're already writing has an answer, and you can read it off the good names instead of guessing.</p>
+
+<h2>A three-question gate, with a survivor to prove it discriminates</h2>
+
+<p>Once I had the principle, I turned corpus membership into the first of three questions instead of the whole check:</p>
+
+<table>
+<tr><th>#</th><th>Question</th><th>Passes</th><th>Fails</th></tr>
+<tr><td>①</td><td>Is it a dictionary-listed word?</td><td>words like "ring" (a real noun for a sound) or "fare" (a real noun for a cost)</td><td>ad-hoc gerunds coined on the spot for the occasion</td></tr>
+<tr><td>②</td><td>Was it coined by the same naming principle the domain already uses?</td><td>chimney bread, bell-ring bread (sensory event)</td><td>cross-scored round bread (shape description — a field-guide entry)</td></tr>
+<tr><td>③</td><td>Is it a productive construction?</td><td>noun + "-fare" — boat fare, labor wage, tea fare are all real, everyday compounds using the same pattern (in the source language, the morpheme «삯»)</td><td><code>&lt;descriptor&gt;+&lt;descriptor&gt;+&lt;generic noun&gt;</code> stacking; a phenomenon turned into a noun on the spot</td></tr>
+</table>
+
+<p>The third challenged name from that same conversation was <em>chimney fare</em>. My reader flagged it as the same kind of translation-ese as the bread name. It isn't. Noun + "-fare" is the same pattern as boat fare and labor wage and tea fare — a live, productive construction in the language, not a one-off compound. And the manuscript already prices things in that idiom — a chapter quotes "the fare to cross the veil for one night." The construction is the domain's own, the usage is attested on the page, and the name survived the gate. Kept, not rejected.</p>
+
+<p>That survival is the part that matters most. A gate that rejects everything unfamiliar isn't a gate, it's a wall, and a wall doesn't tell you anything about the <em>next</em> candidate. This one let a genuinely unfamiliar-sounding name through because it checked structure, not vibes. Two rejections and one survival out of three challenges is what a discriminator looks like. Three rejections would have meant I'd built a stricter corpus check, not a different one.</p>
+
+<h2>Before you rename, ask if the name needs to exist</h2>
+
+<p>Not every failed candidate needs a replacement. Another entry from the same glossary pass was an umbrella name meant to tie two other breads together under one collective label. I went looking for a better version of that umbrella name. I should have gone looking for whether it needed to exist at all.</p>
+
+<p>It didn't. The two breads it was meant to unify already had names — chimney bread and bell-ring bread — and the fact that they're secretly the same recipe was supposed to be a plot payoff, not a vocabulary problem. The sentence that pays that off already refers to both breads by their real names. An umbrella term would have spoiled the reveal by naming the connection before the story earns it.</p>
+
+<p>So I retired it — not by deleting the entry, which would have broken every cross-reference pointing at that ID, but by turning it into a stub: the same ID, pointing at the two real names, with the field the gate actually reads for reader-facing terms left empty. No canonical form, no count. The writer's-desk handle stays addressable for internal cross-references and drops out of the metric the gate computes for readers. Slot check before rename check — ask whether the name is needed before you spend effort making it good.</p>
+
+<h2>The gate can count "no name" as "a name"</h2>
+
+<p>One more failure mode, smaller but sharper because it's purely mechanical. Each chapter has a term budget: a cap on how many distinct glossary terms it's allowed to introduce, so a reader isn't handed a vocabulary list instead of a story. I'd put an as-yet-unnamed descriptor — a thing the narration calls "the round one" because nobody has named it yet — into the alias field of a real term, thinking it was harmless bookkeeping.</p>
+
+<p>The gate's alias match is an exact substring check. It found "the round one" in the chapter text and counted it as a reader-learned term, same as any real name. Cap was three. Measured came out four. The chapter went red.</p>
+
+<p>The instinct here is to loosen the gate — raise the cap, or special-case aliases. Both are wrong. The gate was right: it found a string in the alias field and a matching string in the text, which is exactly what it's built to find. The bug was mine — I'd put something in a field that means "a name a reader learns" that was, definitionally, not a name at all. Fixing my entry, not the gate, was the actual fix. This is the same orthogonality problem as the bread name, just one layer down in the tooling: "this string is present" and "this string is a name" are different claims, and a check built for one will silently answer the other question wrong if you feed it the wrong kind of string.</p>
+
+<h2>The same structure holds for code</h2>
+
+<p>None of this is specific to fiction or to translation. Swap "glossary" for "codebase" and the same three questions apply to identifiers. <code>Manager</code>, <code>Helper</code>, <code>Util</code> pass question ① without effort — they're real English words, they compile, a linter that only checks "is this a real word / valid identifier" will never flag them. They fail ② and ③ every time: they don't follow whatever naming convention the domain's <em>good</em> names actually use (the ones that say what the thing does or owns), and they aren't a productive construction so much as a bucket you can drop anything into. A codebase's style guide that just bans <code>Manager</code> and <code>Helper</code> as a word list is doing the same partial job my corpus check was doing — catching the word, missing the pattern. The fix in both places is the same: find two or three names in the codebase that are actually good, write down in one line why they're good, and check new names against that line, not against a dictionary.</p>
+
+<p>Two more things I'd carry into any review, coding or writing:</p>
+
+<p>Write the rejection as a pattern, not a verdict on the word. "This word doesn't exist" is the wrong sentence for cross-scored round bread — every word in it exists. The right sentence is "all the words are real, the naming method isn't the one this domain uses." That sentence generalizes to the next candidate. "This word doesn't exist" doesn't, and it also isn't true, which means the next round of review starts from a false premise.</p>
+
+<p>And: if someone challenges three items out of a larger batch, the ones they didn't challenge are unchecked, not cleared. I'd replaced six terms and only three got a second look, because only three drew a challenge. The other three passed a corpus check I already knew was incomplete. Silence isn't the same as passing.</p>
+
+<p>I haven't adversarially stress-tested this gate — thrown a pile of deliberately borderline names at it to see where it breaks. It's a judgment aid I run by hand before I commit a term, not an automated build check. If it starts letting bad names through in ways I haven't seen yet, that's the next version of this note.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why isn't corpus membership enough to validate a coined name?</strong><br>
+Because it only checks whether the words are real — dictionary-listed, attested in the text — not whether the way they're combined follows the domain's own naming pattern. A candidate can pass every morpheme check and still read as a literal translation or a field-guide entry.</p>
+
+<p><strong>Q. How do you find the naming principle to check candidates against?</strong><br>
+Pull two or three names in the domain that already work, and write down in one line why each one got its name. That's the principle, extracted from the domain's own good examples rather than invented in the abstract, and it changes from domain to domain.</p>
+
+<p><strong>Q. Does a stricter gate mean rejecting anything unfamiliar?</strong><br>
+No. A gate that rejects everything is a wall, not a discriminator. One of three challenged names survived a three-question gate because it used a live, productive construction already common in the language. A useful gate lets some unfamiliar-looking names through and rejects others on structure.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+<li><a href="./the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a></li>
+<li><a href="./your-reports-numbers-are-computed-its-sentences-are-not.html">Your Report's Numbers Are Computed. Its Sentences Are Not.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
