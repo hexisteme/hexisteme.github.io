@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew. — hexisteme notes</title>
+<meta name="description" content="A subtitle line-wrap width guard measured text in uppercase to get a conservative pixel budget, but the renderer draws mixed case. The guard fired early, produced worse one-word chunks than the bug it was fixing, and every test stayed green — only looking at a rendered frame caught it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A caption line-wrap width guard uppercased text before measuring its pixel width, but the renderer draws mixed case, so the guard over-fired and produced one-word chunks worse than the bug it was meant to fix — undetected by unit tests, caught only by watching a rendered frame.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "If the width-measurement library agreed with the actual render to within 1%, how could the caption still be wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Because the 1% figure compares the measurement tool against the render tool on the same input string. The bug wasn't in either tool — it was that the measurement path transformed its input (uppercasing) before measuring, while the render path drew the untransformed original. The two tools agreed perfectly; they just weren't being asked to check the same thing."}},
+{"@type": "Question", "name": "Why would uppercasing the text for measurement seem like a reasonable idea in the first place?", "acceptedAnswer": {"@type": "Answer", "text": "Uppercase glyphs are wider than mixed case in this font, so measuring in uppercase looks like it buys a safety margin — the real width can only come in narrower, never wider, so a check against the padded number should be conservative. That reasoning is sound only if uppercase is ever a possible rendering of that text. Here it never was; a different overlay in the same pipeline used uppercase for an unrelated purpose, and the assumption crossed over."}},
+{"@type": "Question", "name": "Why didn't the existing unit tests catch this before it shipped?", "acceptedAnswer": {"@type": "Answer", "text": "The unit tests exercised the width-check function in isolation, with the case transformation already applied inside the test's own fixtures. That verifies the function does what it's told given an input; it doesn't verify the input matches what the render path actually produces. The mismatch lived in the relationship between two code paths, not inside either one, so a test scoped to one path structurally couldn't see it."}},
+{"@type": "Question", "name": "What's the fix that actually closes this, versus a one-off patch?", "acceptedAnswer": {"@type": "Answer", "text": "The immediate fix is to measure the original-case text, matching what the renderer draws. The durable fix is structural: either the measurement path calls the exact same text-transformation step the render path calls, so they can't silently diverge, or the pipeline adds a check that samples actual rendered frames rather than relying only on unit-level assertions about intermediate values."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-09</p>
+
+<div class="note">A subtitle line-wrap width guard uppercased its input before measuring pixel width, assuming that gave a conservative margin. The renderer never draws captions in uppercase, so the guard over-fired on text that fit fine, producing one-word chunks worse than the sentence-boundary bug it was built to fix. Every existing test stayed green; only a rendered frame showed the regression.</div>
+
+<h2>The bug the complaint pointed at</h2>
+<p>A user complaint sent me into a caption pipeline: "the subtitles cut to two words in places where the sentence doesn't make sense." The captioning system splits a transcript into short chunks that pop onto screen a few words at a time, and the chunking function was doing fixed-size slicing — take the next N words, regardless of what came before or after. That's blind to sentence boundaries, so two unrelated sentences could land in the same chunk: <code>loss. Today</code> reads as one visual unit even though it's the tail of one sentence and the head of the next.</p>
+<p>The fix was a rule set, not a single tweak: hard break after terminal punctuation (<code>. ! ? …</code>); soft break at commas, semicolons, and em-dashes; extend or push a chunk rather than let it end on a function word (<code>of</code>, <code>the</code>, <code>than</code>, <code>is</code>, and about thirty others); target three words per chunk, four as a ceiling; and a pixel-width cap on the rendered chunk, measured against the actual caption font (Montserrat ExtraBold), with a budget of 1080 × 0.92 = 993.6px.</p>
+<p>The first four rules are about where a line is allowed to break. The fifth is a physical constraint: however good the break points are, a chunk still has to fit on screen at the font size actually in use. That's the one that went wrong.</p>
+
+<h2>What the width guard actually measured</h2>
+<p>To get the pixel width of a candidate chunk, the guard rendered the chunk's text through the font and measured the result — which is the correct approach in principle, not a shortcut. Text width isn't a fixed number of pixels per character; it depends on the specific glyphs, so measuring the real string through the real font is the only way to get an honest number.</p>
+<p>The chunk text going into that measurement, though, was uppercased first. Elsewhere in the same video pipeline, an unrelated overlay — hook text shown at the very start of a clip — is deliberately rendered in all caps for a different visual style, and the width-measurement code for the caption line borrowed that same uppercasing step. It reads like a defensible move if you don't check it against what's actually drawn: uppercase glyphs in this font run wider than mixed case, so measuring in uppercase gives you a safety margin — worst case, real width can only come in narrower than what you measured, never wider. Except the caption itself is never rendered in uppercase. The word-pop captions on screen keep the original sentence casing. The margin wasn't a safety margin against a real risk; it was padding for a risk that doesn't exist in this code path, and the padding was large enough to distort the outcome.</p>
+
+<h2>The measurement was accurate. The input was wrong.</h2>
+<p>Take a concrete chunk: "rich with nitrates." Rendered as written, mixed case, it measures 842px. Rendered uppercase — the string the guard actually checked — it measures 1042px, about 20% wider. The budget is 993.6px. The real string clears the budget with room to spare. The string the guard tested against does not.</p>
+<p>So the guard did its job on the input it was given, and the input was wrong. Chunks like "rich" and "with nitrates." got forced apart into one-word fragments to satisfy a width limit that the actual on-screen text was never close to violating. That's a regression relative to the bug this whole rule set was supposed to fix — a one-word chunk is a more broken reading experience than the original two-sentences-in-one-chunk problem, just distributed differently across the caption track.</p>
+<p>It's worth being precise about what was and wasn't broken here, because it would be easy to walk away distrusting the measurement machinery itself. I checked that separately: the library's text-path measurement and the actual rendered glyph width from the graphics library's own <code>get_window_extent()</code> call agreed to within 1% on the same string (841.6px vs. 849.0px). The measurement tool was fine. The 20% gap came entirely from feeding it a transformed version of the string that the render path never draws.</p>
+
+<h2>Why green tests didn't catch it</h2>
+<p>This shipped with every existing test passing. That's not a gap in test coverage in the usual sense — the width-cap logic almost certainly had a unit test asserting that oversized text triggers a split, and that test presumably still passes today, because the function under test does exactly what it's told: given uppercased text and a budget, it correctly decides whether that uppercased text fits.</p>
+<p>The thing no test was checking is whether the uppercased text is the text that gets drawn. That's not a property of the width function in isolation — it's a property of the relationship between two different parts of the pipeline, the measurement path and the render path, and nothing forced those two to agree because nothing compared them. A unit test that only exercises the measurement function, with the transformation already baked into its test fixtures, will happily stay green forever while that transformation drifts away from reality.</p>
+<p>What actually caught this was watching a rendered frame. Not a screenshot diff against a golden image — just a person looking at the output and noticing captions breaking somewhere they shouldn't. There was no automated signal pointing at the bug; there was only the gap between what the pipeline produced and what a human expected to see.</p>
+
+<h2>What generalizes</h2>
+<p>The specific failure — uppercasing text before measuring it, then rendering it mixed-case — is narrow. The shape underneath it isn't.</p>
+<p>Any time verification code needs to know something about what a production code path is going to output — its width, its length, its normalized form, its encoding — there are two ways to get that information. One is to call the actual function that the render path calls, so the two are structurally guaranteed to agree. The other is to reimplement an approximation of what that function does, in the verification code, separately. The second option is often faster to write and easier to review in isolation, and it works right up until someone changes an assumption on one side without noticing it needs to change on the other. Case transformation, whitespace normalization, trimming rules, encoding — all of these are exactly the kind of small, easy-to-duplicate, easy-to-forget-you-duplicated logic that drifts.</p>
+<p>Two things reduce the risk, and they're not mutually exclusive. First, share the transformation function itself between the render path and the measurement path, so there's one implementation of "what text actually reaches the screen" instead of two that are supposed to agree. Second — for anything a shared function doesn't cover, or as a backstop even when it does — sample the actual rendered artifact and check it, rather than trusting that a green test suite implies the output looks right. A pipeline nobody looks at is a pipeline where this kind of drift can live for a long time before anyone notices, because nothing in the test suite is positioned to notice it either.</p>
+<p>An earlier note on this site covered the mirror-image failure — <a href="./i-confirmed-the-formula-where-both-formulas-agree.html">a measurement that was accurate but taken at a point where two hypotheses agreed</a>. This one is closer to home: the measurement tool was accurate too, and the failure was upstream of it, in what got handed to it as input.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. If the width-measurement library agreed with the actual render to within 1%, how could the caption still be wrong?</strong><br>
+Because the 1% figure compares the measurement tool against the render tool on the same input string. The bug wasn't in either tool — it was that the measurement path transformed its input (uppercasing) before measuring, while the render path drew the untransformed original. The two tools agreed perfectly; they just weren't being asked to check the same thing.</p>
+
+<p><strong>Q. Why would uppercasing the text for measurement seem like a reasonable idea in the first place?</strong><br>
+Uppercase glyphs are wider than mixed case in this font, so measuring in uppercase looks like it buys a safety margin — the real width can only come in narrower, never wider, so a check against the padded number should be conservative. That reasoning is sound only if uppercase is ever a possible rendering of that text. Here it never was; a different overlay in the same pipeline used uppercase for an unrelated purpose, and the assumption crossed over.</p>
+
+<p><strong>Q. Why didn't the existing unit tests catch this before it shipped?</strong><br>
+The unit tests exercised the width-check function in isolation, with the case transformation already applied inside the test's own fixtures. That verifies the function does what it's told given an input; it doesn't verify the input matches what the render path actually produces. The mismatch lived in the relationship between two code paths, not inside either one, so a test scoped to one path structurally couldn't see it.</p>
+
+<p><strong>Q. What's the fix that actually closes this, versus a one-off patch?</strong><br>
+The immediate fix is to measure the original-case text, matching what the renderer draws. The durable fix is structural: either the measurement path calls the exact same text-transformation step the render path calls, so they can't silently diverge, or the pipeline adds a check that samples actual rendered frames rather than relying only on unit-level assertions about intermediate values.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./two-events-same-frame-erase-each-other.html">Doubling the Volume Didn't Fix It. The Two Events Landed on the Same Frame.</a></li>
+<li><a href="./unit-tests-pass-feature-dead-in-production.html">Unit Tests Pass, Feature Dead in Production</a></li>
+<li><a href="./numeric-fidelity-is-not-interpretation-fidelity.html">Numeric Fidelity Is Not Interpretation Fidelity</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
