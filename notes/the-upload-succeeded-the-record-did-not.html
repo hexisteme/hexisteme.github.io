@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Upload Succeeded, the Record Did Not — hexisteme notes</title>
+<meta name="description" content="A YouTube upload stage wrote its local &quot;already uploaded&quot; record only after verification succeeded, so a verification failure left the video live on the platform with nothing on disk to say so. Re-running the same command sailed past the duplicate guard and would have uploaded a second copy of a video that already existed.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Upload Succeeded, the Record Did Not", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A YouTube upload stage wrote its local completion record only after a post-upload verification step succeeded. When verification threw, the record was never written even though the video already existed on the platform, so re-running the command bypassed the duplicate guard and uploaded a second copy. The fix moved the checkpoint to the moment the video ID is received, before verification, and split reruns into resume-verification versus block-as-duplicate branches.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why did a failed verification step lead to a duplicate video upload?", "acceptedAnswer": {"@type": "Answer", "text": "Because the local record marking an episode as uploaded was only written after verification succeeded. When verification raised an exception, the record was never written, even though the video already existed on YouTube. Re-running the same command found no record, so the duplicate guard passed and a second, independent copy was uploaded."}},
+{"@type": "Question", "name": "What was the actual fix?", "acceptedAnswer": {"@type": "Answer", "text": "The checkpoint moved earlier: as soon as the video ID comes back, before verification runs, the record is written immediately with verified: false. Verification then updates it to verified: true on success. Re-running the command after a failure resumes verification against the existing video ID instead of uploading again."}},
+{"@type": "Question", "name": "Why didn't the existing tests catch this?", "acceptedAnswer": {"@type": "Answer", "text": "Every unit test was green — the happy path, each guard, and even the assertion that verification throws when it detects a demotion. None of them checked what state was left on disk after that exception fired. Tests checked what was returned and thrown, not what a failure path left behind on the filesystem."}},
+{"@type": "Question", "name": "Does this generalize beyond video uploads?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Any operation that creates a resource remotely and then verifies it has a window between the side effect being committed and that fact being recorded locally. Payment authorization, cloud instance provisioning, external account creation — different resource, same window, same failure mode if nothing gets recorded until after verification."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The Upload Succeeded, the Record Did Not</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-09</p>
+
+<div class="note">A YouTube upload stage only wrote its "already uploaded" record after a post-upload verification step succeeded. When verification failed, the record was never written, even though the video already existed on the platform — so re-running the same command sailed past the duplicate guard and would have uploaded a second copy. The fix: write the record the moment the video ID exists, before verification, not after.</div>
+
+<p>I built a YouTube upload stage for a video pipeline, and the flow looked clean enough on paper: start a resumable session, PUT the file, get back a video ID, verify the upload actually landed the way it was supposed to, then write a local record marking the episode as uploaded. Four steps, each one depending on the last. It was the dependency between the last two that turned out to be the problem.</p>
+
+<h2>The sequence, and where it breaks</h2>
+<p>Verification here means re-querying the video through <code>videos.list</code> after the upload finishes, to confirm the visibility wasn't silently demoted, the upload wasn't rejected, and the metadata actually propagated. That's a reasonable thing to check — YouTube's upload API can report success at the transport layer while the platform-side processing does something you didn't ask for. But if that verification call raises, the exception propagates straight up, and the local record — a JSON file I'll call <code>upload.json</code> — never gets written. Not "gets written with an error flag." Never written, period.</p>
+<p>By the time that exception fires, though, the video already exists on YouTube. The PUT succeeded. The video ID is real. There's a public (or not-quite-public) video sitting on the channel, and there is exactly nothing on disk that knows about it.</p>
+<p>Run the same command again after that, and the guard that's supposed to answer "have I already uploaded this?" — a check for whether <code>upload.json</code> exists — sails right through, because it doesn't exist. The result isn't a retry. It's a second, completely independent upload of the same video.</p>
+
+<h2>What "retries don't duplicate" actually meant</h2>
+<p>The module's docstring said retries don't create duplicate videos. That line wasn't wrong, exactly — it was scoped narrower than it read. It was true for retries <em>inside</em> the low-level file-PUT function, which reuses the same resumable session URI on retry, so transport-layer hiccups during the upload itself are genuinely safe to retry. What it didn't cover was someone re-running the whole command from the outside after a failure. That's a completely different code path, going through the duplicate guard instead of the resumable session, and nothing about the inner retry safety extended to it. One sentence in a docstring, two different meanings of "retry," and only one of them was actually protected.</p>
+
+<h2>A second copy of the same bug, already live</h2>
+<p>While tracking this down, I found a second instance of the identical root cause already sitting in the same repository. Before this upload stage existed, five episodes had already gone up through a different path — an MCP tool — and that path never wrote <code>upload.json</code> either. Which meant the brand-new duplicate guard wasn't just vulnerable to a future verification failure; it was already blind to five specific videos that were live on the channel right now. A single run of the new command, pointed at any of those five, would have found no record, seen no reason to stop, and put a duplicate of each one on the channel. The defect wasn't a bug in the guard's logic. The guard's logic was fine. The defect was that a second path could create the same kind of resource and never tell the first path's bookkeeping about it.</p>
+<p>It's worth pausing on how this got past testing at all, because every relevant unit test was green the whole time. Happy path, the missing-file guard, the public-visibility check, the duplicate guard, even a test asserting that verification throws when it detects a demotion — all covered, all passing. What none of them checked was what state got left on disk <em>after</em> that exception fired. Tests tend to ask what a function returns and what it throws. Whether the right thing got thrown is easy to assert. What's still sitting on the filesystem once it has been thrown is a different question, and it's one that residual-state bugs like this one live in specifically because nobody's assertion is pointed at it.</p>
+
+<h2>The fix: write before you verify, not after</h2>
+<p>The fix moved the checkpoint, not the check. As soon as the video ID comes back — before verification runs at all — the code now writes <code>upload.json</code> immediately, with a field marking it <code>verified: false</code>. Verification then runs against that already-recorded video ID. If verification succeeds, the record gets updated to <code>verified: true</code>. If it fails or the process dies, there's already a record on disk saying "this video exists, id X, not yet confirmed."</p>
+<p>That record turns the duplicate guard into three branches instead of one: <code>--force</code> means deliberately create another copy, a record with <code>verified: false</code> means resume verification against the existing video ID rather than uploading again, and anything else means block the run outright because the episode is already up. Re-running the command after a verification failure no longer re-uploads anything — it just finishes the check it didn't get to finish the first time.</p>
+<p>The five already-live episodes needed a different move, since there was no failed-verification moment to catch retroactively — they'd gone up through a path that never wrote a record at all. For those, I backfilled <code>upload.json</code> entries using the real API values for each video, so the guard had something to check against going forward. Rearming a guard after the fact only works because the actual state (the video, its ID, its visibility) was still recoverable from the platform. If it hadn't been, there'd have been no way to reconstruct which videos were already live without visually checking the channel.</p>
+
+<h2>What generalizes</h2>
+<p>Any operation that creates a resource somewhere remote and then verifies it has a window — the gap between the moment the side effect is committed out there and the moment that fact gets recorded in here. Die inside that window, and two states become indistinguishable from the outside:</p>
+<ul>
+<li>the resource was created, and only the verification step failed</li>
+<li>the resource was never created at all</li>
+</ul>
+<p>Retry logic is built entirely on the assumption that you can tell these apart. When you can't, "retry" and "duplicate" become the same button. This isn't specific to video uploads — payment authorization, cloud instance provisioning, creating an account on some third-party service, any file upload with a follow-up confirmation step: different resource, same shape of window, same failure mode if nothing gets written until after the confirmation.</p>
+<p>The rule that falls out of it is simple to state and easy to skip in practice: the moment you receive an identifier is the moment you record it, before verification, before any post-processing, before cleanup. The record shouldn't only be capable of saying "done" — it needs a field for "this happened, not yet confirmed," because that's the actual state the system is in for however long the window stays open. And the diagnostic question is just as simple: if this function dies on any given line, does re-running it produce the same result? Ask it specifically for every line between the one where the remote write succeeded and the one where that fact gets written locally. The longer that stretch of code, the more likely something in it eventually dies mid-way.</p>
+<p>One more piece, easy to miss because it isn't about the retry path at all: if two different code paths can create the same kind of resource, both of them owe the same bookkeeping. A guard built with only one creation path in mind will only ever know what that one path told it — which is exactly how five already-uploaded videos ended up invisible to a duplicate check that, on its own terms, was working correctly.</p>
+<p>A related note on this site covers the same pipeline shipping a different kind of invisible bug: <a href="./measuring-uppercase-when-render-draws-mixed-case.html">a width guard that measured text the renderer never actually drew, with every test staying green the whole time</a>. Different mechanism, same shape — the tests weren't wrong about what they checked, they just weren't checking the thing that broke.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did a failed verification step lead to a duplicate video upload?</strong><br>
+Because the local record marking an episode as uploaded was only written after verification succeeded. When verification raised an exception, the record was never written, even though the video already existed on YouTube. Re-running the same command found no record, so the duplicate guard passed and a second, independent copy was uploaded.</p>
+
+<p><strong>Q. What was the actual fix?</strong><br>
+The checkpoint moved earlier: as soon as the video ID comes back, before verification runs, the record is written immediately with <code>verified: false</code>. Verification then updates it to <code>verified: true</code> on success. Re-running the command after a failure resumes verification against the existing video ID instead of uploading again.</p>
+
+<p><strong>Q. Why didn't the existing tests catch this?</strong><br>
+Every unit test was green — the happy path, each guard, and even the assertion that verification throws when it detects a demotion. None of them checked what state was left on disk after that exception fired. Tests checked what was returned and thrown, not what a failure path left behind on the filesystem.</p>
+
+<p><strong>Q. Does this generalize beyond video uploads?</strong><br>
+Yes. Any operation that creates a resource remotely and then verifies it has a window between the side effect being committed and that fact being recorded locally. Payment authorization, cloud instance provisioning, external account creation — different resource, same window, same failure mode if nothing gets recorded until after verification.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./measuring-uppercase-when-render-draws-mixed-case.html">My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</a></li>
+<li><a href="./two-events-same-frame-erase-each-other.html">Doubling the Volume Didn't Fix It. The Two Events Landed on the Same Frame.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
