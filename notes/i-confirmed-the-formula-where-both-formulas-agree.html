@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>I Confirmed My API Formula at the One Point Where Both Formulas Agree — hexisteme notes</title>
+<meta name="description" content="A live measurement against a video editor's scripting API convinced me an audio clip's end-frame semantics were inclusive, and I wired that formula into a production pipeline. The next session's test rig changed one variable my original measurement never varied, and the formula turned out to be a special case of a more general one.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "I Confirmed My API Formula at the One Point Where Both Formulas Agree", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Debugging a video editor scripting API where a live measurement confirmed the wrong formula because it was taken at a point where two competing hypotheses produced the same value", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why didn't a live measurement catch this the first time?", "acceptedAnswer": {"@type": "Answer", "text": "Because the measurement was taken at the one point where the wrong formula and the right formula produce the same value — when the clip's own length equals the requested length, min(end, clip_frames − 1) and end − 1 are the identical expression. The measurement was real and accurate; it just couldn't distinguish between the two hypotheses under those conditions."}}, {"@type": "Question", "name": "What's the actual semantics of GetSourceEndFrame?", "acceptedAnswer": {"@type": "Answer", "text": "min(requested exclusive end, clip's last valid frame index) — not a flat \"inclusive, minus one.\" Three live measurements across two sessions all fit that single formula; the earlier constant-offset formula only matched the case where the clip and the request happened to be the same length."}}, {"@type": "Question", "name": "Was the padding fix related to the formula bug?", "acceptedAnswer": {"@type": "Answer", "text": "No — it fixed a separate defect. A MOV file's movie header timescale is in milliseconds, so a frame count that isn't a multiple of three truncates the recorded duration and the editor indexes the clip one frame short. That bug and the formula bug both move the source-end readback by one frame, which is why they looked like the same problem until I measured the clip's indexed frame count directly."}}, {"@type": "Question", "name": "How do you avoid this kind of false confirmation in general?", "acceptedAnswer": {"@type": "Answer", "text": "Take the confirming measurement at a point where the hypotheses you're choosing between actually produce different values, not just at whatever condition is easiest to set up first. If a measurement's validity depends on a specific condition, encode that condition in the code — a guard, an assertion, a loud failure — rather than leaving it as a comment that says to remeasure later."}}]}
+</script>
+</head>
+<body>
+
+<h1>I Confirmed My API Formula at the One Point Where Both Formulas Agree</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-09</p>
+
+<div class="note">A live measurement against a video editor's scripting API told me an audio clip's end-frame semantics were inclusive. I wired the formula into a production pipeline and its test harness, and it held for exactly one session — because the point I'd measured it at was the one place my formula and the actual formula produce the identical number.</div>
+
+<p>I had what felt like unusually solid evidence: a live measurement, against the real API, of a value I couldn't find pinned down anywhere in the documentation. I wired the result into a pipeline and mirrored the same semantics into the test harness's fake object, and I believed it was settled. It held for exactly one session. Then the ground I'd measured it on turned out to be the one place two competing explanations happened to produce the same number.</p>
+
+<h2>What I measured, and what I concluded</h2>
+<p>I was building a pipeline that places audio clips onto a timeline through a video editor's scripting API, then reads the result back to verify the placement landed where it should. One of the values I needed to trust was <code>GetSourceEndFrame</code> on an audio timeline item — what frame does the API report as the clip's end, given a requested range?</p>
+<p>I ran it live: append a clip with a requested range of [0, 10644) — an exclusive end at frame 10644 — and read back what the API reported. It came back 10643, one less than the requested end. That looked unambiguous: the frame numbering was inclusive, and the expected value was <code>end − 1</code>. I wired that formula into the pipeline's placement logic and mirrored the identical semantics into the fake object the test harness used to stand in for the real API. It was a real measurement against the real system, not a guess, so I treated it as confirmed and moved on.</p>
+
+<h2>The next session, same wiring, wrong number</h2>
+<p>The next session, the same wiring broke. This time the test rig padded the carrier media by two frames, so the clip itself was 10,632 frames long — longer than the program length of 10,630 frames it was being placed into. The readback came back 10,630. My formula expected 10,629. Off by one, in the same direction as before, on code that had passed a live measurement the previous session.</p>
+
+<h2>Reading the failure timeline instead of guessing</h2>
+<p>Before touching the formula, I went back to the raw evidence: the actual record-in/record-out frames on the timeline where the clip had landed. They ran from 108000 to 118630 — exactly 10,630 frames, matching the end of the video track precisely. The placement was correct. The bug wasn't in where the clip got put; it was in what I expected <code>GetSourceEndFrame</code> to report about it.</p>
+<p>With that settled, I laid out every measurement I now had — the original case plus the two new ones — side by side:</p>
+
+<table>
+<tr><th>clip length (frames)</th><th>requested exclusive end</th><th>measured readback</th><th>min(end, clip_frames − 1)</th></tr>
+<tr><td>10,644 (clip length == requested length)</td><td>10,644</td><td>10,643</td><td>10,643</td></tr>
+<tr><td>10,629 (header-truncated clip)</td><td>10,630</td><td>10,628</td><td>10,628</td></tr>
+<tr><td>10,632 (padded clip)</td><td>10,630</td><td>10,630</td><td>10,630</td></tr>
+</table>
+
+<p>All three fit one formula: <code>GetSourceEndFrame</code> returns the smaller of the requested exclusive end and the clip's own last valid frame index. Not "inclusive, minus one" — a clamp against whichever boundary is tighter.</p>
+
+<h2>Why the first measurement couldn't have caught this</h2>
+<p>The uncomfortable part isn't that the first conclusion was wrong. It's why a real, live measurement produced a wrong conclusion with total confidence.</p>
+<p>In the first case, the clip's own length happened to equal the requested length. Under those conditions, <code>min(end, clip_frames − 1)</code> and <code>end − 1</code> are the same expression — when <code>clip_frames == end</code>, <code>min(end, end−1)</code> reduces to <code>end−1</code>. Any two hypotheses that agree at that point are indistinguishable there, no matter how carefully or how many times you re-measure it. My one live data point hadn't confirmed "inclusive minus one." It had confirmed the intersection of every hypothesis that also happens to reduce to <code>end−1</code> when clip length equals requested length — of which "clamped minimum" is one, and there could easily have been others I never wrote down.</p>
+<p>What stings more is that I'd half-noticed this at the time. The comment next to the wiring said, in effect, "remeasure if a partial-length bed ever gets used." I knew the measurement was taken under a specific condition. I just wrote that condition down as a warning instead of building it into the code — the expected-value formula went in as an unconditional <code>end − 1</code>, with no branch, no assertion, and nothing that would fail loudly the first time a clip's length diverged from the requested length. The comment recorded the debt. It didn't pay any of it down.</p>
+
+<h2>A second bug hiding on the same symptom axis</h2>
+<p>Splitting the formula didn't close the case. The header-truncated clip (10,629 frames, readback 10,628) turned out to be a different bug entirely, one that happened to produce the identical kind of off-by-one error and so hid behind the first one until I isolated it.</p>
+<p>The clip's source media was a MOV file, and the MOV movie header's timescale is in milliseconds. When the frame count isn't a multiple of three — at 30fps, a frame count not divisible by three doesn't correspond to a whole number of milliseconds — the duration recorded in the header gets truncated, and the editor indexes the clip one frame short of what actually exists in the file. That's a defect in how many frames the media pool clip is understood to have at all, independent of anything about <code>GetSourceEndFrame</code>'s own semantics. It only came apart from the first bug once I stopped looking at the readback and directly measured the indexed frame count of the media pool clip itself — the intermediate state, not the symptom both bugs were producing.</p>
+<p>For what it's worth, the fix for this second one is a padding change, not a logic change: pad the silence to a frame count that's a multiple of three, so header truncation — whichever field ends up getting read — never lands on the last valid frame. The append request range itself is unaffected, so nothing upstream needed to change.</p>
+
+<h2>What I'd take to another codebase</h2>
+<p>None of this is specific to a video editor or a scripting API. The shape recurs anywhere you confirm a hypothesis with a live measurement and then trust the conclusion past the conditions that measurement was taken under.</p>
+<p><strong>A measurement only discriminates between hypotheses that disagree at the point you took it.</strong> If two candidate explanations produce the same value under the conditions you happened to test, the measurement confirms their intersection, not either one specifically — and repeating the same measurement under the same conditions won't change that. Here, the discriminating variable was "clip length relative to requested length." The first measurement that varied it — the padded clip — split the two formulas apart immediately, on the very next data point.</p>
+<p><strong>Wire the hypothesis in as the formula that explains every observation, not a constant that happens to fit one.</strong> <code>end − 1</code> is a constant correction that matched the one case I'd measured. <code>min(end, clip_frames − 1)</code> is a formula that explains all three cases at once, including the one that hadn't happened yet. The first is a special-case solution wearing a general rule's clothes.</p>
+<p><strong>A "remeasure this" comment is a record of debt, not a defense.</strong> If I know a conclusion holds only under a specific condition, that condition belongs in the code — either as a guard on the expected-value calculation, or as something that fails loudly the moment the boundary gets crossed. Writing the caveat down and then hardcoding the unconditional version anyway means the comment protects nobody, including me three weeks later.</p>
+<p><strong>A recurring off-by-one is not automatically the same bug recurring.</strong> It can be a different bug that happens to share the same symptom axis — here, both defects moved the source-end readback by exactly one frame, in the same direction, for unrelated reasons. Separating them took measuring an intermediate value neither bug was hiding: the media pool clip's own indexed frame count, upstream of the API call that was actually failing.</p>
+<p>An earlier note on this site covered the adjacent failure — <a href="https://hexisteme.github.io/notes/numeric-fidelity-is-not-interpretation-fidelity.html">numbers cited perfectly while their meaning was misread</a>. This one is the mirror image: the measurement itself was accurate, every digit of it, and the failure was that the ground I measured on didn't have enough variation in it to tell two explanations apart. Accurate is not the same claim as sufficient, and a single confirmed data point doesn't know which one it is.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why didn't a live measurement catch this the first time?</strong><br>
+Because the measurement was taken at the one point where the wrong formula and the right formula produce the same value — when the clip's own length equals the requested length, min(end, clip_frames − 1) and end − 1 are the identical expression. The measurement was real and accurate; it just couldn't distinguish between the two hypotheses under those conditions.</p>
+
+<p><strong>Q. What's the actual semantics of GetSourceEndFrame?</strong><br>
+min(requested exclusive end, clip's last valid frame index) — not a flat "inclusive, minus one." Three live measurements across two sessions all fit that single formula; the earlier constant-offset formula only matched the case where the clip and the request happened to be the same length.</p>
+
+<p><strong>Q. Was the padding fix related to the formula bug?</strong><br>
+No — it fixed a separate defect. A MOV file's movie header timescale is in milliseconds, so a frame count that isn't a multiple of three truncates the recorded duration and the editor indexes the clip one frame short. That bug and the formula bug both move the source-end readback by one frame, which is why they looked like the same problem until I measured the clip's indexed frame count directly.</p>
+
+<p><strong>Q. How do you avoid this kind of false confirmation in general?</strong><br>
+Take the confirming measurement at a point where the hypotheses you're choosing between actually produce different values, not just at whatever condition is easiest to set up first. If a measurement's validity depends on a specific condition, encode that condition in the code — a guard, an assertion, a loud failure — rather than leaving it as a comment that says to remeasure later.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+<li><a href="./perfect-instrumentation-wont-save-an-underpowered-experiment.html">Perfect Instrumentation Won't Save an Underpowered Experiment</a></li>
+<li><a href="./numeric-fidelity-is-not-interpretation-fidelity.html">Four Models Cited My Numbers Perfectly. One Still Misread Them.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
