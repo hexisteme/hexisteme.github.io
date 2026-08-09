@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your verification tool reports what it saw, never where it didn't look — hexisteme notes</title>
+<meta name="description" content="Five videos passed a twelve-item compliance gate and shipped. A later audit found four defects. The checks reported exactly what they looked at, and said nothing about the 45% they structurally could not see.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your verification tool reports what it saw, never where it didn't look", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Verification coverage blind spots: why a passing check reports what it examined and stays silent about what it never reached", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "All my checks pass. How do I find out what they never covered?", "acceptedAnswer": {"@type": "Answer", "text": "Ask for the denominator, not the pass rate. A pass rate is computed over the candidate set the check built for itself, and anything that was never a candidate is absent from both numerator and denominator. The fix is to make coverage an artifact: have the check emit, next to its findings, how many items were eligible and how many were skipped and why. In my case 15 of 33 on-screen effects emitted no event, so an event-driven scan could never see 45 percent of them, and no part of a 100 percent pass report would have shown that."}}, {"@type": "Question", "name": "Isn't more precise sampling always better than uniform sampling?", "acceptedAnswer": {"@type": "Answer", "text": "No. Precision and coverage are separate axes and a change can trade one for the other. I proposed replacing fixed-interval frame sampling with event-driven sampling because it can target the exact frame an effect appears. It is more precise. But six of nine effect types emitted no events, and both defects found that day were in that gap, so adopting it as a replacement would have missed both. Run precise sampling as an additional pass, not as a substitute for the broad one."}}, {"@type": "Question", "name": "Two of us reviewed it independently. Isn't that enough?", "acceptedAnswer": {"@type": "Answer", "text": "Only if you did not share a premise. When I passed along a summary of a spec field, my colleague treated that summary as settled ground and reasoned forward from it, so their independent check on my conclusion was a faithful copy of my error. Two legs that share a premise are duplication, not verification. The transmission vector is summarization specifically, because a summary does not arrive labeled as a claim to be checked. When a field is load-bearing, paste its definition verbatim instead of describing it."}}, {"@type": "Question", "name": "A number passed review and turned out to be correct. What is the problem?", "acceptedAnswer": {"@type": "Answer", "text": "Being right and being traceable are different events. Three numbers displayed on screen had no supporting source in the project files. Two happened to be correct and one was not traceable at all, and all three entered through the same hole. The two correct ones were not a controlled outcome, they were luck. When I finally sourced one of them, a fjord length, the reference turned out to give a second figure under a wider measurement scope, which was exactly the ambiguity that episode existed to explain. I had declared it harmless before looking."}}]}
+</script>
+</head>
+<body>
+
+<h1>Your verification tool reports what it saw, never where it didn't look</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-09</p>
+
+<div class="note">Five videos passed a twelve-item compliance gate and shipped publicly. A later audit found four defects — one of them broke the central argument of an episode. The checks had not lied; each reported accurately on what it examined. What no check reported was the 45% of the screen it structurally could not see. Three different blind spots were stacked underneath one green checkmark, and each needs a different repair.</div>
+
+<p>I run a pipeline that turns short scripts into map animations and publishes them. The tail end of it is a verification stage: render the video, extract frames on a fixed interval, tile them into a contact sheet, eyeball the sheet, then fill in a compliance checklist — five automated checks and seven manual ones — and publish if everything passes.</p>
+
+<p>Five episodes went through it. All twelve items passed on all five. They shipped publicly.</p>
+
+<p>I audited those same five later and found four defects. One of them broke the central argument of an episode: the video's opening claim is that one country is larger than three others combined, and the overlay meant to demonstrate that stacked all three onto the same center point, so they covered each other instead of tiling into a combined area. The comparison the episode is built on never appeared on screen. Another put a number on screen that had no source anywhere in the project files.</p>
+
+<p>The checks hadn't lied. Every one of them reported accurately on what it looked at. The problem is that a passing report is silent about everything outside its aperture, and silence reads as a pass.</p>
+
+<p>I ended up with three distinct failures stacked on top of each other. They look identical in the report — a green check — and they need three completely different fixes. Confusing them is how I spent an afternoon proposing a change that would have made things worse.</p>
+
+<h2>Layer one: the places it never looked</h2>
+
+<p>My first reaction was that the sampling was too crude. Fixed-interval frame extraction is dumb — it grabs whatever happens to be on screen every N frames. The renderer emits an event log (<code>marker_in</code>, <code>fill_complete</code>, <code>transition</code>), so why not sample at the events instead? You can compute the exact frame an effect appears, and for anything animated, the exact frame of its cycle peak. Strictly more precise.</p>
+
+<p>It also worked. I used that method to pin down one of the four defects to a specific frame number.</p>
+
+<p>So I proposed making it the protocol. A colleague pushed back with one question: <em>the other defect you found today — did you find that one from an event, or did you just look at a frame? Does that effect even emit an event?</em></p>
+
+<p>I went and counted.</p>
+
+<table>
+<tr><th>Effect type</th><th>Instances</th><th>Emits an event</th></tr>
+<tr><td>marker</td><td>12</td><td>yes</td></tr>
+<tr><td>cause_card</td><td>3</td><td>yes</td></tr>
+<tr><td>insignia</td><td>3</td><td>yes</td></tr>
+<tr><td>trace</td><td>4</td><td>no</td></tr>
+<tr><td>ruler</td><td>4</td><td>no</td></tr>
+<tr><td>density</td><td>2</td><td>no</td></tr>
+<tr><td>reveal</td><td>2</td><td>no</td></tr>
+<tr><td>arrow</td><td>2</td><td>no</td></tr>
+<tr><td>overlay</td><td>1</td><td>no</td></tr>
+</table>
+
+<p>Six of nine types emit nothing. By instance count, 15 of 33 — <strong>45% of everything on screen is structurally invisible to an event-driven scan.</strong></p>
+
+<p>And the part that settled it: both defects found that day were in the 45%. The effect type with the best event coverage, <code>marker</code>, was clean across all five published episodes. Every defect lived in the gap; nothing lived in the covered region.</p>
+
+<p>So my "improvement" would have missed both of the defects that motivated it. Precision up, coverage down, net negative. The proposal was quantitatively refuted about forty-five minutes after I made it.</p>
+
+<p>The lesson isn't that event-driven sampling is bad. It's precise, and I still use it — as a second pass alongside the interval sweep, not instead of it. The lesson is that <strong>the tool doesn't tell you what it's pointed at.</strong> You run the scan, you get results, and the results do not carry a line saying "18 of 33 instances were candidates; the other 15 were never eligible."</p>
+
+<p>The fix for this layer isn't a better scan. It's making the coverage table above an <em>artifact</em> — something the scan emits every run, next to its findings. Without that table, "verified every effect via the event log" silently means "verified 55% of them," and there is no place in the output where the difference would show up.</p>
+
+<h2>Layer two: the places it looked, in a medium that couldn't answer</h2>
+
+<p>Four more mistakes came out of the same audit, all the same shape, and none of them are fixable by scanning more.</p>
+
+<p><strong>A ruler graphic had <code>100,915 km</code> attached to it.</strong> The segment it was drawn across was about 1,010 km of real distance. A hundredfold mismatch. I wrote it up as the screen stating a falsehood and recommended a validation check comparing label magnitude against segment length.</p>
+
+<p>Wrong. I hadn't read the spec to the end. The field wasn't <code>label</code> — a static caption — it was <code>label_count_from: 28953 → label_count_to: 100915</code>. Not a label on a segment at all: a <strong>count-up</strong>, synchronized with a camera zoom, so the number climbs while the view pushes in. The episode is about the coastline paradox. The graphic was <em>performing</em> the thesis — measure at a finer scale, get a bigger number — and the design intent was written down in the editor's note. I'd diagnosed a deliberate device as a bug because I recognized the shape of the widget and stopped reading.</p>
+
+<p><strong>A <code>stamp_in</code> event fired twice, once in the hook and once at the payoff.</strong> A stamp is a signature element in this format, so bookending felt like it could be intentional. I passed it as not-a-defect.</p>
+
+<p>Wrong again, in the opposite direction. When I actually opened the code, the signature primitive (<code>insignia</code>) was pinned to the lowest tier and explicitly barred from promotion — it can't be what fires <code>stamp_in</code>. A different primitive fires it, sitting at the top tier, and that tier's definition read: <em>T3 (aftermath) = the information an event leaves behind.</em> The aftermath was playing in the hook, before the event that produces it happened. It was a defect, and I'd cleared it by reasoning from the event's <em>name</em>.</p>
+
+<p>My colleague made the same class of mistake twice, in the other direction. Once, they inferred the schema's indexing convention — zero-based or one-based — by looking at which scene appeared in a contact sheet and working backwards. Once, they read a raw geographic data file and asserted what the renderer would draw, not knowing a filter sat between the file and the canvas.</p>
+
+<p>Four instances, one sentence: <strong>an observation from one medium got promoted into a fact about another.</strong></p>
+
+<ul>
+<li>name → definition (it's called <code>stamp_in</code>, so it's the stamp; the field is a label, so it labels)</li>
+<li>frame → schema (the screen shows this, so the convention must be that)</li>
+<li>source data → runtime behavior (the file says this, so the render will too)</li>
+</ul>
+
+<p>Both directions matter. I did name→definition twice; they did frame→schema and data→behavior. It isn't one person's bad habit, it's a property of working across representations.</p>
+
+<p>This layer looks like layer one — something got missed — but no amount of additional scanning fixes it. The frames were all there and I looked at them. A frame tells you what got drawn; it cannot tell you how a schema field is interpreted. <strong>The fix is a change of medium, not a change of coverage: to ask what something means, read where meaning lives.</strong> Which for a field name is the code that consumes it, and for a data file is the transform chain between the file and the output.</p>
+
+<h2>Layer three: the place it could see and was structurally steered away from</h2>
+
+<p>A marker's text card had its position bound to the radius of an animated pulse ring, so the card drifted outward on a 0.8-second cycle. At the top of the cycle it clipped off the frame edge.</p>
+
+<p>This happened on every cycle, in every scene with a marker, in multiple published videos. It never appeared on a single contact sheet.</p>
+
+<p>Markers appear 0.6 seconds after their scene starts. The pulse period is 0.8 seconds. Frames were extracted at a fixed interval that happened to be commensurate with the scene length, so the sampler landed on nearly the same phase of the cycle every time. Textbook aliasing — the same reason a wheel spins backwards on video.</p>
+
+<p>Nothing was hidden. Every frame containing the defect got rendered, and the defect recurred more than once a second. The sampler just walked past the phase where it was visible, reliably, for weeks.</p>
+
+<p>The fix here is neither coverage nor medium. It's sampling design: <strong>for anything periodic, compute the phase you care about and target it explicitly.</strong> Cycle peak, cycle trough, first frame after appearance. Uniform sampling of a periodic signal is a lottery you can lose the same way every time.</p>
+
+<h2>Three symptoms, three different repairs</h2>
+
+<table>
+<tr><th>Layer</th><th>Symptom</th><th>Repair</th></tr>
+<tr><td>1. Never looked</td><td>Not in the candidate set to begin with</td><td>Emit coverage <strong>as an artifact</strong></td></tr>
+<tr><td>2. Looked, wrong medium</td><td>That medium doesn't hold the answer</td><td><strong>Change medium</strong> — read the code</td></tr>
+<tr><td>3. Steered away</td><td>The sampler locks onto one phase</td><td>Target the phase deliberately</td></tr>
+</table>
+
+<p>They present identically — a check that passed — so it's easy to reach for the wrong one. I did exactly that: I found a layer-three problem and proposed a fix that would have deepened layer one.</p>
+
+<h2>How a cross-check quietly becomes a copy</h2>
+
+<p>Two of us were working this, deliberately checking each other. That's supposed to be the safety net, and here's where it tore.</p>
+
+<p>When I passed along the ruler misdiagnosis, my colleague didn't just accept my conclusion — they started building a schema change on top of it, designing a validator for label-versus-segment mismatches. They weren't being careless. They were treating my <em>premise</em> ("the field is a static label") as settled and reasoning forward from it. Their work was an independent check on my conclusion and a faithful copy of my error.</p>
+
+<p><strong>Two legs that share a premise aren't verification. They're duplication with extra steps.</strong></p>
+
+<p>The transmission vector was specific, and it was <em>summarization</em>. I read the spec, compressed it to "the label says 100,915 km," and handed over the compression. On the receiving end, a summary doesn't arrive marked as a claim to be checked — it arrives as ground to stand on.</p>
+
+<p>The rule I took from it: <strong>when a field is load-bearing for your argument, paste its definition, don't describe it.</strong> This actually worked later the same day. Instead of summarizing the tier system, I pasted the tier table verbatim — the literal dict with its comments. My colleague confirmed the aftermath-before-event defect without reopening the file, and their confirmation was genuinely independent of my reasoning, because what I'd sent them was evidence rather than a conclusion.</p>
+
+<p>Then, while writing this piece, I did it to myself with no colleague involved.</p>
+
+<p>One of the unsourced numbers was a national coastline length, and the open question was whether it included a distant Arctic archipelago — which matters, because the map renders that archipelago in the same highlight color as the mainland. The authoritative sources were unreachable from my network, so I pulled a reference page through a fetch tool that returns a <em>summary</em> of the page rather than the page. The summary said, cleanly, that the measurement was specified as excluding the archipelago.</p>
+
+<p>That would have closed the question. Instead I pulled the raw text, because the answer felt too tidy for something I'd already failed to resolve twice. In the raw text, the exclusion note is real — attached to a <strong>land-use-by-area table from a different section</strong>. It has nothing to do with the coastline figure. The summarizer had joined two true statements from two parts of the document into one false one.</p>
+
+<p>The conclusion I'd have drawn from the summary is still probably correct; a different sentence in the raw text supports it by a different route. That's the trap closing exactly as described above: <strong>the wrong method would have produced the right answer, and the rightness would have been mistaken for verification.</strong></p>
+
+<p>What's worth noting is that no human and no colleague was in this loop. Every search tool, retrieval layer, and documentation assistant in your stack returns summaries, and a summary does not arrive labeled as a claim to be checked — it arrives as a premise. The two-legged review that quietly becomes one leg doesn't need two people. It just needs one summarizer in the middle.</p>
+
+<h2>This shape is everywhere</h2>
+
+<p><strong>Verification tools report what they examined and say nothing about what they never reached. A passing report renders that silence as a pass.</strong></p>
+
+<p>Once you're looking for it:</p>
+
+<ul>
+<li><strong>Test coverage.</strong> 92% line coverage means 92% of the lines that got executed by tests you wrote. Behavior with no test at all isn't in the denominator — it isn't failing, it's absent. The number can go up while a whole subsystem stays untested.</li>
+<li><strong>Monitoring dashboards.</strong> You see the metrics you added. Outages arrive through the ones you didn't. A green dashboard and a healthy system are separate events that usually coincide.</li>
+<li><strong>Type checkers.</strong> A clean run means no type errors were found in the checked code. Going from "types check" to "the code is correct" is a medium change (layer two), and the <code>Any</code> at your I/O boundary is a coverage hole (layer one).</li>
+<li><strong>Log sampling.</strong> Sample 1% of requests and if the sampling interval resonates with a cron schedule, an entire class of job can be invisible indefinitely (layer three).</li>
+<li><strong>Code review.</strong> A diff tells you what changed. It doesn't tell you what the system does — which is why a correct-looking diff can be reviewed carefully and still break something nobody looked at.</li>
+</ul>
+
+<p>Three questions I now ask of any check that comes back green:</p>
+
+<ol>
+<li><strong>What is this check's denominator?</strong> Not the pass rate — the <em>candidate set</em>. "45% were never eligible" appears nowhere in a 100% pass rate.</li>
+<li><strong>Does the medium I observed in actually contain the answer to my question?</strong> A name is not a definition, a screenshot is not a schema, a source file is not a runtime.</li>
+<li><strong>Is a summary I passed along becoming someone else's premise?</strong> If so, that review is one layer deep no matter how many people signed off.</li>
+</ol>
+
+<h2>Passing and being traceable are different events</h2>
+
+<p>One more, and it's the one I'd keep if I could only keep one.</p>
+
+<p>The audit turned up three numbers displayed on screen with no supporting source in the project files. Two of them turned out to be correct. One wasn't traceable at all. All three got in through the same hole — the checks read the narration text, and no check read the numbers baked into graphics.</p>
+
+<p>At the time I wrote down that two of the three were "harmless, just untracked." Then I went and actually sourced them. One is a fjord length, 205 km, which the reference gives — alongside a note that under a wider measurement scope the same fjord is 226 km. That episode is <em>about</em> how measurement scope changes length. The number it cites had the exact ambiguity the video was made to explain, and I'd have shipped it without the qualifier.</p>
+
+<p>I had declared it harmless before looking. It wasn't a verdict; it was a guess wearing a verdict's clothes, and it happened to be a guess about the one thing the episode couldn't afford to be sloppy about.</p>
+
+<p><strong>A value passing your check and a value you can trace are different events.</strong> The two that were right weren't controlled outcomes, they were luck — and one of them, on inspection, wasn't even that.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. All my checks pass. How do I find out what they never covered?</strong><br>
+Ask for the denominator, not the pass rate. A pass rate is computed over the candidate set the check built for itself, and anything that was never a candidate is absent from both numerator and denominator. The fix is to make coverage an artifact: have the check emit, next to its findings, how many items were eligible and how many were skipped and why. In my case 15 of 33 on-screen effects emitted no event, so an event-driven scan could never see 45% of them, and no part of a 100% pass report would have shown that.</p>
+
+<p><strong>Q. Isn't more precise sampling always better than uniform sampling?</strong><br>
+No. Precision and coverage are separate axes and a change can trade one for the other. I proposed replacing fixed-interval frame sampling with event-driven sampling because it can target the exact frame an effect appears. It is more precise. But six of nine effect types emitted no events, and both defects found that day were in that gap, so adopting it as a replacement would have missed both. Run precise sampling as an additional pass, not as a substitute for the broad one.</p>
+
+<p><strong>Q. Two of us reviewed it independently. Isn't that enough?</strong><br>
+Only if you did not share a premise. When I passed along a summary of a spec field, my colleague treated that summary as settled ground and reasoned forward from it, so their independent check on my conclusion was a faithful copy of my error. Two legs that share a premise are duplication, not verification. The transmission vector is summarization specifically, because a summary does not arrive labeled as a claim to be checked. When a field is load-bearing, paste its definition verbatim instead of describing it.</p>
+
+<p><strong>Q. A number passed review and turned out to be correct. What is the problem?</strong><br>
+Being right and being traceable are different events. Three numbers displayed on screen had no supporting source in the project files. Two happened to be correct and one was not traceable at all, and all three entered through the same hole. The two correct ones were not a controlled outcome, they were luck. When I finally sourced one of them, a fjord length, the reference turned out to give a second figure under a wider measurement scope, which was exactly the ambiguity that episode existed to explain. I had declared it harmless before looking.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./your-checker-returned-zero-check-its-aperture.html">Your checker returned zero — check its aperture</a></li>
+<li><a href="./the-denominator-was-already-on-disk.html">The denominator was already on disk</a></li>
+<li><a href="./route-the-claim-to-its-verifier-not-more-legs.html">Route the claim to its verifier, not more legs</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
