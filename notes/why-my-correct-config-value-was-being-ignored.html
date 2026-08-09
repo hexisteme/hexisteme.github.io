@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Why My Correct Config Value Was Being Ignored — hexisteme notes</title>
+<meta name="description" content="A correctly configured API key sat unused in a .env file while an MCP server reported itself as unconfigured. The bug wasn&#x27;t missing config — it was an empty placeholder in a higher-priority settings layer silently shadowing the real value below it.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/why-my-correct-config-value-was-being-ignored.html">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Why My Correct Config Value Was Being Ignored", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Layered configuration precedence: how an empty or placeholder value in a higher-priority layer silently shadows a correct value in a lower layer, why load_dotenv(override=False) makes it silent, and how to audit for it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did the correct .env value get ignored?", "acceptedAnswer": {"@type": "Answer", "text": "A higher-priority layer — a global settings file's per-server env block — had already defined the same key as an empty string before the server started. python-dotenv's load_dotenv() defaults to override=False, so it will not overwrite a variable that is already present in the environment, even when that existing value is an empty string. The real value in .env was left unloaded, and the server read back an empty string and self-disabled."}}, {"@type": "Question", "name": "Isn't setting a key to an empty string the same as leaving it unset?", "acceptedAnswer": {"@type": "Answer", "text": "No. To a precedence mechanism, a key set to an empty string is defined, and a defined value in a higher layer wins over a real value in a lower layer. An absent key, by contrast, defers to the lower layer. That difference between 'empty' and 'absent' is the entire bug."}}, {"@type": "Question", "name": "How do I find this when nothing throws an error?", "acceptedAnswer": {"@type": "Answer", "text": "Stop checking whether the value exists somewhere on disk and check the effective value at the point the code actually reads it, in the same environment the process starts in. If printing the variable shows an empty string rather than None, some layer above your .env file has already claimed the key — go find the empty placeholder in that upper layer and delete it."}}, {"@type": "Question", "name": "Should I just switch the loader to override=True?", "acceptedAnswer": {"@type": "Answer", "text": "That is the tempting quick fix, and it does make this one case work, but it changes precedence semantics globally and can silently break another case where you actually wanted the outer layer to win over a different lower layer. The targeted fix is to delete the empty placeholder from the upper layer so precedence falls through to the real value, not to invert how every variable resolves."}}]}
+</script>
+</head>
+<body>
+
+<h1>Why My Correct Config Value Was Being Ignored</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-09</p>
+
+<div class="note">An MCP server that wraps an external API sat idle, reporting itself as unconfigured, while a correct key waited unused in its own .env file. The value existed — that was never the question. An empty placeholder for the same key in a higher-priority settings layer was shadowing it, because python-dotenv's default load_dotenv(override=False) treats an already-present empty string as 'defined' and refuses to overwrite it from .env. The fix was to delete the empty binding, not to change how the loader resolves precedence.</div>
+
+<p>I run a small fleet of AI agents and MCP servers on my own machine, and every so often I run a full audit pass over the harness — settings files, server configs, environment variables, all of it — just to see what's actually wired up versus what's quietly rotted. During one of those audits I found a server that looked completely dead: an MCP server that wraps an external API (in this case, a patent-search API). It had a real, valid key sitting in its project's <code>.env</code> file — correct format, correct length, nothing wrong with it. And yet at runtime the server behaved as if no key existed at all. It reported itself as unconfigured and refused to do lookups.</p>
+<h2>The wrong diagnosis</h2>
+<p>My first instinct was to treat this as a broken server, not a broken config. I opened the <code>.env</code> file, confirmed the key was there, confirmed it looked like a real key and not a leftover placeholder, and concluded the problem had to be downstream of that — maybe the server's own code had a bug reading the variable, maybe the API had changed its auth shape, maybe a reinstall would shake something loose. That's the natural place to land, because the question I was implicitly asking was "does the correct value exist somewhere in this project?" And the answer was yes. So I kept looking in the wrong place: at the server, not at everything sitting between the server and its own <code>.env</code> file.</p>
+<p>That's the trap. "It exists" and "it's the value actually being used" are different questions, and when a config system has more than one layer, only the second one matters.</p>
+<h2>What was actually happening</h2>
+<p>The real cause turned up during the audit, not during debugging the server directly. My global Claude Code settings file had an <code>mcpServers.&lt;name&gt;.env</code> block for this server, and in that block, the same key name was set to an empty string — left there, I assume, as a kind of documentation: "this is the variable this server expects." That block gets injected into the process environment before the server's own code ever runs.</p>
+<p>The server loaded its config with Python's <code>python-dotenv</code>, calling <code>load_dotenv()</code> with the library's default behavior, <code>override=False</code>. That default means: if a variable is already present in the environment, <code>load_dotenv()</code> will not overwrite it with whatever is in the <code>.env</code> file — even if the existing value is an empty string. So by the time the server's process started, the environment already had the key defined as <code>""</code>, courtesy of the outer settings file. <code>load_dotenv()</code> looked at that, saw the key was "already defined," and left the real value in <code>.env</code> untouched and unloaded. The server then did the equivalent of <code>os.getenv("THE_KEY", "")</code>, got back an empty string, and correctly concluded it had no key — so it self-disabled.</p>
+<p>No exception, no error log, no warning that a <code>.env</code> file was being ignored. Just silence, and a server that looked dead from every outward angle while sitting on top of a perfectly good key it never saw.</p>
+<h2>The general rule</h2>
+<p>The mistake wasn't a typo or a missing file — it was asking the wrong question. When configuration is assembled from more than one layer — process environment versus <code>.env</code> file, CLI flags versus a config file, local settings versus global settings, a container's <code>environment:</code> block versus an app's own config — the convention is that the outer or higher-priority layer wins. That part is fine; it's how precedence is supposed to work.</p>
+<p>The trap is assuming "wins" implies "was intentionally set to something meaningful." To a precedence mechanism, an empty string is just as <em>defined</em> as a real value. <code>KEY=""</code> is not the same as <code>KEY</code> being absent. A blank left in an upper layer "for documentation" or "as a placeholder to remind myself what this needs" is exactly as authoritative as a real value would be, and it will shadow the correct value underneath it — silently, with no error signal, because from the loader's point of view nothing went wrong. It did exactly what its precedence rules say it should do.</p>
+<p>This isn't specific to <code>python-dotenv</code>. Any layered config system has the same shape wherever a higher-priority layer can declare a key with an empty or placeholder value: environment blocks in compose files, launchd plists, CI pipeline env declarations. The moment you put an empty binding for a key in any layer that has override authority over another layer holding the real value, you've planted something that looks like nothing and behaves like a landmine.</p>
+<h2>How to audit for it</h2>
+<p>The fix for the actual diagnosis question is to stop checking for <em>existence</em> and start checking for the <em>effective</em> value at the point where the code actually reads it. A one-off check like this, run in the same environment the server would start in, tells you immediately whether something upstream already claimed the key:</p>
+<pre><code># diagnosis: which layer is actually winning — not whether the key exists anywhere
+python3 - &lt;&lt;'PY'
+import os
+print("pre-set in env:", repr(os.environ.get("THE_KEY")))  # "" means something upstream already shadowed it
+PY</code></pre>
+<p>If that prints <code>''</code> rather than <code>None</code>, some layer above your <code>.env</code> file has already defined the key — go looking through every layer that sits above it (global harness settings, container env blocks, shell exports, plist entries) for a declaration like <code>KEY: ""</code>, and remove it. Not blank it further, not comment out the value — delete the binding entirely. Omitting a key defers precedence down to the next layer; declaring it as empty does not, no matter how empty it looks.</p>
+<p>Once I found the offending block in the settings file, the fix was a one-line deletion, not a rewrite of the server or a reinstall of anything. The general move is: strip the empty declaration out of the upper layer, and let the real value live in the layer closest to the thing that actually consumes it — ideally scoped per-consumer rather than sitting in some shared, ambient layer that every tool inherits from by default. Flipping the loader to <code>override=True</code> instead is the tempting quick fix, and it does make this one case work — but it's the wrong fix, because it can silently break some other, unrelated case where you actually wanted the outer layer to take precedence over a different lower layer. Fixing the precedence bug by changing precedence semantics globally just relocates the same class of bug to wherever you're not currently looking.</p>
+<h2>What I'm keeping from this</h2>
+<p>A few habits came out of this one directly. I don't leave "documentation placeholder" empty values in any config layer that has override authority over a real one anymore — if I want to note what a server expects, that goes in a comment or a README, not in an empty binding that a loader will treat as a real assignment. When something that's "obviously configured correctly" still isn't working, the first move is now to print the effective value at the actual read site, not to re-confirm that the correct value exists somewhere on disk — I already know it exists; that was never the question. And when I do find a real value buried under a broken layer, the fix is to delete the layer that's shadowing it, not to change how the loader resolves precedence — because the second option usually just moves the failure mode somewhere less visible.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did the correct .env value get ignored?</strong><br>
+A higher-priority layer — a global settings file's per-server env block — had already defined the same key as an empty string before the server started. python-dotenv's load_dotenv() defaults to override=False, so it will not overwrite a variable that is already present in the environment, even when that existing value is an empty string. The real value in .env was left unloaded, and the server read back an empty string and self-disabled.</p>
+
+<p><strong>Q. Isn't setting a key to an empty string the same as leaving it unset?</strong><br>
+No. To a precedence mechanism, a key set to an empty string is defined, and a defined value in a higher layer wins over a real value in a lower layer. An absent key, by contrast, defers to the lower layer. That difference between 'empty' and 'absent' is the entire bug.</p>
+
+<p><strong>Q. How do I find this when nothing throws an error?</strong><br>
+Stop checking whether the value exists somewhere on disk and check the effective value at the point the code actually reads it, in the same environment the process starts in. If printing the variable shows an empty string rather than None, some layer above your .env file has already claimed the key — go find the empty placeholder in that upper layer and delete it.</p>
+
+<p><strong>Q. Should I just switch the loader to override=True?</strong><br>
+That is the tempting quick fix, and it does make this one case work, but it changes precedence semantics globally and can silently break another case where you actually wanted the outer layer to win over a different lower layer. The targeted fix is to delete the empty placeholder from the upper layer so precedence falls through to the real value, not to invert how every variable resolves.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./css-comment-typo-swallowed-fifteen-rules.html">CSS Doesn't Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet</a></li>
+<li><a href="./the-fix-was-committed-the-old-value-kept-running.html">The Fix Was Committed. The Old Value Kept Running.</a></li>
+<li><a href="./wrapper-failure-is-not-capability-failure.html">The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
