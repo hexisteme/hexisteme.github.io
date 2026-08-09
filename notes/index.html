@@ -240,6 +240,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="same-bytes-20-percent-fewer-tokens.html">Same Bytes, 20% Fewer Tokens: Token Counts Are Model-Scoped</a></h3>
+  <p>Two sub-agent spawns with near-identical request bodies (Δ0.3%) were billed 246,525 vs 196,892 input tokens — the smaller model metered 20.1% fewer tokens for the same bytes. A token count is a property of the (request, model) pair, so cross-model dollars-per-token comparisons need a byte- or task-normalized denominator.</p>
+  <span class="tag">llm</span><span class="tag">tokenization</span><span class="tag">cost</span>
+</div>
+
+<div class="card">
   <h3><a href="wrapper-failure-is-not-capability-failure.html">The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible</a></h3>
   <p>A tool failing and a tool being incapable are different claims, and the error in front of you does not say which. Descend one layer, call the underlying service directly with the same credentials, and let that decide — skipping the descent is how a client-side parsing bug gets laundered into a permanent capability judgment.</p>
   <span class="tag">AI agents</span><span class="tag">diagnosis</span><span class="tag">tool wrappers</span>
@@ -281,6 +287,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></h3>
   <p>An efficiency audit found a silent cost regression, a cache-invalidation trap, a pricing cliff — and a terrifying "12% task completion" that turned out to be benchmark contamination plus a schema misreading (real rate: 98.4%). Verify the metric before reacting; the false alarm's investigation still fixed three real defects.</p>
   <span class="tag">observability</span><span class="tag">multi-agent</span><span class="tag">postmortem</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-proxy-i-added-to-measure-tokens-tripled-them.html">The Proxy I Added to Measure Tokens Tripled Them</a></h3>
+  <p>A local capture proxy — attached via the documented base-URL override — silently disabled my agent CLI's lazy-loading of MCP tool schemas, inflating every request roughly 3x (79,761 → 241,659 tokens). Three verifiers reproduced the inflated numbers exactly and the interpretation was still wrong; only a no-proxy control run found the real cause. The meter changed the bill.</p>
+  <span class="tag">observability</span><span class="tag">llm</span><span class="tag">measurement</span>
 </div>
 
 <div class="card">
