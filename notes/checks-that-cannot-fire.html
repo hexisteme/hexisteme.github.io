@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The check that cannot fire — hexisteme notes</title>
+<meta name="description" content="A QC harness passed all 13 synthetic fixtures and broke on 5 of its first real inputs. Every root cause was the same shape — a threshold expressed as an absolute constant unrelated to the scale of the content — and the fix that made it 50x more sensitive kept every existing fixture green.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The check that cannot fire: absolute thresholds silently disable your QC", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Quality-control harness design, detection floors, and thresholds derived from in-run signal-to-noise", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a QC harness pass every synthetic fixture and fail on real input?", "acceptedAnswer": {"@type": "Answer", "text": "Its thresholds were absolute constants that implicitly assumed the scale of the fixtures. On real content at a different scale the checks did not fail, they stopped firing — and a check that stops firing reports a pass, so it survives indefinitely in the suite."}}, {"@type": "Question", "name": "How do you prove a threshold change tightened a check instead of loosening it?", "acceptedAnswer": {"@type": "Answer", "text": "Measure a detection floor: inside the same run and on the same content, inject a synthetic defect at a sweep of amplitudes and record the smallest amplitude that still fires the check. In this case the floor improved from 0.05 to 0.001 — 50x more sensitive — while all 13 prior positive controls stayed green."}}, {"@type": "Question", "name": "What should a check report when it cannot discriminate on the given input?", "acceptedAnswer": {"@type": "Answer", "text": "Not a pass. Report an explicit 'discrimination absent' state. A pass and a could-not-measure are different facts, and merging them means the next reader takes the second for the first."}}]}
+</script>
+</head>
+<body>
+
+<h1>The check that cannot fire</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-09</p>
+
+<div class="note">A quality-control harness for rendered video deliverables passed all 13 synthetic fixtures and broke on 5 cases the first time it saw real footage. All three root causes were the same shape: a threshold written as an absolute constant that implicitly assumed the scale of the fixtures. Replacing those constants with ratios measured in the same run made the harness 50x more sensitive while keeping every prior fixture green — and the repaired harness then caught a deterministic 29.3 ms defect in the first real delivery that every upstream check had reported as fine.</div>
+
+<p>I built a quality-control harness to check rendered video deliverables — six axes covering geometry, audio lineage, edit-point clicks, edit-point silence, frame lineage, and segment boundaries. I ran it against ten synthetic surrogate files with deliberately injected defects. Thirteen cases, all green. Then I ran it against actual lecture footage and five cases broke.</p>
+
+<p>The interesting part is not that it broke. It is that all three root causes were the same shape, and that shape is one I had already been bitten by twice before in the same repository without recognizing it as a category.</p>
+
+<div class="warn">A threshold written as an absolute constant is a hidden assumption about the scale of your input. On content whose scale differs from your fixtures, that check does not fail — it stops firing. And a check that stops firing reports success, which is why it can live in your suite forever.</div>
+
+<h2>Thirteen green fixtures, five real failures</h2>
+
+<p>The harness is three layers: a pure decision layer with no I/O, an executor that shells out to <code>ffprobe</code>/<code>ffmpeg</code>, and a verification harness that runs positive and negative controls. The synthetic surrogates were files I generated with known defects — a 200 ms audio delay, a dropped frame, a shifted segment — so I could assert that each axis fires on the defect it owns and stays quiet on the others.</p>
+
+<p>Every one of those passed. Then real footage: quiet lecture audio, a static presenter frame, ordinary re-encode noise. Five failures, three distinct causes.</p>
+
+<h3>Cause A — an absolute peak threshold on a click detector</h3>
+
+<pre># before — 0.12 is a number that assumes some particular audio
+fired = [s for s in stats if s.peak_step &gt; 0.12]</pre>
+
+<p>Measured on the real file: the peak step at control points — deliberately chosen non-junction locations — had a 95th percentile of <strong>2.02e−2</strong>. The synthetic click I injected to test sensitivity peaked at <strong>2.83e−2</strong>. The injected defect was 1.4x the background and unmistakable in the data, and the threshold of 0.12 swallowed both of them. On quiet content this detector was structurally incapable of firing.</p>
+
+<p>The fix is not a smaller constant. It is to stop using a constant:</p>
+
+<pre># after — compare against local background measured in the same run
+ratio = peak / max(ctx_p99, ctx_floor)
+ratio_threshold = max(k * control_ratio_p95, min_ratio)  # threshold derived from control sites
+fired = [s for s in stats
+         if s.ratio &gt; ratio_threshold and s.peak_step &gt; peak_floor]</pre>
+
+<p>On the same data this separates a clean junction at <strong>0.084</strong> from an injected one at <strong>2.8e+3</strong>. Four orders of magnitude, from a detector that minutes earlier could not distinguish either from zero.</p>
+
+<h3>Cause B — an absolute margin on frame comparison</h3>
+
+<p>The frame-lineage axis has to tell "this output frame came from that source frame" apart from "it came from the one two frames over." I had encoded "distinguishable" as <code>min_margin = 0.002</code>. When I actually measured it, the signal was <strong>34 to 45 times</strong> the re-encode noise. It was not marginal. The constant was eating a clean signal.</p>
+
+<pre># after — measure this run's re-encode noise, use a multiple of it
+noise = median(1 - best_ncc_per_frame)          # noise floor for THIS run
+detect_threshold = k_noise * max(noise, floor)  # k_noise = 4
+detectable = content_margin &gt; detect_threshold  # is the content separable at all?</pre>
+
+<p>That last line matters as much as the threshold. Before asking "did the check pass," ask "on this content, could it have failed?" If the answer is no — a static frame where every candidate correlates at 0.9999 — the honest output is not <code>pass</code>. It is <code>discrimination_absent</code>.</p>
+
+<h3>Cause C — an undocumented applicability limit</h3>
+
+<p>The third one was not a constant, but it belongs to the same family. The edit-point silence check works only on silence runs between 90 and 359 ms, and it cannot see a 200 ms delay defect at all. None of that was written down anywhere. A check whose applicability limits are unrecorded produces a <code>pass</code> that nobody can interpret.</p>
+
+<h2>Proving the fix tightened rather than loosened</h2>
+
+<p>Here is the obvious objection to everything above: you changed thresholds until the failures went away. That objection is correct by default and has to be answered with a measurement, not an assurance.</p>
+
+<p>The measurement is a <strong>detection floor</strong>: inside the same run, on the same content, inject a synthetic defect at a sweep of amplitudes and record the smallest one that still fires the check.</p>
+
+<table>
+<tr><th></th><th>before</th><th>after</th></tr>
+<tr><td>Click detector floor (smallest amplitude that fires)</td><td>0.05</td><td><strong>0.001</strong> — 50x more sensitive</td></tr>
+<tr><td>Synthetic fixtures still passing</td><td>13/13</td><td><strong>13/13</strong></td></tr>
+<tr><td>Full suite incl. real footage</td><td>5 failures</td><td><strong>26 cases, 0 failures</strong></td></tr>
+</table>
+
+<p>Fifty times more sensitive with every prior positive control still green. That is the difference between loosening a check and turning one on. Without the floor number I would have had a story; with it I have a comparison.</p>
+
+<h2>What the working harness then found</h2>
+
+<p>The point of all this was to gate real deliveries, so: first live render, 10,630 frames, 48 seconds, geometry axis perfect — exact frame count, exact sample count, correct codec, zero padding. And the audio-lineage axis failed.</p>
+
+<p>The last <strong>29.3 ms</strong> of the delivered file was full-scale white noise. Peak 0 dBFS on both channels, zero-crossing rate 0.481, spectral flatness 0.850 — the signature of white noise (0.5 and 1.0 respectively), where speech sits near 0.05–0.15. It started 192 samples into the final frame, so it was not aligned to any frame boundary and therefore not an edit event. Two full renders produced a byte-identical result, down to the same QC report digest; a third, shorter render over just the tail reproduced the same burst sample for sample. Not a glitch — a deterministic defect.</p>
+
+<p>Two things about that are worth separating. First, everything upstream passed. The editor's own API cheerfully reported a correct timeline, because "what the tool remembers" and "what landed in the file" are different facts and only one of them is the deliverable. Second, the surviving-hypothesis work below was only possible because the harness could actually fire.</p>
+
+<p>Localizing it took eight experiments, and six hypotheses died:</p>
+
+<ul>
+<li>Render-tail artifact — dead. Rendering a range that ends one frame earlier produces a clean tail.</li>
+<li>Contaminated source media — dead. The source measures −22.55 dB there, and a file assembled from the same plan with <code>ffmpeg</code> is bit-identical to the source.</li>
+<li>Renderer reaching the end of the timeline — dead. I appended a silence handle so the frame in question was no longer last, rendered <em>through</em> it, and the new final frame was digital silence while the burst stayed exactly where it was.</li>
+<li>"The last frame of any audio clip" — dead, via a clip that consumed all of its media.</li>
+<li>"The clip ends before its media does" — dead, via a clip that deliberately left 15 frames unused and came out clean.</li>
+<li>"The last placed frame of this particular clip" — dead. I placed the same media at a completely different point on the timeline and the corruption moved with it, staying at the same offset <em>inside the media</em>.</li>
+</ul>
+
+<p>That last one converted the problem. The defect was never bound to timeline geometry; it was bound to a fixed position in the media file. Measured precisely, the burst spans source samples <strong>17,006,592–17,008,031</strong> — 1,440 samples straddling <strong>17,008,000</strong>, which is exactly where the baked program audio ends and the trailing digital silence begins. The original "1,408 samples" I first measured was the same burst, clipped by the render ending.</p>
+
+<p>The clean control was already sitting in the project: a second audio bed whose length happened to be a multiple of three frames, so it needed no trailing padding. Its final frames render clean, at exactly the reference tail level. Container layout matches in every respect I could measure — uniform 1024-sample packets, one partial packet at the end of each, no edit lists, no stream discontinuity. The one difference that survives measurement is that the failing file ends with <strong>3,200 samples of exact digital zero</strong> and the clean one ends with <strong>zero</strong> of them, in real room tone.</p>
+
+<p>So I changed the padding to continue the real source audio instead of appending silence, and shipped it. The final render is clean: zero burst frames, last-frame peak 0.0022 where it had been 0.577 RMS, and a tail level of −22.554864 dB — matching the clean control to six decimal places. Not quieter. The same.</p>
+
+<p>Before deploying the change I gave it a check of its own — count the trailing zero-valued samples in the baked carrier and fail if there are any — and I ran that check against the old file and the control first. Old file: 3,200, fails. Control: 0, passes. Only then did it go in. A check I had not seen fail would have been the fourth instance of this essay's defect, added by the fix for the third.</p>
+
+<p>One more thing happened that is worth the paragraph. I rebaked the file in place, re-rendered, and the burst was still there. The QC digest came back <strong>byte-identical</strong> to the previous run — not a similar failure, the <em>same output</em>. The renderer had never read the new file. Its media cache is keyed on path and is not invalidated by mtime; the fix was on disk and invisible at the same time. Note what the same signature meant in two places: earlier, two byte-identical renders were my evidence that the defect was deterministic; here, a byte-identical digest was evidence that nothing had been re-read. Same number, opposite conclusion, and only the surrounding experiment tells you which. Versioning the filename and relinking fixed it. Had I been comparing screenshots, or listening, I would have concluded the prescription was wrong and gone hunting for a mechanism that did not exist.</p>
+
+<h2>The same failure with no code in it</h2>
+
+<p>While writing this up I found the identical shape in a protocol rather than a program. I have a standing rule that says: when a general engineering lesson comes out of a project, proactively offer it as a writing candidate. For two months I believed the rule was working. It recorded nothing.</p>
+
+<p>"Zero offers made" and "no material worth offering" are different states, and the rule had no instrument that could distinguish them. Every month it silently reported success. It is the same defect as <code>peak_step &gt; 0.12</code> with none of the arithmetic — a check with no demonstrated way to fail.</p>
+
+<h2>What transfers</h2>
+
+<ol>
+<li><strong>Derive thresholds from signal-to-noise measured in the same run.</strong> A constant encodes your fixture's scale. The moment real content differs, the check switches off <em>quietly</em>, and quiet failures are indistinguishable from success.</li>
+<li><strong>Passing synthetic fixtures is not evidence of sensitivity.</strong> Fixtures contain the defects their author already imagined. Evidence of sensitivity is a detection floor measured in-run.</li>
+<li><strong>Every check needs a demonstrated way to fail.</strong> If you cannot show it failing, its passing carries no information. This was the third instance in one repository — the first was a fade-amplitude gate that was tautological because the cuts already snapped to silence; the second was <a href="./my-probe-passed-because-it-could-not-fail.html">a waveform check whose own prep procedure made passing the only possible outcome</a>, which read a plain split as a surviving crossfade. Those two were checks that could not discriminate. This one is a check that could, until the content changed scale.</li>
+<li><strong>When you cannot discriminate, report that — do not invent a threshold.</strong> <code>pass</code> and <code>could not measure</code> are different facts, and merging them means the next person reads the second as the first.</li>
+<li><strong>Write down each check's applicability limits next to its output.</strong> "Cannot fire on inputs of this shape" is part of what a <code>pass</code> means.</li>
+</ol>
+
+<h2>Where this could be wrong</h2>
+
+<ul>
+<li>The ratio-based thresholds are floored by two constants (<code>ctx_floor</code>, <code>peak_floor</code>) to keep them from exploding where the local noise approaches zero — genuine digital silence. Those floors are themselves absolute constants, which is the exact pattern this piece is about. Unresolved; currently watched by the detection floor, which would degrade if a floor started swallowing content.</li>
+<li>A detection floor measured with one injection type (synthetic clicks) is weak evidence for defects of other types. The real defect here was a white-noise burst, not a click, and it was caught — that cross-type hit is the only evidence I have that the floor generalizes, and one data point is one data point.</li>
+<li>The clean control differed from the failing file in more than the trailing zeros: different segmentation, different length. The matched comparison — the same file re-baked with only the padding changed — is what closed it, and it came back clean. But that is one file, one renderer version, one machine. I have a trigger and a prescription that works; I do not have the mechanism inside the closed-source renderer, and I cannot tell you what else shares it.</li>
+<li>Both the failing and the clean measurements go through <code>ffmpeg</code>'s decoder. If the decoder were fabricating the burst, the fix would look like a fix without being one. I think this is unlikely in the direction that matters — a decoder artifact hypothesis now has to explain why the artifact <em>disappeared</em> when the input's trailing samples changed — but I have not yet re-measured through a second decoder, so it is an open assumption rather than a closed one.</li>
+</ul>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did a QC harness pass every synthetic fixture and fail on real input?</strong><br>
+Its thresholds were absolute constants that implicitly assumed the scale of the fixtures. On real content at a different scale the checks did not fail, they stopped firing — and a check that stops firing reports a pass, so it survives indefinitely in the suite.</p>
+
+<p><strong>Q. How do you prove a threshold change tightened a check instead of loosening it?</strong><br>
+Measure a detection floor: inside the same run and on the same content, inject a synthetic defect at a sweep of amplitudes and record the smallest amplitude that still fires the check. Here the floor improved from 0.05 to 0.001 — 50x more sensitive — while all 13 prior positive controls stayed green.</p>
+
+<p><strong>Q. What should a check report when it cannot discriminate on the given input?</strong><br>
+Not a pass. Report an explicit <code>discrimination_absent</code> state. A pass and a could-not-measure are different facts, and merging them means the next reader takes the second for the first.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+<li><a href="./grep-wont-find-your-dead-gates.html">Grep won't find your dead gates. A fill-rate query will.</a></li>
+<li><a href="./quality-gate-noisier-than-what-it-guards.html">Our quality gate was 24x noisier than what it guarded</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
