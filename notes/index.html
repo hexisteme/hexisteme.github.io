@@ -58,6 +58,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="measuring-uppercase-when-render-draws-mixed-case.html">My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</a></h3>
+  <p>A subtitle line-wrap width guard measured text in uppercase to get a conservative pixel budget, but the renderer draws mixed case. The guard fired early, produced worse one-word chunks than the bug it was fixing, and every test stayed green — only looking at a rendered frame caught it.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">debugging</span><span class="tag">video</span>
+</div>
+
+<div class="card">
   <h3><a href="your-glossary-gate-passes-words-not-names.html">Your glossary gate passes words, not names</a></h3>
   <p>In a glossary gate, a coined name passed because every word in it was real — dictionary-listed, attested on the page — while the name itself read like a translation. Two of three reader challenges were right, and the discriminator that could have caught it was already sitting in two other names I hadn't checked against.</p>
   <span class="tag">naming</span><span class="tag">writing</span><span class="tag">AI agents</span><span class="tag">code quality</span>
@@ -351,6 +357,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="why-your-vibe-coded-app-looks-worse.html">Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit</a></h3>
   <p>A 6-agent forensic audit over 92 of my own sessions answered "am I prompting wrong?" — partially yes (zero visual references, zero style tokens), but the dominant cause was silent infrastructure decay: exhausted generation credits quietly swapped in code-approximated shapes, a generation server was down with a required model file missing, and a ready asset pipeline was never invoked for six-plus weeks.</p>
   <span class="tag">vibe coding</span><span class="tag">gamedev</span><span class="tag">audit</span>
+</div>
+
+<div class="card">
+  <h3><a href="two-events-same-frame-erase-each-other.html">Doubling the Volume Didn't Fix It. The Two Events Landed on the Same Frame.</a></h3>
+  <p>A stamp landing and a fill-complete confirmation sound fired on the same video frame, and neither event felt like it happened. Louder audio and bigger motion wouldn't have fixed it — a 0.35-second delay that split the two into separate beats did, immediately.</p>
+  <span class="tag">ux</span><span class="tag">video</span><span class="tag">animation</span><span class="tag">design</span>
 </div>
 
 <div class="card">
