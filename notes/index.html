@@ -451,6 +451,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">ai</span><span class="tag">llm</span><span class="tag">architecture</span><span class="tag">testing</span>
 </div>
 
+<div class="card">
+  <h3><a href="why-my-correct-config-value-was-being-ignored.html">Why My Correct Config Value Was Being Ignored</a></h3>
+  <p>An MCP server sat idle reporting itself unconfigured while the correct key waited in its own <code>.env</code>. An empty placeholder for the same key in a higher-priority settings layer was shadowing it — <code>load_dotenv(override=False)</code> treats an already-set empty string as defined and won't overwrite it. The fix was deleting the empty binding, not changing how the loader resolves precedence.</p>
+  <span class="tag">debugging</span><span class="tag">python</span><span class="tag">configuration</span>
+</div>
+
 <div class="foot"><a href="../">← hexisteme home</a> · CC-BY 4.0</div>
 </body>
 </html>
