@@ -432,6 +432,18 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="checks-that-cannot-fire.html">The check that cannot fire</a></h3>
+  <p>A QC harness passed all 13 synthetic fixtures and broke on 5 of its first real inputs. Every root cause was the same shape — a threshold expressed as an absolute constant unrelated to the scale of the content — and the fix that made it 50x more sensitive kept every existing fixture green.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">debugging</span><span class="tag">engineering</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></h3>
+  <p>A round-trip loader's byte-comparison check turned green to red exactly on cue, but the mutation that flipped it touched a field with no bearing on the property the check existed to protect. Finding the real invariant took a second, co-designed mutation — and the first one stayed in the suite anyway, because it proved something the second one couldn't.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">verification</span><span class="tag">debugging</span>
+</div>
+
+<div class="card">
   <h3><a href="your-reports-numbers-are-computed-its-sentences-are-not.html">Your Report's Numbers Are Computed. Its Sentences Are Not.</a></h3>
   <p>In a generated report, the counts came from the data and the prose came from string literals. Six sentences ended up contradicting the numbers printed beside them — and the checker I wrote to catch that passed the exact bug it was built for.</p>
   <span class="tag">ai</span><span class="tag">testing</span><span class="tag">devops</span><span class="tag">architecture</span>
