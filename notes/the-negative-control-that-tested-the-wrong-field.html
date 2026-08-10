@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The negative control that tested the wrong field — hexisteme notes</title>
+<meta name="description" content="A round-trip loader's byte-comparison check turned green to red exactly on cue, but the mutation that flipped it touched a field with no bearing on the property the check existed to protect. Finding the real invariant took a second, co-designed mutation.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The negative control that tested the wrong field", "datePublished": "2026-08-10", "dateModified": "2026-08-10", "inLanguage": "en", "about": "Round-trip loader verification, negative controls, mutation testing, and the difference between a check firing and a check firing on the property it exists to protect", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What does it mean for a negative control to fire at the wrong thing?", "acceptedAnswer": {"@type": "Answer", "text": "It means the mutation you injected changed the check's output, but the field you mutated had no causal connection to the property the check exists to protect — it only proved the check reacts to some pass-through field, not that it is sensitive to the thing it was built to guard."}}, {"@type": "Question", "name": "Why did a tiny numeric perturbation fail to test the byte-comparison check?", "acceptedAnswer": {"@type": "Answer", "text": "The perturbation was smaller than a downstream quantization step (one video frame), so it was silently absorbed before it could produce any observable difference — the check reported no difference, which was a false negative rather than a demonstration that nothing had changed."}}, {"@type": "Question", "name": "Why keep a mutation that only raised an exception instead of testing the intended check?", "acceptedAnswer": {"@type": "Answer", "text": "Because it proved something a passing test could not: that a cross-field invariant was actually enforced by the downstream code, not just assumed. Discarding it in favor of the mutation that passed would have erased the record that the invariant exists at all."}}, {"@type": "Question", "name": "How is this different from a check that can never fire at all?", "acceptedAnswer": {"@type": "Answer", "text": "A check that can never fire stays green regardless of what you break, because its threshold or precondition rules out failure. This check fired reliably — green went to red exactly on cue — the problem was that the first mutation that triggered it touched a field unrelated to the property under test, so the flip was real but pointed at the wrong thing."}}, {"@type": "Question", "name": "What is the general rule for choosing what to mutate in a negative control?", "acceptedAnswer": {"@type": "Answer", "text": "The mutation should touch the property the check exists to protect, not merely something that happens to sit on the check's pass-through path. If a mutation fails somewhere unexpected, treat that as information and design a second, co-existing mutation that satisfies what it revealed, rather than hunting for a different field until something passes."}}]}
+</script>
+</head>
+<body>
+
+<h1>The negative control that tested the wrong field</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-10</p>
+
+<div class="note">A round-trip loader's byte-comparison check turned green to red exactly on cue when I mutated a field to prove the check could fail — but that field was a pass-through string with no bearing on the property the check existed to protect. The check had fired; it had fired at the wrong thing. Finding a mutation that actually exercised the target property took a second, co-designed experiment built on top of an invariant the first attempt exposed by accident, and the record kept both.</div>
+
+<p>A disk loader got built for an artifact that had a writer and no reader — the build delegated, the job of proving its most important guarantee left to me: break something, watch the check turn red, and don't take anyone's word for whether it actually did. I described a related failure mode in an earlier piece, <a href="./checks-that-cannot-fire.html">The check that cannot fire</a> — checks whose thresholds were miscalibrated for the scale of the input, so they never tripped no matter what you fed them. That is not what happened this time. This control fired on schedule, every time. Green went to red exactly when I expected it to.</p>
+
+<p>The catch took two more experiments to surface: firing is not the same as firing <em>at the right thing</em>. A control can pass every observable test of "does it react" while staying structurally blind to the one property it was built to protect.</p>
+
+<div class="warn">A negative control flipping from green to red does not by itself prove it targeted the property it exists to guard. A bypass collapsing next to that property produces the identical signal.</div>
+
+<h2>A writer with no reader</h2>
+
+<p>The artifact was a plan object serialized to JSON by a writer that had shipped without a matching reader — a write-only artifact nobody could read back. The spec for the loader was a general restorer rather than a hand-written field list: walk the dataclass's declared type hints and rebuild each field recursively, so that a field added later can't be silently dropped by a loader that never learned about it.</p>
+
+<p>The restorer had one structural problem to solve. Python's standard dataclass-to-dict conversion flattens every tuple into a list and leaves nested dataclasses as plain dicts. One of the object's fields was a tuple of tuples of floats — a range list, doubly nested — and its field tree held seven distinct nested dataclass types, one of them reachable only two levels down, nested inside another nested field rather than sitting directly on the plan. A naive <code>Cls(**raw)</code> reconstruction would silently accept every one of those as the wrong type: lists standing in for tuples, dicts standing in for objects, and the mismatch invisible until something downstream did an equality comparison and got <code>False</code> for no comprehensible reason.</p>
+
+<p>I checked that this mattered by running a naive loader — no tuple restoration — through the same recursive type-checker the real loader had to pass. Eight declared-type violations, fifty-six stray lists where tuples belonged. The proper loader, on the same input: zero of both. Same checker, opposite verdict on two inputs that differed only in the one thing under test — which is what makes that checker informative rather than tautological. That distinction, <em>tautological versus informative</em>, turned out to be exactly the axis the rest of the story runs on, just applied to a different check.</p>
+
+<p>Three spots in the restorer needed to fail loudly instead of quietly: a mismatch between the raw JSON's key set and the dataclass's declared fields (a field renamed or dropped between versions), a union type with more than one non-<code>None</code> branch (the restorer refuses to guess which one a raw value belongs to), and a fixed-length tuple whose element count didn't match its declared type. That third one is worth a beat, because the natural implementation is a bare <code>zip(value, declared_types)</code>, and <code>zip</code> stops at the shorter sequence without complaint — feed it three elements where two were declared and one disappears in silence. The fix compares the two counts before any <code>zip</code> runs and raises, naming both, if they disagree.</p>
+
+<h2>The control that fired — at the wrong thing</h2>
+
+<p>With the loader built, the strongest available proof of correctness was end-to-end: feed the loaded object back through the downstream pipeline and diff the resulting JSON, byte for byte, against a live, already-approved reference output. Call that check B. On the unmodified round trip it passed — 8,576 bytes against 8,576 bytes, identical.</p>
+
+<p>A passing check proves nothing by itself; it needs a negative control that shows it <em>can</em> fail. The first attempt (call it C1) nudged one boundary of the range field by <code>1e-9</code> and re-ran a plain equality check between the loaded object and the original. That one worked cleanly — the objects stopped being equal, as expected.</p>
+
+<p>The obvious next move was to apply that same tiny nudge to check B. Before running it, the problem surfaced: downstream, that field passes through a frame-quantization step (one video frame, 1/30 second), and <code>1e-9</code> is nowhere near that resolution. Run as planned, the perturbation would have been silently absorbed into a "no difference" reading that meant nothing. Catching that in advance was the right call. So I moved the mutation to a field the quantization step couldn't touch — a plain strategy-label string that flows straight through to the downstream object unchanged.</p>
+
+<p>B reacted. Green to red. I nearly wrote down "sensitivity demonstrated" and moved on.</p>
+
+<p>Except that string doesn't participate in any geometric computation downstream. It gets copied. What that mutation actually demonstrated was "B reacts if you change any field that ends up in the JSON" — which is a real fact, and also a fact about <code>json.dumps</code> working correctly, not about the property check B exists to protect: that the geometry the loader reconstructs produces the same timeline downstream. The control had fired. It had not fired at the thing it was standing guard over.</p>
+
+<h2>Going back to the real question</h2>
+
+<p>Back to the actual question — is B sensitive to geometry? — I moved the mutation onto the range field directly.</p>
+
+<p><strong>C4</strong>: shift one internal boundary of the range by two frames (0.066667 s — comfortably clear of the one-frame quantization step, so this wasn't going to be swallowed the way C1's nudge was). The result wasn't a byte mismatch. It was an exception, raised before the comparison JSON could even be built: a downstream junction-matching step enforces that every internal range boundary sits within <code>1e-6</code> of a corresponding cut point's snapped timestamp, and moving the range alone broke that cross-field invariant on contact.</p>
+
+<p>That's not a failed experiment. It's information: in this pipeline, the range and its matching cut point are not two fields you can perturb independently. There's a fork here worth naming. One path is to go hunting for yet another field that dodges the invariant — mutate, fail, try a different field, repeat until something passes. That path quietly inverts the logic of testing: you're no longer designing a mutation to answer a question, you're searching for whichever mutation produces the answer you already wanted. The other path is to design a mutation that <em>satisfies</em> the invariant instead of evading it. Those are not the same move, even though both end with a passing check.</p>
+
+<h2>A mutation that respects the invariant</h2>
+
+<p><strong>C6</strong> took the second path: shift the range boundary and its matching cut point's snapped timestamp by the same two frames, together. The invariant holds, the downstream JSON gets built, and it differs from the reference in exactly one place — a clip's end-frame value, shifted by exactly the delta applied: 1252 → 1254.</p>
+
+<p>That's the first mutation in the whole exercise that moved geometry and produced a geometric difference in the output. Not a copied string. A number that only exists because a coordinate moved.</p>
+
+<h2>Evidence the second control isn't relabeled success</h2>
+
+<p>The obvious objection to C6 mirrors the one from the previous section: you kept adjusting the experiment until it passed, so what makes this different from chasing the result? The answer is that C4 stayed in the suite. It wasn't deleted once C6 worked.</p>
+
+<table>
+<tr><th>Control</th><th>Mutation</th><th>Outcome</th></tr>
+<tr><td>C1</td><td>range boundary +1e-9</td><td>equality check flips — as designed</td></tr>
+<tr><td>C3</td><td>pass-through string field, tampered</td><td>byte comparison flips — fires, but on the wrong field</td></tr>
+<tr><td>C4</td><td>range boundary alone, +2 frames</td><td>raised before comparison — invariant violation, not a result</td></tr>
+<tr><td>C6</td><td>range boundary <strong>and</strong> matching cut-point timestamp, both +2 frames</td><td>byte comparison flips — <code>end_frame</code>: 1252 → 1254</td></tr>
+<tr><td>C5</td><td>union field with two possible types, fed a value</td><td>restorer raises — as designed</td></tr>
+<tr><td>C7</td><td>fixed-length tuple given 3 or 1 elements instead of 2</td><td>restorer raises both directions — as designed</td></tr>
+</table>
+
+<p>C4 and C6 prove two different things, and neither one subsumes the other. C4 proves the cross-field invariant is actually enforced, not just documented. C6 proves that once that invariant is respected, the check does react to geometry. Keep only C6 and you lose the record that the invariant exists at all — a future reader could easily re-break C6's careful pairing and get a confusing exception instead of understanding why. Keep only C4 and the original question — does this check see geometry? — is still unanswered. Both stayed, tagged with what each one actually showed, including an explicit field in the report recording that geometric sensitivity specifically had — or had not yet — been demonstrated, so that a partial result couldn't quietly read as a complete one.</p>
+
+<p>The reference file that C1 through C7 were all compared against never changed across the entire run — same modification time, same checksum, start to finish. Nothing about proving the loader was accomplished by moving the goalposts.</p>
+
+<h2>A quieter asymmetry three lines away</h2>
+
+<p>One more thing turned up in the same function, unrelated to the mutation-targeting problem but sitting right next to it. The restorer had two branches for two structurally different cases — a union type with multiple possible branches, and a fixed-length tuple. The union branch had just been fixed to raise loudly on ambiguity. The tuple branch, a few lines below it, still rebuilt via <code>zip(value, declared_types)</code> — which, as noted above, truncates in silence rather than complaining. Feed it three elements where two were declared, and one vanishes without a trace.</p>
+
+<p>This one wasn't in the self-reported summary from the pass that implemented the fix. It surfaced from reading the function directly: one branch had been made to fail loudly, its neighbor a few lines down had not, and the asymmetry was visible on the page once someone looked at the whole function rather than the one field that had prompted the fix. "This field is patched, therefore safe" and "does this entire function share the same class of risk" are different questions, and only the second one catches this.</p>
+
+<h2>What transfers</h2>
+
+<ol>
+<li><strong>A negative control's mutation has to target the property the check exists to protect.</strong> "Something changed and the check reacted" is not sufficient — that something might be a pass-through field with no connection to why the check exists. Ask whether the mutation touches the target property or a bypass sitting next to it.</li>
+<li><strong>When a mutation fails somewhere unexpected — an exception, a different check firing — that's information, not a dead end.</strong> Record it, then design a second, co-existing mutation that satisfies whatever it revealed. That's a different move from chasing mutations until one happens to pass, which is choosing the answer first and searching for an input that produces it.</li>
+<li><strong>"It failed as expected" is necessary, not sufficient, as a self-report.</strong> What was actually mutated has to be audited — a green-to-red flip alone can't distinguish a control that hit its target from one that hit a bypass, because both render as the identical binary signal.</li>
+<li><strong>When one branch gets a loud failure, check its siblings.</strong> A union branch and a fixed-length-tuple branch sitting a few lines apart in the same function don't get fixed together just because they're close — closeness in the source isn't closeness in the fix. It takes a deliberate second pass over the whole function.</li>
+<li><strong>Delegating implementation is not the same as verifying it.</strong> A collaborator's or a sub-agent's "all three mutations failed as expected" doesn't get copied into a record without being re-run and re-read. In this case, re-reading the code directly is what surfaced both the missing invariant test and the sibling asymmetry — neither one was in the handoff.</li>
+</ol>
+
+<h2>Where this could be wrong</h2>
+
+<ul>
+<li>This is close kin to "weak mutant" problems in the mutation-testing literature — a rediscovery of an established idea in a concrete case, more than a new principle. What I think keeps it distinct from my earlier piece on <a href="./checks-that-cannot-fire.html">checks that cannot fire</a> is that this failure has a different shape: that one covered checks that never trip at all; this one covers a check that trips reliably, just not always because of what you think. Whether that distinction reads as meaningfully different or as the same lesson twice is for the reader to judge.</li>
+<li>The sample size here is one function, one round-trip verification run. Generalizing "this kind of misdirected negative control is common" from a single instance is thin evidence.</li>
+<li>The sibling-branch asymmetry (the union/tuple pair) has a different root cause than the mutation-targeting problem above it — one is about test design, the other about code review discipline. Bundling them risks a vague moral ("check things twice") that neither specific lesson actually supports on its own.</li>
+<li>I did not extend the co-designed-invariant technique (like C6) to the other output fields the reference comparison covers — only one of them was individually exercised this way. The byte comparison logically covers the rest, but I have not watched each of them move individually, so "geometry sensitivity" here is demonstrated for one field and inferred, not separately shown, for its neighbors.</li>
+</ul>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does it mean for a negative control to fire at the wrong thing?</strong><br>
+It means the mutation you injected changed the check's output, but the field you mutated had no causal connection to the property the check exists to protect — it only proved the check reacts to some pass-through field, not that it is sensitive to the thing it was built to guard.</p>
+
+<p><strong>Q. Why did a tiny numeric perturbation fail to test the byte-comparison check?</strong><br>
+The perturbation was smaller than a downstream quantization step (one video frame), so it was silently absorbed before it could produce any observable difference — the check reported no difference, which was a false negative rather than a demonstration that nothing had changed.</p>
+
+<p><strong>Q. Why keep a mutation that only raised an exception instead of testing the intended check?</strong><br>
+Because it proved something a passing test could not: that a cross-field invariant was actually enforced by the downstream code, not just assumed. Discarding it in favor of the mutation that passed would have erased the record that the invariant exists at all.</p>
+
+<p><strong>Q. How is this different from a check that can never fire at all?</strong><br>
+A check that can never fire stays green regardless of what you break, because its threshold or precondition rules out failure. This check fired reliably — green went to red exactly on cue — the problem was that the first mutation that triggered it touched a field unrelated to the property under test, so the flip was real but pointed at the wrong thing.</p>
+
+<p><strong>Q. What is the general rule for choosing what to mutate in a negative control?</strong><br>
+The mutation should touch the property the check exists to protect, not merely something that happens to sit on the check's pass-through path. If a mutation fails somewhere unexpected, treat that as information and design a second, co-existing mutation that satisfies what it revealed, rather than hunting for a different field until something passes.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./checks-that-cannot-fire.html">The check that cannot fire</a></li>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Verification tools don't report their blind spots</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
