@@ -372,6 +372,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="imshow-aspect-collapsed-the-canvas.html">The Dead Space Wasn't a Config Miss — imshow Was Silently Reshaping the Axes</a></h3>
+  <p>Map size varied fourfold across episodes rendered by the same code with the same settings. The composition config everyone had been tuning was innocent: one <code>ax.imshow()</code> call without an <code>aspect</code> argument was collapsing the axes to equal aspect on every scene, and the codebase had already measured that symptom and built a workaround around it.</p>
+  <span class="tag">python</span><span class="tag">debugging</span><span class="tag">dataviz</span><span class="tag">video</span>
+</div>
+
+<div class="card">
   <h3><a href="government-open-data-api-docs-vs-reality.html">Government Open-Data APIs: Every Guess I Made Was Wrong Until I Probed It Live</a></h3>
   <p>Building a travel app on Korea's open-data portal: a documented-looking op name returned 500 (the real one returned per-gate passenger counts, not the grade field I'd invented), a sibling dataset 404'd because approval is per-dataset, a discarded dataset left a 401 red herring on the wrong gateway, and one API's airport parameter means the other end of the flight. Live capture is the only ground truth.</p>
   <span class="tag">open data</span><span class="tag">API</span><span class="tag">degrade path</span>
@@ -440,6 +446,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 <div class="card">
   <h3><a href="the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></h3>
   <p>A round-trip loader's byte-comparison check turned green to red exactly on cue, but the mutation that flipped it touched a field with no bearing on the property the check existed to protect. Finding the real invariant took a second, co-designed mutation — and the first one stayed in the suite anyway, because it proved something the second one couldn't.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">verification</span><span class="tag">debugging</span>
+</div>
+
+<div class="card">
+  <h3><a href="validate-what-you-ship-not-what-you-load.html">Your validator must measure what you ship, not what you loaded</a></h3>
+  <p>An honesty gate for a map-comparison renderer reproduced all four hand-computed golden vectors to four decimal places, then rejected a video that had already shipped and was actually honest. It was measuring raw source geometry the renderer never draws — and fixing that took the device from "honest only in limited cases" to 98.1% of 6,478 country pairs.</p>
   <span class="tag">testing</span><span class="tag">python</span><span class="tag">verification</span><span class="tag">debugging</span>
 </div>
 

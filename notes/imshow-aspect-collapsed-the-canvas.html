@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Dead Space Wasn't a Config Miss — imshow Was Silently Reshaping the Axes — hexisteme notes</title>
+<meta name="description" content="A canvas-layout revision was supposed to fix uneven map sizing across a batch of map-explainer videos. Frame measurements instead traced the real cause to a single matplotlib imshow call that silently collapses the axes aspect ratio on every scene with a highlight — not the composition-budget config anyone had been tuning for weeks.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Dead Space Wasn't a Config Miss — imshow Was Silently Reshaping the Axes", "datePublished": "2026-08-11", "dateModified": "2026-08-11", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A matplotlib imshow call's default aspect argument silently collapsing the axes of a portrait video-rendering pipeline, and why the real fix was a composition-budget fallback branch rather than the imshow call itself", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does matplotlib's imshow change my axes aspect ratio?", "acceptedAnswer": {"@type": "Answer", "text": "Because imshow defaults its aspect argument to the image.aspect rcParam, which is 'equal' — and matplotlib applies that setting to the axes itself, not just to the image being drawn. Any imshow call that omits aspect reshapes the axes box for the rest of that draw call, with no error raised."}}, {"@type": "Question", "name": "How do I stop imshow from resizing the plot?", "acceptedAnswer": {"@type": "Answer", "text": "Pass aspect=\"auto\" explicitly. That tells matplotlib to stretch the image to fill the axes' existing shape instead of reshaping the axes to match the image's data aspect."}}, {"@type": "Question", "name": "Why did raising a composition-budget config value help some scenes and do nothing for others?", "acceptedAnswer": {"@type": "Answer", "text": "Because the scenes were taking different code paths. Scenes whose focus region's aspect ratio exceeded a fixed elongation threshold fell back to a lower fill fraction and never saw the higher one, so the same config change produced different results depending on which branch a given scene's geometry hit."}}, {"@type": "Question", "name": "How do you debug a layout bug that never throws an error?", "acceptedAnswer": {"@type": "Answer", "text": "Measure the actual rendered geometry instead of trusting the code path. Instrument the real function calls, back-solve what value was actually used from the returned output, and test that against every candidate hypothesis — in this case, computing the exact pixel height an equal-aspect axes would produce and checking it against the measured frame — until one hypothesis matches exactly."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Dead Space Wasn't a Config Miss — imshow Was Silently Reshaping the Axes</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-11</p>
+
+<div class="note">A canvas-layout revision was supposed to explain why some map-explainer episodes render tiny maps and others fill the frame. It didn't. Frame measurements traced the real cause to a single matplotlib <code>imshow</code> call with no <code>aspect</code> argument, silently collapsing the axes to equal aspect on every scene with a highlight — and underneath that, a composition-budget fallback that skips the fix's fill target for exactly the most elongated regions.</div>
+
+<h2>The measurement</h2>
+<p>The check was simple. From each re-rendered episode I pulled the frame at t=12s and measured the share of bright, land-colored pixels inside the map band — the frame minus a 280px strip reserved at the top for hook text and a 520px strip reserved at the bottom for captions.</p>
+<table>
+<tr><th>episode</th><th>map-band occupancy</th><th>clipped at right axis edge</th></tr>
+<tr><td>netherlands-below-sea</td><td>42.7%</td><td>65%</td></tr>
+<tr><td>southamerica-east</td><td>30.1%</td><td>0%</td></tr>
+<tr><td>africa-above-europe</td><td>25.1%</td><td>23%</td></tr>
+<tr><td>norway-coast</td><td>16.7%</td><td>0%</td></tr>
+<tr><td>swiss-glacier-border</td><td>15.5%</td><td>23%</td></tr>
+<tr><td>poland-shift</td><td>11.1%</td><td>0%</td></tr>
+</table>
+<p>As a sanity check against the previous layout, gambia had gone from 35.7% under v1.6 to 41.6% under v1.7 — the revision was doing what it was supposed to. But poland comes in at 11.1%: same settings, same renderer, roughly a quarter of what the Netherlands episode gets. That gap between episodes, not the raw occupancy numbers, is what sent me looking.</p>
+
+<h2>Config couldn't explain it</h2>
+<p>Poland's scene 1 focuses on Ukraine alone: 18.1° of longitude by 8.0° of latitude, an aspect ratio of 2.26. The layout has an elongation guard — when a focus region's aspect ratio exceeds <code>COMPOSITION_ELONGATION_RATIO</code> (2.2), <code>fill_fraction</code> falls back from <code>composition_target_width_fraction</code> (0.85) to <code>composition_min_width_fraction</code> (0.55). Ukraine's 2.26 trips it.</p>
+<p>The arithmetic the fallback implied:</p>
+<ul>
+<li>predicted width = 0.55 × 1015px axes width = <strong>558px</strong> → measured <strong>565px</strong> — close enough to call confirmed.</li>
+<li>predicted height = 0.55 × 1120px axes height = <strong>616px</strong> → measured <strong>250px</strong> — off by 2.5×.</li>
+</ul>
+<p>Width matched. Height was wrong by 2.5×, and no fallback fraction explains that alone. The only hypothesis that produces exactly 250px is that the axes themselves are being drawn at equal aspect — longitude and latitude sharing the same pixels-per-degree. Under equal aspect, height falls out of width automatically: 8° of latitude × (1015px / 32.9 px-per-degree) = <strong>247px</strong>. Measured: 250px. That's the answer — the axes box wasn't 1120px tall when this scene rendered; <code>fill_fraction</code> was never the problem.</p>
+
+<h2>The cause: one call, one missing argument</h2>
+<p>The territory under-glow — the soft highlight drawn beneath a focus country — is rendered with a call to <code>ax.imshow()</code> in <code>src/shorts_factory/map_scenes.py</code>:</p>
+<pre><code>ax.imshow(          # &lt;- no aspect argument
+    rgba, origin="upper", interpolation="nearest", extent=..., zorder=...,
+)
+</code></pre>
+<p>matplotlib defaults <code>imshow</code>'s <code>aspect</code> argument to the <code>image.aspect</code> rcParam, <code>'equal'</code>. That default is easy to misread: it doesn't just draw the image at 1:1, it sets the aspect of <strong>the axes</strong>, governing everything else plotted on them for the rest of that draw. Another <code>imshow</code> call in the same file — the one that draws the progress bar — does pass <code>aspect="auto"</code> explicitly. One call site got it right. One didn't. And the one that didn't raised no exception and printed no warning. It just quietly reshaped the geometry of every scene that draws a highlight, which is nearly every scene in the pipeline.</p>
+
+<h2>The codebase already knew the symptom</h2>
+<p>What made this frustrating rather than satisfying is that the collapse had already been measured. A comment elsewhere in the same file records that when the under-glow flips the axes to aspect 1.0, the axes box can shrink to as little as 224px tall — measured on the canada episode the day before — and once the ruler and marker chips are already occupying that collapsed box, scene labels have nowhere left to go and get dropped entirely, even with plenty of empty screen above and below.</p>
+<p>A nominal 1120px axes height collapsing to 224px had already been caught, measured, and written down. The response was to add a <code>bounds_bbox</code> parameter to the label-placement code, so a wider composition band could be passed in instead of the collapsed axes box — fixing where labels landed, and leaving the cause underneath exactly where it was.</p>
+
+<h2>Dead space is not a bug — it's the price of honest proportion</h2>
+<p>This changed how I think about the whole layout. aspect = 1.0 <em>is</em> the equirectangular projection this pipeline is built on — it's what makes latitude order, north–south distance, rhumb lines, and topology come out right. It isn't an accident waiting to be fixed. It's the projection the project chose.</p>
+<p>Hold that aspect fixed and put a wide subject into a portrait frame, and the map becomes width-bound: it fills as much horizontal space as it's allowed, and height follows by proportion. The vertical space left over is not a config bug — it's geometrically necessary, and no fraction or fallback removes it without removing the constraint that makes the map honest.</p>
+<p>The one way to actually remove it is <code>aspect="auto"</code>, which stretches the bounding box to match the axes' shape instead of the data's. For Ukraine, that means going 2.5× taller than its real shape (2.26 / 0.906). That's not a layout fix, that's a lie about geography.</p>
+<p>Which reframes the actual choice: not "eliminate the dead space" but "use it" or "pick subjects that are already tall." v1.7's change — raising fill from 0.70 to 0.85 — is the right lever <em>inside</em> that constraint, and the numbers back it up: gambia went from 35.7% to 41.6%, netherlands sits at 42.7%.</p>
+
+<h2>Where v1.7 doesn't reach</h2>
+<p>The elongation fallback is where the fix stops working: any episode whose focus region has an aspect ratio above 2.2 falls back to the 0.55 minimum and never sees the 0.85 target — exactly the branch behind the lowest-occupancy episodes in my table, poland at 11.1%.</p>
+<p>The fallback's own justification is avoiding over-zoom, but that assumes aspect is free to vary, and under this renderer it isn't. Under equal aspect, width is the binding constraint: setting fill to 0.85 makes the focus occupy 85% of the axes width and nothing more, no matter how elongated the region is — it can't overflow the way the fallback assumes. For Ukraine, 0.85 instead of 0.55 means going from 565px to 863px wide, and 250px to 386px tall.</p>
+<p>Rather than take that on faith, I instrumented the actual <code>_apply_composition_budget</code> → <code>fit_bbox_to_composition</code> calls and back-solved <code>used_fill</code> from each returned bbox. All 67 scenes in the corpus matched exactly 0.85 or 0.55 — no in-between values, confirming the branch really is binary in practice.</p>
+<ul>
+<li><strong>18 of 67 scenes hit the clamp</strong>: swiss 5/5, chile 3/4, kazakhstan 3/4, gambia 2/4, wakhan 2/4, poland 1/4, southamerica 1/5, africa 1/6.</li>
+<li><strong>Most clamped scenes are hand-framed.</strong> 27 of the 67 scenes specify an explicit <code>camera_bbox</code> in the script. Kazakhstan's focus is <code>KAZ</code> throughout, yet scenes 0–2 (polygon-derived bbox) clamp and scene 3 (explicit bbox) doesn't — the clamp isn't selecting on anything about the country, it's selecting on how the shot was framed, and shrinking those hand-authored shots by 35%.</li>
+<li><strong>3 of 67 scenes skip the composition budget entirely.</strong> <code>zoom="world"</code> with no <code>camera_bbox</code> routes to <code>_compute_world_zoom_bbox</code> instead, governed by <code>world_zoom_padding_fraction</code> (0.6) — southamerica scenes 0 and 4, and norway scene 2. No amount of fill tuning touches these.</li>
+</ul>
+
+<h2>Measured, not predicted</h2>
+<p>I ran an A/B on the swiss episode — 5 of 5 scenes clamped — sampling 9 frames at 4-second intervals:</p>
+<table>
+<tr><th>min_width</th><th>map-band occupancy</th><th>clipped</th></tr>
+<tr><td>0.55</td><td>17.5%</td><td>21%</td></tr>
+<tr><td>0.80</td><td>22.8% (1.31×)</td><td>19%</td></tr>
+</table>
+<p>A naive area prediction from (0.80/0.55)² says 2.12×. Measured came back at 1.31×. Both are correct, and they measure different things: raising fill tightens the camera around the focus country, so it grows in frame while its neighbors leave the frame entirely — area gained by one country is partly area lost from the countries around it. On screen the difference isn't subtle even though the multiplier is smaller than predicted: at 0.55 Switzerland is an unresolvable blob, at 0.80 the western bulge and eastern Graubünden are both legible.</p>
+<p>This doesn't close the gap everywhere: two of the three lowest-occupancy episodes — southamerica and norway — are on the world-scene path this fix doesn't reach. <code>world_zoom_padding_fraction</code> (0.6) is a separate lever, and world-scene margin might be deliberate — showing "where on Earth this is" arguably needs the extra space — so I'm treating it as a different problem.</p>
+
+<h2>What would prove this wrong, and what generalizes</h2>
+<p>Two conditions would falsify this analysis, on record rather than assumed away:</p>
+<ul>
+<li>If raising the elongation fallback makes some episode overflow, the equal-aspect assumption breaks somewhere in the path, and this needs revisiting.</li>
+<li>If scenes with no highlight genuinely exist, they'd keep <code>aspect="auto"</code> while their neighbors collapse to 1.0, and map proportion would shift scene to scene inside one video — a separate, real bug that would outrank fixing the fallback fraction. (Poland's four scenes all draw a highlight, so it doesn't happen there.)</li>
+</ul>
+<p>Three things about this generalize past matplotlib and past this pipeline:</p>
+<ol>
+<li><strong>A library call's default argument can silently redefine your layout.</strong> <code>imshow</code> looks like a function that draws an image; it also mutates the aspect of the axes it's drawn on. In the same file, one call passed <code>aspect="auto"</code> and one didn't, and the one that didn't raised nothing — it just changed the geometry of everything drawn after it.</li>
+<li><strong>You can measure a symptom precisely, write it down, and still never fix the cause.</strong> The 224px collapse was already measured and sitting in a comment. That knowledge got spent building a workaround in the label-placement code instead of tracing it upstream, and the cause became a permanent, invisible fixture of the system. A workaround can be where knowledge goes to die.</li>
+<li><strong>"I raised the config value and the effect differs per episode" is itself a signal.</strong> I verified the v1.7 change on one episode — gambia, 35.7% to 41.6% — and rolled it out to 15. Only the spread across episodes afterward (11% to 43%) sent me back to look, and that's what surfaced both the fallback branch and the aspect collapse underneath it. Don't A/B on a single sample, especially when different samples take different code paths without telling you.</li>
+</ol>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why does matplotlib's imshow change my axes aspect ratio?</strong><br>
+Because <code>imshow</code> defaults its <code>aspect</code> argument to the <code>image.aspect</code> rcParam, which is <code>'equal'</code> — and matplotlib applies that setting to the axes itself, not just to the image being drawn. Any <code>imshow</code> call that omits <code>aspect</code> reshapes the axes box for the rest of that draw call, with no error raised.</p>
+
+<p><strong>Q. How do I stop imshow from resizing the plot?</strong><br>
+Pass <code>aspect="auto"</code> explicitly. That tells matplotlib to stretch the image to fill the axes' existing shape instead of reshaping the axes to match the image's data aspect.</p>
+
+<p><strong>Q. Why did raising a composition-budget config value help some scenes and do nothing for others?</strong><br>
+Because the scenes were taking different code paths. Scenes whose focus region's aspect ratio exceeded a fixed elongation threshold fell back to a lower fill fraction and never saw the higher one, so the same config change produced different results depending on which branch a given scene's geometry hit.</p>
+
+<p><strong>Q. How do you debug a layout bug that never throws an error?</strong><br>
+Measure the actual rendered geometry instead of trusting the code path. Instrument the real function calls, back-solve what value was actually used from the returned output, and test that against every candidate hypothesis — in this case, computing the exact pixel height an equal-aspect axes would produce and checking it against the measured frame — until one hypothesis matches exactly.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./why-my-correct-config-value-was-being-ignored.html">Why My Correct Config Value Was Being Ignored</a></li>
+<li><a href="./measuring-uppercase-when-render-draws-mixed-case.html">My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</a></li>
+<li><a href="./two-events-same-frame-erase-each-other.html">Doubling the Volume Didn't Fix It. The Two Events Landed on the Same Frame.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your validator must measure what you ship, not what you loaded — hexisteme notes</title>
+<meta name="description" content="A residual-based honesty gate for a map-comparison renderer rejected an already-published, honest video because it measured raw GeoJSON geometry instead of the exact geometry the renderer draws. Four hand-computed golden vectors could not catch the error, because they encoded the same misunderstanding the gate did.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your validator must measure what you ship, not what you loaded", "datePublished": "2026-08-11", "dateModified": "2026-08-11", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A residual-based honesty gate for a map-comparison renderer measured raw, unfiltered GeoJSON country geometry instead of the exact geometry the renderer draws, causing it to reject an already-published, honest video. Four hand-computed golden vectors, built on the same wrong geometry, reproduced the error instead of catching it, and fixing the measurement source reversed the pipeline's own prior conclusion about how often the device is honest.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "My validator passes every golden vector but rejects data I know is good — what does that mean?", "acceptedAnswer": {"@type": "Answer", "text": "It means your golden vectors and your validator's logic were built on the same assumption, so matching them proves internal consistency, not correctness. Golden vectors show an implementation matches its spec; they cannot show the spec itself is right. Run the validator against an artifact you already know is correct — that cross-check is what a self-consistent vector suite can never provide, and it is what actually surfaces the bug."}},
+{"@type": "Question", "name": "Why would raw, unfiltered input be less trustworthy than filtered input for a correctness check?", "acceptedAnswer": {"@type": "Answer", "text": "Because unfiltered is not the same as correct. In this case the raw GeoJSON was numerically broken for the two countries that mattered most: Russia's polygon set crosses the antimeridian, making its area and centroid meaningless, and France's raw set includes French Guiana, dragging its centroid into the middle of the Atlantic Ocean. The renderer never drew either piece, so validating against the raw file measured geometry the screen never showed."}},
+{"@type": "Question", "name": "How do I write a regression test for a bug like this without pinning to internal function names?", "acceptedAnswer": {"@type": "Answer", "text": "Pin the invariant, not the implementation. Instead of asserting that a specific loader function gets called, assert on the observable relationship that has to hold: here, that the gate's pass/fail verdict for a given pair follows the script's own render setting (include_overseas_territories) rather than staying fixed. A parametrized test that flips that one setting and checks that the verdict flips with it survives any future refactor of the loading code."}},
+{"@type": "Question", "name": "Should a validator always trust rendered output over the original source data?", "acceptedAnswer": {"@type": "Answer", "text": "For checking whether what's on screen is honest, yes — measure the screen, not the source. But that is not universal: if the renderer drops geometry that the accompanying narration still claims as part of the picture, a screen-based gate will pass that specific lie, because it was never built to check whether the screen represents the full claim. That failure needs a second, separate check; it does not mean the screen-based measurement was the wrong choice for the property it was built to guard."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Your validator must measure what you ship, not what you loaded</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-11</p>
+
+<div class="note">A residual-based gate for a map-comparison renderer rejected an already-published, honest video because it measured raw GeoJSON geometry — including a Russian polygon set that crosses the antimeridian and a French one dragged into the Atlantic by an overseas territory — instead of the exact, filtered geometry the renderer actually draws. Four hand-computed golden vectors, built on that same wrong geometry, reproduced the mistake instead of catching it. Fixing the measurement source didn't just correct one false positive: re-derived across 6,478 country pairs, the device turned out honest 98.1% of the time, not the "very limited cases" the broken gate had reported.</div>
+
+<p>I built a gate to catch a specific kind of lie. One narrative device in a pipeline that renders short map-explainer videos places country B next to country A "at the same scale," so a viewer can compare their sizes at a glance. Get the scaling wrong and the device becomes the lie it exists to prevent. An earlier note on this site covered a related failure — <a href="./measuring-uppercase-when-render-draws-mixed-case.html">a caption-width guard that passed every test because it measured text the renderer never actually drew</a>. This is the same mistake in different clothes — a validator checking the wrong artifact — except here the artifact is geometry, and the gate didn't just miss a lie. It accused an already-published, honest video of telling one.</p>
+
+<h2>The device, and why it needs a guard</h2>
+<p>The renderer draws on an equirectangular (plate carrée) projection, where a degree of longitude compresses by cos(latitude) — move a country to a different latitude and its apparent width changes even though the country didn't. The renderer already corrects for this: <code>lon_scale = cos(source_lat) / cos(dest_lat)</code> inside <code>translate_polygons_to_centroid</code> in <code>src/shorts_factory/map_scenes.py</code> redraws the moved country as if it had always lived at the destination latitude, so it takes the same 1/cos φ inflation as the target and the <em>ratio</em> between them stays honest.</p>
+<p>But that's one scale factor from one centroid latitude, applied to a whole polygon. It cannot unshear a country that spans 40° of latitude — the top and bottom inflate by different amounts, and one factor can't know that.</p>
+<p>So I added a gate at script-ingest time, before any rendering happens:</p>
+<pre>residual = | on-screen area ratio / true area ratio − 1 |
+reject if residual &gt; 0.05</pre>
+<p>On-screen area is the planar shoelace area of the laid-out polygons; true area is a spherical integral using Earth's mean radius, 6371.0088 km — pure coordinate math, no frame required. The threshold is <code>OVERLAY_AREA_RATIO_RESIDUAL_MAX = 0.05</code> in <code>src/shorts_factory/script_schema.py</code>.</p>
+<p>To specify it, I hand-computed four golden vectors and told the implementing worker to reproduce them. It matched all four to four decimal places. I was confident. I shouldn't have been.</p>
+
+<h2>Running it against something already on the internet</h2>
+<p>I didn't stop at fixtures. I ran the finished gate against an episode that had already shipped: scene 0 of <code>mongolia-empty</code> places France next to Mongolia (<code>MNG←FRA</code>) for a size comparison. The gate's verdict and what a viewer actually sees disagreed by an order of magnitude:</p>
+<table>
+<tr><th></th><th>gate verdict</th><th>what's actually on screen</th></tr>
+<tr><td><code>MNG←FRA</code>, <code>mongolia-empty</code> scene 0</td><td>residual <strong>14.4%</strong> — reject</td><td>residual <strong>1.0%</strong> — honest</td></tr>
+</table>
+<p>That video is public. That scene is honest. The gate was wrong, and wrong in the least comfortable direction a validator can be: confidently, specifically, about something real that had already shipped.</p>
+
+<h2>Two ways to load the same file</h2>
+<p>The codebase has two ways to turn the same GeoJSON file into polygons: a raw parse that reads the file exactly as it ships, and <code>load_world_geojson()</code>, which parses and then calls <code>_filter_far_flung_polygons()</code> to drop pieces sitting far from a country's mainland — built for camera framing, so a bounding box doesn't get dragged across an ocean by a speck of overseas territory. <strong>The renderer calls <code>load_world_geojson()</code>.</strong></p>
+<p>The gate called the raw parse. My reasoning felt airtight: to measure a country's <em>true</em> area you need its whole geometry, not a filtered subset. That's exactly backwards for the two countries where it mattered most.</p>
+<p>Russia's raw polygon set crosses the antimeridian — Chukotka sits on the far side of the date line, so the coordinates span the full −180° to 180° range. Once that happens, both the shoelace-area formula and the centroid stop meaning anything; the shape isn't the shape anyone intends.</p>
+<p>France fails more quietly. French Guiana, in South America at about 4°N, drags the combined centroid to (−10.7°E, 35.4°N) — the middle of the Atlantic, nowhere near France. Anchor the translation math to that point and the scaling is wrong before the comparison starts.</p>
+<p>The renderer never draws either piece. The <code>mongolia-empty</code> script had <code>include_overseas_territories: false</code>, so the France on screen was metropolitan France, full stop. I had measured the honesty of a picture using geometry the picture never contained.</p>
+
+<h2>Why four golden vectors didn't save me</h2>
+<p>I'd computed all four golden vectors by hand, from the same raw geometry the gate used. The worker implementing the gate reproduced them to four decimal places — precision that's exactly what makes the failure worth writing down. Reproducing my numbers meant reproducing my misunderstanding. A golden vector proves an implementation matches its spec; it cannot prove the spec is correct. When the vectors and the spec share an author and an assumption, they don't cross-check each other — they agree with each other, and the agreement feels like confirmation.</p>
+<p>What actually caught the bug wasn't a vector. It was pointing the finished gate at an artifact that already existed and was already known to be correct, and watching it fail anyway.</p>
+
+<h2>What the fix did to the conclusion, not just the code</h2>
+<p>The fix is one substitution: measure with <code>load_world_geojson()</code> plus that script's own <code>include_overseas_territories</code> flag — the exact geometry the renderer will draw for that episode, no more and no less.</p>
+<p>I didn't stop at the one failing case. I re-derived the whole thing exhaustively (<code>report/scripts/recount_honest_pairs_render_geometry.py</code>) across all 177 countries and every pair whose true area ratio falls between 0.5 and 2.0 — 6,478 pairs, the band where a size comparison is actually a visual claim. Under the corrected geometry:</p>
+<table>
+<tr><th>metric</th><th>value</th></tr>
+<tr><td>pairs passing the 5% threshold</td><td>6,353 / 6,478 (98.1%)</td></tr>
+<tr><td>median residual</td><td>0.3%</td></tr>
+<tr><td>90th-percentile residual</td><td>1.4%</td></tr>
+<tr><td>maximum residual</td><td>79% (CHN←ATA)</td></tr>
+</table>
+<p>The worst pairs are all Antarctica — CHN←ATA 79%, BRA←ATA 76%, AUS←ATA 75% — and the rest of the 1.9% that fail concentrate in Antarctica and Russia, the countries with the most extreme latitude span. A few representative pairs show the shape of the correction:</p>
+<table>
+<tr><th>target ← moved</th><th>Δ centroid latitude</th><th>residual (corrected)</th><th>residual (uncorrected)</th></tr>
+<tr><td>India ← Sweden</td><td>38.8°</td><td>0.8%</td><td>101.0%</td></tr>
+<tr><td>Kazakhstan ← Mongolia</td><td>0.1°</td><td>2.5%</td><td>2.6%</td></tr>
+<tr><td>Mongolia ← France</td><td>0.6°</td><td>1.0%</td><td>0.5%</td></tr>
+<tr><td>Canada ← Russia</td><td>4.1°</td><td>6.0% (fail)</td><td>12.5%</td></tr>
+<tr><td>Brazil ← Russia</td><td>70.8°</td><td>7.6% (fail)</td><td>106.6%</td></tr>
+</table>
+<p>Read the second and third columns together: Kazakhstan←Mongolia moves centroids a mere 0.1° apart and still lands at 2.5% residual, worse than India←Sweden's 38.8°-apart 0.8%. Centroid distance doesn't predict the residual — the cos correction already removes that axis. What's left is each country's <em>own</em> latitude span: Russia, running 41°N to 81°N, fails both pairs above regardless of how close the other centroid sits.</p>
+<p>Before the fix, my own report on this device had concluded it was honest "only in very limited cases" — not a finding about the world, but an artifact of the instrument: a broken measurement doesn't only let bad things through, it also invents constraints you don't have. The same blind spot showed up again when a review proposed a simpler guard instead of the residual math — just keep the two centroid latitudes within ±5° of each other, a rule that sounds conservative because it's tight and cheap to explain. Measured against the same 6,478 pairs, the ±5° band passes only 828, against 6,353 (98.1%) for the residual gate, and it rejects 5,527 pairs that are honest by the actual area math while still letting 2 dishonest ones through. It isn't conservative on one side of a tradeoff; it's wrong in both directions at once, and the only way to see that was computing both rules over the same data instead of trusting which one sounded safer.</p>
+
+<h2>Pinning the regression where the invariant actually lives</h2>
+<p>The obvious regression test is "call <code>load_world_geojson</code>, not the raw parser." That pin breaks the moment either function gets renamed, and it doesn't say what actually needs to stay true. What has to hold is a relationship, not a function name: the gate's verdict has to track the render setting.</p>
+<pre><code>@pytest.mark.parametrize("include_overseas, should_raise", [(False, False), (True, True)])
+def test_overlay_area_ratio_follows_include_overseas_territories(...):
+    # same MNG←FRA pair: False -&gt; residual 1.0%, passes / True -&gt; Guiana returns, 14.4%, rejected</code></pre>
+<p>Same pair, same script, one boolean flipped, and the verdict flips with it — a smaller, more durable promise than "always call the right function," and the one the parametrized test in <code>tests/test_script_schema.py</code> actually pins down.</p>
+
+<h2>Four things worth carrying into your own validator</h2>
+<ol>
+<li><strong>Check the validator reads what the artifact is actually built from.</strong> When a codebase keeps a "before cleaning" and an "after cleaning" version of the same data, a validator can quietly grab the wrong one — risk peaks when the two names look alike, like <code>parse_x</code> next to <code>load_x</code>.</li>
+<li><strong>Distrust the word "true."</strong> Raw input feeling truer than processed input is precisely the trap here. Nobody looking at the output is deceived by your source file — if anyone's deceived, it's by what renders.</li>
+<li><strong>Golden vectors validate conformance, not correctness.</strong> Vectors and spec sharing an author and an assumption aren't independent — they're the same claim written twice. Add a cheaper, separate check: run the new gate against artifacts already known to be good. Confirming everything that used to pass still passes is close to the cheapest test there is, and it's the one that actually caught this.</li>
+<li><strong>"Implemented to spec, golden vectors reproduced" is a claim about compliance, not correctness.</strong> Treat those as two separate claims a worker can hand you — only one tells you the spec itself was right.</li>
+</ol>
+
+<h2>Where this stops being true</h2>
+<p>This reasoning breaks if the geometry the renderer drops is routinely part of the claim being made. If narration says "all of Canada" while the screen shows the 84.2% that remains once the Arctic archipelago is filtered out, a screen-based gate happily passes that lie — it was never built to catch it, because for this device the screen was the right thing to measure. That failure mode doesn't need a stricter threshold; it needs a second, independent check asking whether the screen represents the claim, a different question from whether the screen is internally consistent. For an overlay size comparison, measuring the screen is the right call. The day narration starts making absolute-size claims instead of relative ones, this judgment needs revisiting, not reuse.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. My validator passes every golden vector but rejects data I know is good — what does that mean?</strong><br>
+It means your golden vectors and your validator's logic were built on the same assumption, so matching them proves internal consistency, not correctness. Golden vectors show an implementation matches its spec; they cannot show the spec itself is right. Run the validator against an artifact you already know is correct — that cross-check is what a self-consistent vector suite can never provide, and it is what actually surfaces the bug.</p>
+
+<p><strong>Q. Why would raw, unfiltered input be less trustworthy than filtered input for a correctness check?</strong><br>
+Because unfiltered is not the same as correct. In this case the raw GeoJSON was numerically broken for the two countries that mattered most: Russia's polygon set crosses the antimeridian, making its area and centroid meaningless, and France's raw set includes French Guiana, dragging its centroid into the middle of the Atlantic Ocean. The renderer never drew either piece, so validating against the raw file measured geometry the screen never showed.</p>
+
+<p><strong>Q. How do I write a regression test for a bug like this without pinning to internal function names?</strong><br>
+Pin the invariant, not the implementation. Instead of asserting that a specific loader function gets called, assert on the observable relationship that has to hold: here, that the gate's pass/fail verdict for a given pair follows the script's own render setting (include_overseas_territories) rather than staying fixed. A parametrized test that flips that one setting and checks that the verdict flips with it survives any future refactor of the loading code.</p>
+
+<p><strong>Q. Should a validator always trust rendered output over the original source data?</strong><br>
+For checking whether what's on screen is honest, yes — measure the screen, not the source. But that is not universal: if the renderer drops geometry that the accompanying narration still claims as part of the picture, a screen-based gate will pass that specific lie, because it was never built to check whether the screen represents the full claim. That failure needs a second, separate check; it does not mean the screen-based measurement was the wrong choice for the property it was built to guard.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./measuring-uppercase-when-render-draws-mixed-case.html">My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</a></li>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></li>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
