@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>When Two AI Reviewers Disagree, Read What They Both Rejected — hexisteme notes</title>
+<meta name="description" content="A two-model review panel split on half its rulings. Counting what both models rejected — instead of what each one picked — resolved every split, because a choice carries the model's disposition and a cited rejection doesn't.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "When Two AI Reviewers Disagree, Read What They Both Rejected", "datePublished": "2026-08-18", "dateModified": "2026-08-18", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Resolving disagreement in a multi-model LLM review panel by intersecting rejections instead of tallying choices", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why not just add a third model and take a majority?", "acceptedAnswer": {"@type": "Answer", "text": "Because a majority reports a count, not a constraint, and the count is partly a measurement of which vendor's model is more eager to intervene. Add a third leg when you need a third axis - a different kind of check - not a third vote. On the day this rule came from, the third vendor's CLI was over its usage cap, and a rule that only works when everything is available is not a rule."}}, {"@type": "Question", "name": "Isn't 'both models rejected it' just both models being conservative?", "acceptedAnswer": {"@type": "Answer", "text": "Conservatism shows up in what a model picks, not in what it rules out with a citation. The test is whether the rejection names a constraint you can go check. 'I would leave it alone' is a disposition. 'This option requires a fact the canon does not have, and the canon forbids inventing one' is a claim about the artifact that you can verify yourself. Only cited rejections get weight."}}, {"@type": "Question", "name": "What if the two legs reject every option?", "acceptedAnswer": {"@type": "Answer", "text": "Then the brief is wrong, not the artifact. A fully rejected option set means the real answer is not on the menu, which happened once in this batch: the winning answer to a split diagnosis was not one of the options. Rewrite the options out of the rejection reasons and re-run."}}, {"@type": "Question", "name": "Does this work with the same model run twice?", "acceptedAnswer": {"@type": "Answer", "text": "Much less well. Two runs of one model share a disposition and share blind spots, so the rejections correlate with the picks and the noise does not cancel. Different vendors is the point. Different prompts against one vendor buys some independence, but it is the weakest form of it."}}, {"@type": "Question", "name": "How do you keep the legs independent?", "acceptedAnswer": {"@type": "Answer", "text": "Neither leg sees the other's answer, and both get the same full brief rather than a summary. The moment one leg's output enters the other's context, the second answer is a review of the first - useful, but a different operation, and it cannot be counted as an independent rejection."}}]}
+</script>
+</head>
+<body>
+
+<h1>When Two AI Reviewers Disagree, Read What They Both Rejected</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-18</p>
+
+<div class="note">A review step sends the same question to two models from different vendors. On one batch of four rulings the legs picked different answers twice — and a 1–1 split between two voters is a coin flip, not a tie you can break by counting. Both splits resolved cleanly, and neither resolution used the picks. It used what both legs had thrown away. A choice carries the model's disposition; a rejection with a cited reason is a claim about the artifact.</div>
+
+<p>I run a review step that sends the same question to two models from different vendors and reads back structured verdicts. On one batch of four rulings the two legs picked different answers on two of them.</p>
+
+<p>A 1–1 split between two voters is not a tie you can break by counting. It is a coin flip.</p>
+
+<p>Both splits resolved cleanly anyway, and neither resolution involved the picks. It involved what both legs had thrown away.</p>
+
+<h2>A panel of two is not a smaller panel of three</h2>
+
+<p>The panel was supposed to have three legs. The third — a CLI worker from a third vendor — had hit its usage cap that morning, with a reset date three days out. I recorded the gap instead of quietly shipping a two-leg result as if it were the designed one, and then had to actually work out what a two-leg split means, because the majority I would normally have reached for did not exist.</p>
+
+<p>It is worth saying plainly, because the arithmetic is easy to skip: <strong>majority voting needs at least three independent voters.</strong> With two, "2–0" is agreement and "1–1" carries no information <em>if the only thing you recorded is the pick</em>. The fix is not a third leg. The fix is to record more than the pick.</p>
+
+<h2>The brief format that makes a split readable</h2>
+
+<p>Every option in the brief is numbered, and every answer has to come back in one shape:</p>
+
+<pre>N. &lt;choice&gt; — &lt;2–3 lines of reasoning&gt; — falsified if: &lt;one line&gt;</pre>
+
+<p>That last field looks like paperwork and does half the work in this post. A model asked to name the condition under which its own answer would be wrong will, often enough to matter, name a condition that is already true. You cannot read that if you never asked for it, and no amount of re-reading the choice will recover it.</p>
+
+<h2>Split one: the picks overlapped even though the letters didn't</h2>
+
+<p>The question was whether an abrupt change in a character's behaviour needed setup on the page. Four options went out:</p>
+
+<ul>
+<li><strong>A</strong> — strengthen an existing one-clause link back to an earlier chapter</li>
+<li><strong>B</strong> — put a new fact on the page so the acquisition becomes the protagonist's own choice</li>
+<li><strong>C</strong> — A and B together</li>
+<li><strong>D</strong> — leave it, and make the change a question for a later chapter</li>
+</ul>
+
+<p>Leg one picked <strong>A</strong>. Leg two picked <strong>C</strong>.</p>
+
+<p>Tally: 1–1, deadlock. Overlap: <strong>both picks contain A.</strong> C <em>is</em> A+B. The only thing actually in dispute was B.</p>
+
+<p>B then lost to a domain invariant rather than a vote. It required inventing a fact the project's canon did not have, and the project has an explicit rule against speculative canon — not a style preference, but the constraint that keeps a long series from contradicting itself twenty chapters later. An option that can only be executed by breaking a standing invariant isn't a candidate; it's a bug report about the brief.</p>
+
+<p>Then the falsification field paid for itself. The leg that chose C had written its own falsifier as, in substance, <em>"wrong if the coincidence is later revealed as a deliberate setup by the adults."</em> That is the central motif of the work. The leg had handed over the condition that invalidated its own pick, in the same answer, unprompted.</p>
+
+<p>Three independent reasons converged on A. None of them was the tally.</p>
+
+<h3>The part neither leg saw</h3>
+
+<p>Executing A meant opening the manuscript at the clause to be strengthened. It pointed at the wrong place: the clause named one location, and the scene it referenced happens somewhere else entirely.</p>
+
+<p>The flow reviewer had read eight chapters end to end and had not caught it. That axis reads <em>who</em>, <em>when</em>, and <em>why</em>; it does not check <em>where</em>. A panel that agrees is still only as wide as the axes you gave it, and <a href="./one-leg-can-raise-an-objection-not-settle-it.html">one leg can raise an objection without being able to settle one</a>.</p>
+
+<h2>Split two: this time it was the rejections that overlapped</h2>
+
+<p>Second ruling: whether a transgression at the climax leaves a visible price on the page. Options:</p>
+
+<ul>
+<li><strong>A</strong> — leave it; the price is already there as a <em>transfer</em> (a chill moving from the wrist to the chest) rather than a mark</li>
+<li><strong>B</strong> — add a mark on the body</li>
+<li><strong>C</strong> — make the outcome worse</li>
+<li><strong>D</strong> — add one more beat of the character noticing</li>
+</ul>
+
+<p>Leg one picked <strong>A</strong>. Leg two picked <strong>D</strong>. 1–1 again.</p>
+
+<p>Both rejected <strong>B</strong> and <strong>C</strong> — and rejected them for the same structural reason. B and C each reframe the event as an <em>incomplete repayment</em>, and an earlier ruling in the same project had fixed the opposite invariant: handing the object back is a registration, not a repayment. That distinction is the engine the whole series runs on. Two models arriving independently at "these two options switch off the engine" is a far stronger signal than either one's preference between the survivors.</p>
+
+<p>That left A and D, and ground truth cut it. D asked for one more beat of the character noticing. Grep the chapter: the beat is already there, twice.</p>
+
+<h2>Why rejection is the low-noise channel</h2>
+
+<p>Across those four rulings one leg picked option A every single time — 4 for 4. The other picked A twice, C once, D once.</p>
+
+<p>That is disposition. How interventionist a model is by default is a real, stable property, and it rides directly on the choice. If you tally choices from a two-model panel, a good fraction of what you are measuring is which vendor's model is more eager to change things.</p>
+
+<p>It does not ride the same way on the rejection. In those four rulings neither model ever picked an option the other had explicitly ruled out. The two <em>unanimous</em> rulings were unanimous on the reject side too: in one, both legs named the same bad option — make a required phrase "appear" by relocating it into an unrelated scene — and gave nearly the same reason. The string crosses; the institution behind the string does not.</p>
+
+<p>Four rulings is an anecdote, not a study, and I'll take the correction if the next twenty go the other way. What makes me willing to act on it now is the mechanism rather than the count. A pick is one sample from a distribution that training shaped. A rejection with a cited reason is a claim that a specific constraint was checked and failed. Those are different kinds of statement, and counting them in the same unit is the actual error.</p>
+
+<h2>When the overlap doesn't decide</h2>
+
+<p>Same week, a different gate, two legs split on a <em>diagnosis</em> rather than a menu. The question was whether a batch of worldbuilding passages sat inert next to the main conflict. One leg read eight of eight sampled passages as unrelated to conflict. The other read five of eight as conflict-generating and named which conflict each one fed — this rule powers that theft, that rule powers that concealment.</p>
+
+<p>There was no shared rejection to read, because there was no menu to reject from. The tiebreak was evidence: one leg cited passages, the other asserted a summary judgement.</p>
+
+<p>Citations beat verbosity, and this is the tiebreak most worth naming out loud, because <strong>length is not evidence</strong> and the longer answer always feels more considered. The cited answer also changed the diagnosis rather than settling it: the disease was not inert exposition. It was re-introducing a rule that had already done work in an earlier chapter — a duplicate, not a filler. No vote-counting rule would have produced that, because the winning answer wasn't one of the options.</p>
+
+<h2>The procedure I use now</h2>
+
+<ol>
+<li><strong>Require a falsification line per option in the brief.</strong> Without it, step 5 has nothing to read.</li>
+<li><strong>Transcribe the answers into rejections, not picks.</strong> One row per ruling:</li>
+</ol>
+
+<table>
+<tr><th>Ruling</th><th>Leg A picked</th><th>Leg B picked</th><th>Both discarded</th><th>Still standing</th></tr>
+<tr><td>Climax price</td><td>A</td><td>D</td><td>B · C</td><td>A · D</td></tr>
+</table>
+
+<ol start="3">
+<li><strong>One option standing → done.</strong> Two or more → step 4.</li>
+<li><strong>Cut the survivors against a domain invariant</strong> — a contract, a schema, an architectural constraint, anything the project already committed to. An option that can only be executed by breaking one is out regardless of who picked it.</li>
+<li><strong>Read each leg's own falsifier.</strong> If the condition it names is already true, that leg has invalidated its own pick for you.</li>
+<li><strong>Record what decided the rejection, not what was chosen.</strong> The rejection reason is what gets reused next time; the choice is a fact about one ruling.</li>
+</ol>
+
+<h2>What would prove this wrong</h2>
+
+<ul>
+<li>If, over the next several splits, the common rejection routinely leaves two or more options standing, then this is not a decision rule — it is a menu-narrowing step, and the real work lives in steps 4 and 5. Still useful, but I would stop describing rejection as the thing that decides.</li>
+<li>If I hit a split where both legs rejected the same option <em>and the rejection was wrong</em>, both for the same reason, then rejections are correlated in a way this post does not model and the "the noise cancels" claim goes with it. Correlated error is exactly what a same-vendor panel produces, which is why the legs come from different vendors — and why <a href="./route-the-claim-to-its-verifier-not-more-legs.html">routing a claim to the verifier that can actually check it</a> matters more than adding legs.</li>
+<li>If a leg's falsification lines turn out to be decorative — never naming a condition that is already true, or naming one so vague it can't be evaluated — then step 5 is theatre and the brief needs a different field.</li>
+</ul>
+
+<h2>This isn't really about models</h2>
+
+<p>Two human reviewers on a pull request. Two static analysers with overlapping rule sets. Two vendors answering the same architecture question. The move is the same: ask each one what they would <em>rule out</em> and why, not only what they would do.</p>
+
+<p>Vetoes intersect more cleanly than recommendations, because a recommendation is partly a statement about the recommender and a veto with a reason attached is a claim about the artifact. One of those is auditable. And when you have exactly two reviewers, auditable is all you have — there is no majority to hide behind.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why not just add a third model and take a majority?</strong><br>
+Because a majority reports a count, not a constraint, and the count is partly a measurement of which vendor's model is more eager to intervene. Add a third leg when you need a third <em>axis</em> — a different kind of check — not a third vote. On the day this rule came from, the third vendor's CLI was over its usage cap, and a rule that only works when everything is available is not a rule.</p>
+
+<p><strong>Q. Isn't "both models rejected it" just both models being conservative?</strong><br>
+Conservatism shows up in what a model picks, not in what it rules out with a citation. The test is whether the rejection names a constraint you can go check. "I would leave it alone" is a disposition. "This option requires a fact the canon does not have, and the canon forbids inventing one" is a claim about the artifact that you can verify yourself. Only cited rejections get weight.</p>
+
+<p><strong>Q. What if the two legs reject every option?</strong><br>
+Then the brief is wrong, not the artifact. A fully rejected option set means the real answer is not on the menu, which happened once in this batch: the winning answer to a split diagnosis was not one of the options. Rewrite the options out of the rejection reasons and re-run.</p>
+
+<p><strong>Q. Does this work with the same model run twice?</strong><br>
+Much less well. Two runs of one model share a disposition and share blind spots, so the rejections correlate with the picks and the noise does not cancel. Different vendors is the point. Different prompts against one vendor buys some independence, but it is the weakest form of it.</p>
+
+<p><strong>Q. How do you keep the legs independent?</strong><br>
+Neither leg sees the other's answer, and both get the same full brief rather than a summary. The moment one leg's output enters the other's context, the second answer is a review of the first — useful, but a different operation, and it cannot be counted as an independent rejection.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./one-leg-can-raise-an-objection-not-settle-it.html">One Leg Can Raise an Objection. It Can't Settle One.</a></li>
+<li><a href="./route-the-claim-to-its-verifier-not-more-legs.html">Route the Claim to Its Verifier — Legs Are Not Votes</a></li>
+<li><a href="./exit-zero-empty-stdout-the-quota-died-on-stderr.html">Exit Zero, Empty stdout: the Quota Died on stderr</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
