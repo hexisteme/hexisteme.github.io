@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Null Result Belonged To The Other Hypothesis — hexisteme notes</title>
+<meta name="description" content="I ran an experiment to test why some animation frames rendered empty, got no change at all, and filed that as confirmation. It was the opposite: a null result is evidence for whichever hypothesis predicted it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Null Result Belonged To The Other Hypothesis", "datePublished": "2026-08-18", "dateModified": "2026-08-18", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Debugging, hypothesis testing, null results, relative tuning constants, negative controls", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What does a null result in a debugging experiment actually tell you?", "acceptedAnswer": {"@type": "Answer", "text": "It is evidence for whichever hypothesis predicted no change. If your hypothesis predicted that the intervention would change something and nothing changed, the null result contradicts your hypothesis rather than supporting it. The protection is to write down, before running the experiment, what you expect to see if you are right."}}, {"@type": "Question", "name": "Why would a 3% animation overshoot constant break only at extreme zoom ratios?", "acceptedAnswer": {"@type": "Answer", "text": "Because corner-wise linear interpolation makes the overshoot proportional to the distance travelled, not to the size of the destination. The camera box inverts when the ratio of previous width to target width exceeds 1 + 1/o, which is 34.3 for o = 0.03, and the camera centre leaves the destination frame when the travel distance exceeds 1/(2o) = 16.7 destination-frames. Ordinary transitions have single-digit ratios and never reach either threshold."}}, {"@type": "Question", "name": "How do you cap an overshoot without deleting the motion design?", "acceptedAnswer": {"@type": "Answer", "text": "Bound the excursion relative to the destination's short side and take the minimum with the configured constant. With a cap of 0.25 and a constant of 0.03, the cap only engages when travel exceeds 8.3 destination-frames, so ordinary transitions are unchanged to the pixel. Test in both directions: assert the extreme case can no longer invert, and assert that an ordinary transition still overshoots and settles back."}}, {"@type": "Question", "name": "How do you know a detector that reports zero defects is actually working?", "acceptedAnswer": {"@type": "Answer", "text": "Run negative controls before trusting the result. Feed the detector inputs that must trip it, such as a pure black frame and a frame containing only caption-coloured text, and confirm it reports what you expect. This proves the detector is capable of firing, which is weaker than proving it is correct but is the claim you actually need before reading a clean report as good news."}}, {"@type": "Question", "name": "What does it mean when you change an input and the output does not move at all?", "acceptedAnswer": {"@type": "Answer", "text": "It usually means the lever is not connected on that code path, not that the lever is weak. In this case shortening a label did nothing because the clamp that would have moved it could not fire: its allowed region started at 40.4 px while the compliance check required 80 px, so any label in that 47.6-pixel band was a violation the clamp considered already safe."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Null Result Belonged To The Other Hypothesis</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-18</p>
+
+<div class="note">I spent half a day being wrong in writing, and the fix took three lines. The interesting part is not the fix. It is that I had already run the experiment that disproved my diagnosis, looked at its result, and recorded it as support.</div>
+
+<p>The system is a renderer that animates a camera across a map: each scene declares a bounding box, and the camera eases from the previous scene's box to the next one. A quality check found stretches where the output frames contained no map at all — dark rectangles with only the caption text on them, totalling 0.93 seconds across three transitions in a 23-second clip.</p>
+
+<p>I diagnosed it as unavoidable. I wrote that down, with a trade-off table and a falsification condition, in a document whose whole purpose is recording honest engineering judgment. Being wrong in that particular format is worse than being wrong casually, because the format makes it durable.</p>
+
+<h2>The hypothesis, and the experiment that "confirmed" it</h2>
+
+<p>My theory: <strong>there is nothing to draw.</strong> One of the scenes frames a 20-kilometre island near the end of a remote archipelago. To get there the camera passes through intermediate scales — a few hundred kilometres wide — and at those scales, in that part of the world, there is genuinely nothing but open water. Empty frames were therefore geometry, not a defect.</p>
+
+<p>The test was obvious. The renderer takes an explicit list of what to draw per scene. I added two continents to the island scene's draw list. If the frames were empty because nothing was in the draw set at those scales, putting two continents in the draw set should put land on screen.</p>
+
+<p>Result: <strong>frame-for-frame identical output.</strong> Same empty stretches, same durations, same boundaries. Byte-comparable.</p>
+
+<p>I reverted it and wrote: <em>"I tried adding neighbouring landmasses so at least a continent would be drawn during the transition, but the result was identical frame for frame. This is not a bug, it's geometry."</em></p>
+
+<p>Read that sentence again, because it is exactly backwards.</p>
+
+<p>My hypothesis was "there is nothing to draw." If that hypothesis were true, adding two continents to the draw set should have changed something. At minimum a few frames should have caught a coastline. Nothing changed at all — which means the continents <em>were</em> in the draw set and <em>still</em> weren't on screen. That is not consistent with "nothing to draw." That is a direct contradiction of it.</p>
+
+<p>Two hypotheses were live, and they made opposite predictions about the same experiment:</p>
+
+<table>
+<tr><th>Hypothesis</th><th>Prediction when continents are added</th></tr>
+<tr><td><strong>A. Nothing to draw</strong> (mine)</td><td>Some frames gain land → <strong>change</strong></td></tr>
+<tr><td><strong>B. The camera is pointed somewhere else</strong></td><td>Draw set is irrelevant, it's all off-screen → <strong>no change</strong></td></tr>
+</table>
+
+<p>The observation was "no change." That was B's prediction from the start. I built an experiment to test A, observed B's prediction, and filed it under A.</p>
+
+<div class="warn">When an experiment comes back "no difference," the question is not "so that doesn't work either." The question is <strong>which hypothesis predicted no difference</strong> — because that is the one your null result is evidence for.</div>
+
+<p>This is a close cousin of a mistake I wrote up earlier, <a href="./i-confirmed-the-formula-where-both-formulas-agree.html">I confirmed the formula where both formulas agree</a>: running a check at the one operating point where the competing explanations produce identical output, and reading the match as validation. The difference is that there, the test simply couldn't discriminate. Here it discriminated perfectly — and I read the discriminating signal in the wrong direction.</p>
+
+<h2>What the camera was actually doing</h2>
+
+<p>The thing that finally broke it open was refusing to reason about the camera and instead sampling it. Not inferring from rendered pixels — calling the camera function directly at each frame time and printing the box it returned.</p>
+
+<table>
+<tr><th>Frame time</th><th>Camera width</th><th>Target width</th><th>Centre offset from target</th></tr>
+<tr><td>t=12.55</td><td><strong>−0.106</strong></td><td>0.550</td><td>—</td></tr>
+<tr><td>t=19.10</td><td>0.361</td><td>0.550</td><td>1.99 (= <strong>3.6 frame-widths</strong>)</td></tr>
+</table>
+
+<p>A negative width. The camera box had turned inside out. And at the other transition the camera's centre was almost four full frames away from where it was supposed to be — pointed at open ocean while the geometry it was meant to be framing sat off-screen.</p>
+
+<p>The draw set, checked at the same frame times, was correct throughout. Everything was being drawn. The camera was just looking at the wrong place.</p>
+
+<p>I had <em>already seen</em> the negative width, hours earlier, in a different log. I had written it off with the sentence: "there's nothing to draw in that window anyway, so it makes no visible difference." I used the conclusion I was trying to prove to dismiss the evidence against it.</p>
+
+<h2>Three percent of what?</h2>
+
+<p>The transition uses a back-ease: the camera slightly overshoots the destination and settles back. The overshoot constant was <code>0.03</code> — three percent. That sounds bounded. It is bounded, if you know what it's three percent <em>of</em>.</p>
+
+<p>The interpolation is the obvious one:</p>
+
+<pre>def interpolate_bbox(b0, b1, t):
+    return tuple(a + (b - a) * t for a, b in zip(b0, b1))</pre>
+
+<p>Corner-wise linear interpolation. At <code>t = 1 + o</code>, each coordinate lands at <code>target + o * (target - previous)</code>. The overshoot distance is proportional to <strong>how far the camera travelled</strong>, not to how big the destination is.</p>
+
+<p>For this transition the camera went from a box 25.6 units wide to a box 0.55 units wide — a 46× zoom. Three percent of that journey is 0.75 units. The destination frame is 0.55 units. <strong>The overshoot was 136% of the thing it was overshooting.</strong> The camera didn't nudge past the island; it flew clean over it and came back.</p>
+
+<p>The algebra tells you exactly when this becomes visible, and it's a one-liner in each case:</p>
+
+<ul>
+<li>The box inverts (negative width) when <code>previous_width / target_width &gt; 1 + 1/o</code>, which for <code>o = 0.03</code> is <strong>34.3×</strong>.</li>
+<li>The centre leaves the destination frame entirely when <code>|Δcentre| / target_width &gt; 1/(2o)</code>, which is <strong>16.7×</strong>.</li>
+</ul>
+
+<p>Every previous transition in this system moved between countries and regions — zoom ratios in the single digits, nowhere near either threshold. The constant had been sitting in the code since the transition grammar was written and had never once produced a visible defect. It took the first episode that framed a 20-kilometre island to cross both lines at once.</p>
+
+<p>That is the shape of this class of bug. A relative constant is safe over the ratios in your corpus, and the corpus never contained the ratio that breaks it, so the distinction between "3% of the destination" and "3% of the distance" was never observable. The constant looks equally correct under both readings right up until it doesn't.</p>
+
+<h2>The fix, and the part that matters</h2>
+
+<pre>OVERSHOOT_TARGET_CAP = 0.25  # max excursion, as a multiple of the target's short side
+
+def compute_bounded_overshoot_fraction(prev_bbox, target_bbox, overshoot_fraction):
+    if overshoot_fraction &lt;= 0.0:
+        return overshoot_fraction
+    travel = max(abs(t - p) for t, p in zip(target_bbox, prev_bbox))
+    if travel &lt;= 0.0:
+        return overshoot_fraction
+    short_side = min(target_bbox[2] - target_bbox[0], target_bbox[3] - target_bbox[1])
+    return min(overshoot_fraction, max(0.0, OVERSHOOT_TARGET_CAP * short_side / travel))</pre>
+
+<p>Bound the excursion relative to the destination instead of the journey. The <code>min</code> is the whole design. As long as the travel distance is within <code>0.25 / 0.03</code> = <strong>8.3 destination-frames</strong>, the cap never engages and the existing motion grammar is unchanged, to the pixel. Only the extreme zoom gets squeezed, from <code>0.03</code> down to <code>0.011</code>, and the minimum camera width over that transition goes from <strong>−0.1998 to +0.2756</strong>.</p>
+
+<p>I wrote the tests in both directions, which for this kind of fix is not optional. One direction asserts the failure can't recur: across the whole transition the camera width and height stay positive and the centre stays within one frame of the target. The other direction asserts the fix didn't quietly delete the feature: on an ordinary transition the camera must <strong>still overshoot</strong> and settle back. A cap that clamps every transition to a flat linear ease would pass the first test perfectly and would have thrown away the motion design. 378 tests green.</p>
+
+<h2>Suspecting the detector before believing the result</h2>
+
+<p>The first time I measured this episode, my instrument reported <strong>zero empty frames</strong>, and I nearly shipped on that. The detector counted any pixel that differed from the background as terrain — which meant it was counting the yellow caption glyphs as land. Every frame had captions. No frame could ever be empty.</p>
+
+<p>This repository already has a written-up case of exactly that failure, so getting a clean bill of health from a fresh detector is now a reason for suspicion rather than relief. Before trusting the post-fix numbers I made the detector fail on purpose:</p>
+
+<table>
+<tr><th>Negative control</th><th>Ink measured</th><th>Expected</th></tr>
+<tr><td>Pure black frame</td><td>0 px</td><td>&lt; 200 ✓</td></tr>
+<tr><td>Frame containing only a caption-coloured block</td><td>0 px</td><td>&lt; 200 ✓</td></tr>
+</table>
+
+<p>A detector that reports zero on a black frame is at least <em>capable</em> of reporting zero. That is a much weaker claim than "this detector is correct," and it is the one I actually needed — the related trap of a control that fires reliably but at the wrong property is a separate write-up, <a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a>.</p>
+
+<p>With the controls passing, the rebuilt detector (matching against the actual palette colours rather than "not background") gives:</p>
+
+<table>
+<tr><th>Ink threshold</th><th>Before</th><th>After</th></tr>
+<tr><td>&lt; 200 px</td><td>0.93 s</td><td><strong>0 frames</strong></td></tr>
+<tr><td>&lt; 2,000 px</td><td>—</td><td>0.27 s</td></tr>
+<tr><td>&lt; 10,000 px (0.5% of frame)</td><td>—</td><td>0.67 s</td></tr>
+</table>
+
+<h2>What's left is real, and I'm labelling it as real</h2>
+
+<p>0.27 seconds survive, in two spots. Both are the midpoint of a transition that crosses 112 degrees of longitude, and the midpoint is genuinely ocean. Setting the overshoot to zero would not remove them: as long as the camera path is a straight line between two boxes, if there's no land between the endpoints there's no land in the middle frames either.</p>
+
+<p>Removing that requires cutting instead of panning, which means a new primitive in the scene schema — the script has no way to say "this transition is a cut, not a move." I didn't build it, and the reason is not that it's hard. This clip is the experimental arm of a retention change I'm measuring; adding a second camera-grammar change to the same clip would make the retention difference unattributable.</p>
+
+<p>So it stays unfixed, labelled unfixed, with the condition that would change my mind: if a human watches those two frame ranges and reads them as a glitch rather than as camera movement, the cut primitive gets built first and the clip gets re-rendered.</p>
+
+<h2>The second finding: a clamp that could not fire</h2>
+
+<p>The same clip failed a different check — a scene label overflowing the left safe-area margin by 32 px. The obvious lever was to shorten the label text. I shortened it. The label did not move a single pixel.</p>
+
+<p>The label placement code has a function that pulls the label's allowed region in from the right, to avoid the column of UI buttons overlaid on the video. There was no counterpart for the left. The compliance check looks at both sides.</p>
+
+<p>The numbers make the gap concrete. The allowed region handed to the placement code starts at <code>width * 0.03</code> = 32.4 px, and the boundary margin is 8 px, so the effective clamp line sits at <strong>40.4 px</strong>. The safe area starts at <strong>80 px</strong>. Any label sitting in that <strong>47.6-pixel band</strong> is a violation by the checker and already comfortably inside by the clamp — so the clamp has no reason to fire, and shortening the text just makes a shorter label that still sits in the band. The label was at x0 = 48. Exactly in the band.</p>
+
+<p>Adding the left counterpart fixed it: 47 sampled frames, zero violations.</p>
+
+<p>The diagnostic signal here is the same shape as the one in the first half of this post. <strong>I changed an input and the output didn't move.</strong> That is not "the lever is weak." That is evidence the lever isn't connected to anything on this path — the same category as <a href="./my-probe-passed-because-it-could-not-fail.html">a probe that passed because it could not fail</a>. Both times, the "nothing happened" was the most informative measurement of the day, and both times my first reading of it was that nothing had been learned.</p>
+
+<h2>Three things I'd tell myself</h2>
+
+<p><strong>Null results have an owner.</strong> "No change" is not an absence of information; it is evidence for whichever hypothesis predicted no change. The protection is cheap and I skipped it: before running the experiment, write down what you expect to see <em>if you're right</em>. If you haven't committed to that in advance, a null result will get absorbed into whatever you already believed.</p>
+
+<p><strong>A relative constant is a contract about its denominator.</strong> "3% overshoot" is bounded if it's 3% of the destination and unbounded if it's 3% of the distance travelled. Both readings are correct at ratios near 1, which is where all your tests live. When you read a tuning constant, read what it's relative to, and ask what happens when that quantity gets large.</p>
+
+<p><strong>A falsification condition aimed at the symptom cannot overturn the diagnosis.</strong> When I closed this as unfixable, I attached a falsifier: <em>"if a person reads these frames as a glitch."</em> Even if that had come true, the only action it licenses is widening the shot — it can't touch the diagnosis, because it never mentions the mechanism. The falsifier I needed was <em>"if the camera box leaves the target during a transition,"</em> which was already sitting in my logs as a negative number I'd talked myself out of caring about.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What does a null result in a debugging experiment actually tell you?</strong><br>
+It is evidence for whichever hypothesis predicted no change. If your hypothesis predicted that the intervention would change something and nothing changed, the null result contradicts your hypothesis rather than supporting it. The protection is to write down, before running the experiment, what you expect to see if you are right.</p>
+
+<p><strong>Q. Why would a 3% animation overshoot constant break only at extreme zoom ratios?</strong><br>
+Because corner-wise linear interpolation makes the overshoot proportional to the distance travelled, not to the size of the destination. The camera box inverts when the ratio of previous width to target width exceeds 1 + 1/o, which is 34.3 for o = 0.03, and the camera centre leaves the destination frame when the travel distance exceeds 1/(2o) = 16.7 destination-frames. Ordinary transitions have single-digit ratios and never reach either threshold.</p>
+
+<p><strong>Q. How do you cap an overshoot without deleting the motion design?</strong><br>
+Bound the excursion relative to the destination's short side and take the minimum with the configured constant. With a cap of 0.25 and a constant of 0.03, the cap only engages when travel exceeds 8.3 destination-frames, so ordinary transitions are unchanged to the pixel. Test in both directions: assert the extreme case can no longer invert, and assert that an ordinary transition still overshoots and settles back.</p>
+
+<p><strong>Q. How do you know a detector that reports zero defects is actually working?</strong><br>
+Run negative controls before trusting the result. Feed the detector inputs that must trip it, such as a pure black frame and a frame containing only caption-coloured text, and confirm it reports what you expect. This proves the detector is capable of firing, which is weaker than proving it is correct but is the claim you actually need before reading a clean report as good news.</p>
+
+<p><strong>Q. What does it mean when you change an input and the output does not move at all?</strong><br>
+It usually means the lever is not connected on that code path, not that the lever is weak. In this case shortening a label did nothing because the clamp that would have moved it could not fire: its allowed region started at 40.4 px while the compliance check required 80 px, so any label in that 47.6-pixel band was a violation the clamp considered already safe.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./i-confirmed-the-formula-where-both-formulas-agree.html">I confirmed the formula where both formulas agree</a></li>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></li>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
