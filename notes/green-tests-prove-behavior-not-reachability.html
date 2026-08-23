@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Tests Were Green Because the Gate Was Never Wired In — hexisteme notes</title>
+<meta name="description" content="A publish-blocking gate had full unit test coverage and stayed green through review after review. It had also never once been called by the real pipeline. What a green suite actually proves, and what it structurally can't.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Tests Were Green Because the Gate Was Never Wired In", "datePublished": "2026-08-24", "dateModified": "2026-08-24", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why green unit tests prove behavior but not reachability, illustrated with a publish-blocking gate that was implemented, unit-tested, and never wired into its own pipeline.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "What's the difference between a green test suite and a gate that actually runs?", "acceptedAnswer": {"@type": "Answer", "text": "A unit test calls a function directly, so it proves the function behaves correctly when invoked. It says nothing about whether the real pipeline ever invokes it. In this project, check_revenue_axis_gate had a fully green unit test file (18 passed) while being absent from the pipeline's dispatch tuple, so the live system never called it at all."}},
+{"@type": "Question", "name": "How do you test that a function is wired into the pipeline, not just that it works when called directly?", "acceptedAnswer": {"@type": "Answer", "text": "Write a test that discovers the handlers independently of the dispatch list, then diffs the two sets. The discovery step has to walk the source (for example, scanning a package's modules for functions matching a naming pattern) rather than reading the pipeline's own registration list — comparing a list to itself proves nothing."}},
+{"@type": "Question", "name": "Why did asking the verifier to \"review the code\" miss all three blind spots?", "acceptedAnswer": {"@type": "Answer", "text": "Reviewing and attacking are different tasks. \"Review this\" and \"check the tests\" produced no findings across the wiring, round-trip, and failure-taxonomy defects. Rewording the brief to \"don't read the tests, actually attack it and try to break it\" found all three in the next round. The code wasn't held fixed across those rounds, so read that as a strong hint about how you word a verification brief, not as a controlled result."}},
+{"@type": "Question", "name": "What's exit code 4 for, and why did adding it introduce three new bugs?", "acceptedAnswer": {"@type": "Answer", "text": "Exit code 4 (EXIT_UNJUDGED) was added to mean \"reached no verdict at all,\" separating crashes from gate violations (1) and human sign-off (2). The commit that introduced this convention violated it in three places — a ledger-connection call outside the top-level try block, verdict persistence happening inside the exception handler so a write failure could erase the original verdict, and the same code path swallowing AWAIT_HUMAN. Two independent verification lenses caught all three."}},
+{"@type": "Question", "name": "What did the adversarial verifier try that failed to break the system?", "acceptedAnswer": {"@type": "Answer", "text": "Forging a verdict via dataclasses.replace, reusing or forging tokens, inserting duplicate PASS rows through raw SQL (blocked by a partial unique index), ten separate attempts to launder a value through the derivation-declaration mechanism, and provoking a false block on a legitimate draft. None of it worked — and the brief required the verifier to report that explicitly rather than stay silent on untried attacks."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>Your Tests Were Green Because the Gate Was Never Wired In</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-24</p>
+
+<div class="note">A publish-blocking gate had full unit test coverage and stayed green through review after review. It had also never once been called by the real pipeline. Four rounds of adversarial verification turned up 19 blocking defects, three of them sitting directly under tests that had never gone red — because green tests prove behavior, not reachability, and reachability needs its own evidence.</div>
+
+<p>I built a publish-blocking gate for a monetization agent. A draft gets registered, then judged, and the verdict comes back one of three ways: PASS, BLOCK, or AWAIT_HUMAN. Five machine gates run in sequence before a human ever sees the draft — <code>check_warrant_gate</code>, <code>check_numeral_gate</code>, <code>check_expression_gate</code>, <code>check_disclosure_gate</code>, <code>check_revenue_axis_gate</code> — living in <code>agent_blog/gates/</code>, dispatched from a tuple in <code>verdict.py</code>. Every gate had a unit test. Every unit test was green.</p>
+
+<p>Then I told a verification agent to stop reading the tests and go break the thing for real. Four rounds later: 19 blocking defects found. Three of them had been sitting directly underneath tests that had never once gone red.</p>
+
+<p>That gap is the subject of this post, because it isn't specific to this codebase. Green unit tests prove <strong>behavior</strong> — what a function does when you call it. They don't prove <strong>reachability</strong> — whether production ever calls it, whether the value survives the trip between call sites, or whether a failure gets reported as the thing it actually was. Those are three separate claims, and each one needs its own kind of evidence.</p>
+
+<h2>The measurement that makes the point concrete</h2>
+
+<p>Here's the cleanest demonstration I have. Take the fifth gate, <code>check_revenue_axis_gate</code>, and delete it from the dispatch tuple in <code>verdict.py</code>:</p>
+
+<pre><code>_MACHINE_GATE_CHECKS: Tuple = (
+    check_warrant_gate,
+    check_numeral_gate,
+    check_expression_gate,
+    check_disclosure_gate,
+    check_revenue_axis_gate,   # &lt;- delete this line
+)</code></pre>
+
+<p>Run the gate's own unit tests, <code>tests/test_gates.py</code>: 18 passed. Fully green. It calls the gate function directly, so it has no way of knowing the pipeline stopped calling it too.</p>
+
+<p>Run a second file, <code>tests/test_gate_wiring.py</code>, against the same commit, and it fails immediately:</p>
+
+<pre><code>AssertionError: ... ['check_revenue_axis_gate']</code></pre>
+
+<p>Same commit, same defect, two completely different verdicts depending on which file you ran. That contrast is the whole essay in one command.</p>
+
+<p>It also isn't hypothetical — it's what actually happened before the wiring test existed. <code>check_revenue_axis_gate</code> was implemented and unit-tested, but nobody had added it to <code>_MACHINE_GATE_CHECKS</code>. The real pipeline never called it. A draft with <code>revenue_axis="affiliate"</code> and a subscription call-to-action mixed into the body — exactly what the gate exists to catch — sailed straight through to AWAIT_HUMAN.</p>
+
+<h2>Three blind spots, three different kinds of test</h2>
+
+<p><strong>Wiring.</strong> A function can be fully implemented and fully unit-tested and still never execute in production, if nothing on the real call path invokes it. Unit tests can't see this, because they invoke the function themselves — that's the definition of a unit test. The fix isn't a better unit test. It's a structurally different one: a test that discovers the handlers independently of the dispatch list and diffs the two sets against each other.</p>
+
+<p>Here's the one this project ended up with:</p>
+
+<pre><code>def _discover_gate_checks() -&gt; dict[str, object]:
+    """Collect every `check_*_gate` function by walking the gates package's
+    modules. Building this list by reading the pipeline's own dispatch table
+    would make the comparison meaningless — it has to come from an
+    independent source, or the check verifies nothing."""
+    discovered: dict[str, object] = {}
+    for module_info in pkgutil.iter_modules(gates_package.__path__):
+        if not module_info.name.endswith("_gate"):
+            continue
+        module = importlib.import_module(f"{gates_package.__name__}.{module_info.name}")
+        for attr in dir(module):
+            if attr.startswith("check_") and attr.endswith("_gate"):
+                discovered[attr] = getattr(module, attr)
+    return discovered
+
+
+def test_every_defined_gate_is_registered_in_the_pipeline():
+    discovered = _discover_gate_checks()
+    registered = {check.__name__ for check in _MACHINE_GATE_CHECKS}
+    unwired = sorted(set(discovered) - registered)
+    assert not unwired, f"defined but never called by the pipeline: {unwired}"</code></pre>
+
+<p>The detail that matters is in the docstring: discovery walks the filesystem, not the dispatch tuple. If it imported <code>_MACHINE_GATE_CHECKS</code> and compared that list to itself, the test would pass by construction and prove nothing at all. It has to find the gates a second, independent way, or the "diff" is just the same list looking at its own reflection.</p>
+
+<p><strong>Round-trip.</strong> A design-stage decision had already moved a draft's derived values to a declaration-based representation — the operator declares the expression and its inputs, instead of the gate auto-searching for any arithmetic combination that happens to land on the number. That fix had no slot in the ledger's serialization format. It vanished silently on the trip from <code>register</code> to <code>judge</code>. Unit tests never caught this, because they hand objects across in memory — build a dossier, pass it straight into the gate function, skip the database entirely. The round trip through the real persistence layer is exactly the part a unit test is built to avoid, for speed. The effect here cut both ways: the fix was unusable on the actual CLI path, and legitimate drafts that depended on it got falsely blocked instead of passing. Catching this needs a save-then-load through the real persistence layer, or an end-to-end run on the real path — not a shortcut through memory.</p>
+
+<p><strong>Failure taxonomy.</strong> The CLI's top-level exception handler caught everything and exited 1. So "the code crashed and never reached a verdict" was indistinguishable, from the outside, from "the gate correctly blocked this draft." An <code>AttributeError</code> from a type mismatch looked exactly like policy enforcement. A test suite made entirely of green/red assertions has nothing to say about this kind of confusion — it needs an exit code that specifically means "I could not judge this," plus a test asserting each code maps to what it claims to.</p>
+
+<h2>The verb in the instruction changed what got found</h2>
+
+<p>The first rounds of verification were told to "review this" and "check the tests." They found none of the three blind spots above. The round that found all three was instructed differently: don't read the tests, actually attack the system and try to break it. The wording is the most visible thing that changed between them, but I didn't hold the code fixed across rounds, so this isn't a controlled comparison and I won't claim it as one. What I will say is that I don't read the earlier rounds as a weaker verifier — they were answering a different question. "Does this look right" and "can you make it do the wrong thing" are not the same test, even run by the same agent.</p>
+
+<p>One more line in the brief mattered as much as "attack it": it also had to say, explicitly, that if the verifier couldn't break something, it should say so. Without that instruction, a verification report reads as coverage it never achieved — every attack vector nobody tried just looks like a pass. With it, the report for this project includes an honest list of what held: forging a verdict via <code>dataclasses.replace</code>, reusing or forging tokens, inserting duplicate PASS rows through raw SQL (blocked by a partial unique index), ten separate attempts to launder a value through the derivation mechanism, and provoking a false block on a legitimate draft. None of it worked. That negative result is worth as much as the nineteen defects that did land — it's the difference between "we found no more bugs" and "we tried these specific things and none of them worked."</p>
+
+<h2>The round that broke its own rule</h2>
+
+<p>The sharpest example came in the fourth round, and it generalizes past testing entirely. The recurring pattern by then was "a crash disguises itself as a policy verdict," so a fourth exit code got added: <code>EXIT_UNJUDGED</code> (4), for "reached no verdict at all." The convention became: 0 pass, 1 gate violations only, 2 awaiting human sign-off, 4 could not reach a verdict, 3 reserved.</p>
+
+<p>The commit that introduced this convention violated it in three places, and two independent verification lenses caught all three:</p>
+
+<ul>
+<li><code>connect_ledger()</code> sat outside the top-level <code>try</code> block, so a corrupted ledger or a permissions error skipped the entire except chain and fell through to Python's default exit code of 1 — the exact ambiguity the new convention existed to remove, reintroduced by the code that removed it.</li>
+<li>Persisting a verdict happened <em>inside</em> <code>except GateViolation:</code>. If the write itself raised — a missing permission on the audit log, say — Python replaces the original exception with the new one. A BLOCK verdict and its reason disappeared from the output entirely and came back reported as <code>[UNJUDGED]</code>. This is the most dangerous shape in the whole set, because it doesn't just misreport a crash as a violation — it hides a real violation behind a crash.</li>
+<li>The same code path swallowed <code>AWAIT_HUMAN</code> the same way.</li>
+</ul>
+
+<p>The fix keeps the original verdict and its exit code intact, and reports the write failure separately as <code>[PERSIST_FAILED]</code> — one exception no longer gets to erase the other.</p>
+
+<p>There was a fourth issue in the same round, caught by the same two lenses, that I find the most instructive of the nineteen: argparse's usage errors call <code>sys.exit(2)</code>. In this CLI, 2 means "every gate passed, awaiting a human signature." A missing <code>--id</code> flag or a misspelled subcommand exited with the identical code as a draft that had cleared every gate and was waiting on a signature. Both lenses flagged it independently — and neither fixed it nor wrote it down. It sat there until it got closed by hand after reading the report. Alongside the fix, the codes got pinned to named constants — <code>EXIT_PASS</code>, <code>EXIT_GATE_VIOLATION</code>, <code>EXIT_AWAIT_HUMAN</code>, <code>EXIT_UNJUDGED</code> — instead of bare integers. An unnamed number can silently collide with a different meaning, and that's exactly the shape this defect had.</p>
+
+<h2>What generalizes</h2>
+
+<p>Green tests prove behavior, not reachability. Reachability has at least three separate parts — is it wired in, does the value survive the trip between systems, is a failure reported as what it actually was — and each one needs a test built to see that specific thing, not a better version of the tests you already have.</p>
+
+<p>This isn't a call to add wiring tests, round-trip tests, and a failure-taxonomy exit code to every project by default. If the codebase is small enough to have one call site, no dispatch table, no serialization boundary between components, and no top-level handler collapsing exceptions into a single code, none of these three blind spots has anywhere to hide, and building tests for them costs more than they'd ever catch.</p>
+
+<p>Where they do apply, the round-four defects point at something wider than testing. The change that establishes a convention is the change least likely to get checked against it — there's no history of violations to test for yet, and code that just wrote the rule feels, to whoever wrote it, like it obviously follows it. The argparse issue is a separate lesson standing next to that one: a verifier's finding can still get lost if nothing closes the loop afterward. Finding a defect and fixing a defect are two different steps, and this round only had one of them running on autopilot.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. What's the difference between a green test suite and a gate that actually runs?</strong><br>
+A. A unit test calls a function directly, so it proves the function behaves correctly when invoked. It says nothing about whether the real pipeline ever invokes it. In this project, <code>check_revenue_axis_gate</code> had a fully green unit test file (18 passed) while being absent from the pipeline's dispatch tuple, so the live system never called it at all.</p>
+
+<p><strong>Q. How do you test that a function is wired into the pipeline, not just that it works when called directly?</strong><br>
+A. Write a test that discovers the handlers independently of the dispatch list, then diffs the two sets. The discovery step has to walk the source (for example, scanning a package's modules for functions matching a naming pattern) rather than reading the pipeline's own registration list — comparing a list to itself proves nothing.</p>
+
+<p><strong>Q. Why did asking the verifier to "review the code" miss all three blind spots?</strong><br>
+A. Reviewing and attacking are different tasks. "Review this" and "check the tests" produced no findings across the wiring, round-trip, and failure-taxonomy defects. Rewording the brief to "don't read the tests, actually attack it and try to break it" found all three in the next round. The code wasn't held fixed across those rounds, so read that as a strong hint about how you word a verification brief, not as a controlled result.</p>
+
+<p><strong>Q. What's exit code 4 for, and why did adding it introduce three new bugs?</strong><br>
+A. Exit code 4 (<code>EXIT_UNJUDGED</code>) was added to mean "reached no verdict at all," separating crashes from gate violations (1) and human sign-off (2). The commit that introduced this convention violated it in three places — a ledger-connection call outside the top-level try block, verdict persistence happening inside the exception handler so a write failure could erase the original verdict, and the same code path swallowing AWAIT_HUMAN. Two independent verification lenses caught all three.</p>
+
+<p><strong>Q. What did the adversarial verifier try that failed to break the system?</strong><br>
+A. Forging a verdict via <code>dataclasses.replace</code>, reusing or forging tokens, inserting duplicate PASS rows through raw SQL (blocked by a partial unique index), ten separate attempts to launder a value through the derivation-declaration mechanism, and provoking a false block on a legitimate draft. None of it worked — and the brief required the verifier to report that explicitly rather than stay silent on untried attacks.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for four days while nothing shipped</a></li>
+<li><a href="./the-ablation-had-four-arms-none-matched-what-shipped.html">The Ablation Had Four Arms. None Matched What Shipped.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
