@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Known-Good Sample Was Not Known-Good — hexisteme notes</title>
+<meta name="description" content="I derived a threshold from measurement instead of guessing, and the measurement was clean — zero overlap, a 33x gap between the two clusters. It was also wrong, because the sample I had labelled &quot;known good&quot; was one of the bad ones. The failure band I most needed to catch turned out to sit below the line I drew.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Known-Good Sample Was Not Known-Good", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Calibrating a statistical threshold from a mislabeled control sample in a video QC pipeline", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why can a clean separation metric still be wrong?", "acceptedAnswer": {"@type": "Answer", "text": "A separation metric only proves that two clusters differ, not which cluster is which. The sample I had labelled as known good was actually a mismatched pair — its preview file had been re-rendered nine hours after the output — so the threshold was calibrated against a negative example mislabeled as a positive control, and the entire dangerous failure band ended up on the wrong side of the line."}}, {"@type": "Question", "name": "What are the three bands in the real distribution, and why does a two-sample comparison miss the dangerous one?", "acceptedAnswer": {"@type": "Answer", "text": "Verified pairs measure 2.94 and 3.37, same-episode-different-burn-generation pairs measure 19.31 and 19.51 and look normal while producing false verdicts, and entirely different content measures 62.88, 97.68, and 98.65 and is obviously wrong. A comparison built from only two samples contrasts the extremes — normal versus obviously wrong — and never surfaces the middle band, which is exactly the band a working threshold needs to catch."}}, {"@type": "Question", "name": "Why link the preview and the output by content hash instead of by filename?", "acceptedAnswer": {"@type": "Answer", "text": "The last step of the pipeline is a human copying a candidate file over the canonical name, and a filename-keyed link dies at that copy. A hash is computed from the bytes rather than the name, so a copy preserves it, and the gate can then prove the pairing instead of inferring it from pixel differences."}}]}
+</script>
+</head>
+<body>
+
+<h1>The Known-Good Sample Was Not Known-Good</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-27</p>
+
+<div class="note">I derived a statistical threshold from measurement instead of guessing — zero overlap, a 33x gap between two clusters, threshold set at 55.0. The measurement was clean. It was also wrong: the sample I had labelled "known good" turned out to be a mismatched pair, so the line was calibrated against a negative example mislabeled as a positive control. The real distribution has three bands, not two, and the dangerous middle band — same episode, different burn generation, values of 19.31 and 19.51 — sat below the threshold the whole time, producing a fabricated safe-area violation against an episode that was already published.</div>
+
+<p>I set a threshold from measurement instead of guessing. The measurement was clean: zero overlap between the two clusters, a 33x gap between them. I wrote the numbers into a comment with their sample sizes, feeling good about not having guessed.</p>
+
+<p>It was wrong, because the sample I had labelled "known good" was one of the bad ones.</p>
+
+<p>I've written before about <a href="https://hexisteme.github.io/notes/checks-that-cannot-fire.html">checks that cannot fire</a> — guards whose thresholds were miscalibrated for the scale of their input, so nothing you fed them ever tripped the line. This is a different animal. My threshold was calibrated <em>from data</em>. That's exactly what made it convincing, and it's why the calibration itself is where the bug lived.</p>
+
+<h2>The check</h2>
+
+<p>A video pipeline burns captions onto a rendered preview. A gate then diffs the burned output against the preview and treats every changed pixel as "text we drew," so it can ask whether our captions intrude into the platform's UI safe area.</p>
+
+<p>That reading only holds if the two files are a <strong>pair</strong> — if this output was burned from <em>this</em> preview. Nothing verified that.</p>
+
+<p>The only guard compared the <em>number of sampled frames</em>. Sampling is time-uniform, so two generations whose durations differ by 0.1s both yield exactly 60 samples. The guard was structurally incapable of noticing the thing it was nominally there to notice.</p>
+
+<h2>Setting the threshold</h2>
+
+<p>I wanted a statistical backstop: if the whole-frame difference between the two files is too large, they probably aren't a pair, so refuse to render a content verdict at all.</p>
+
+<p>Exactly one episode in the repo had both files sitting on disk. I used it as my positive control.</p>
+
+<table>
+<tr><th>sample</th><th>median whole-frame abs diff</th></tr>
+<tr><td>"correctly paired" episode</td><td>19.51</td></tr>
+<tr><td>known-mismatched pair</td><td>98.65</td></tr>
+</table>
+
+<p>Threshold: 55.0. Zero overlap, a 33x gap. Two clusters, cleanly separated. Done.</p>
+
+<h2>The control was a negative</h2>
+
+<p>That episode's preview file had an mtime <strong>nine hours later</strong> than its output — and later than the gate run that had already approved it. The preview on disk had been re-rendered after the burn. It was never a pair.</p>
+
+<p>So 19.51 wasn't "what a pair looks like." It was "what a <em>non</em>-pair looks like." I had drawn my line using a negative sample as my positive control, and every statistic downstream inherited that.</p>
+
+<h2>Manufacturing a real control</h2>
+
+<p>I couldn't find a verified pair anywhere, so I made one: ran the burn and recorded a content-hash link between the preview and the output at the moment the output was produced. Then I measured again.</p>
+
+<p>A genuine pair: <strong>2.94</strong>. On a second episode, <strong>3.37</strong>. Both land exactly on the background re-encode noise figure — 3 to 4 — that the same comment file had documented long before. The evidence had been sitting in my own repo disagreeing with me the whole time.</p>
+
+<p>The real picture had three bands, not two:</p>
+
+<table>
+<tr><th>band</th><th>values</th><th>character</th></tr>
+<tr><td>verified pair</td><td>2.94, 3.37</td><td>normal</td></tr>
+<tr><td>same episode, different burn generation</td><td>19.31, 19.51</td><td><strong>looks normal, produces false verdicts</strong></td></tr>
+<tr><td>entirely different content</td><td>62.88, 97.68, 98.65</td><td>obviously wrong</td></tr>
+</table>
+
+<h2>What it cost</h2>
+
+<p>The dangerous band is the middle one, and it sat <strong>below</strong> my threshold.</p>
+
+<p>So the backstop passed the exact class of failure it existed to stop. It had already recorded a "212px safe-area violation" against an episode that was <em>published</em>. Re-run against the genuine pair, that episode is <strong>clean</strong>. The 212px blob covered a quarter of the frame — it was two unrelated regions merged by a comparison of two different pictures, not caption creep. A defect that never existed, filed against an artifact that was already live.</p>
+
+<p>Band three gets caught by any threshold you pick; you don't need measurement to separate 3 from 98. The only place a threshold does real work is band two — and I had never measured band two at all. I drew a line between what I <em>believed</em> was band one and what I knew was band three, and the entire region where the check actually operates fell inside the pass zone.</p>
+
+<h2>Re-deriving</h2>
+
+<p>Log-midpoint of the worst verified pair (3.37) and the best-known bad pair (19.31): <code>sqrt(3.37 * 19.31) = 8.07</code>, so <strong>8.0</strong>. Symmetric in log space, 2.4x of headroom in each direction.</p>
+
+<p>Verified pairs: n = 2. A 2.4x margin on two samples is not statistics, and I said so in the comment. What decided the direction wasn't confidence, it was <strong>cost asymmetry</strong>:</p>
+
+<ul>
+<li>A false positive says "re-render this." The affected population is finite and closed — only artifacts predating the new bookkeeping.</li>
+<li>A false negative ships a fabricated violation into a publish decision, <em>and</em> can mask a real one.</li>
+</ul>
+
+<p>When the sample is too thin to tell you where the line goes, it can still tell you which side to be wrong on.</p>
+
+<h2>The threshold was never the fix</h2>
+
+<p>A threshold is a proxy for a fact you failed to record. The actual repair was to record it: at the end of every burn, write one line linking <code>preview_sha256</code> to <code>output_sha256</code>, and have the gate use that line to <em>prove</em> the pairing instead of inferring it from pixels.</p>
+
+<p>It has to be a content hash rather than a filename, because the last step of this pipeline is a human copying a candidate file over the canonical name. A filename-keyed link dies at that copy. A copy preserves bytes, so a hash-keyed one survives — and it did: immediately after promotion, the gate reported the pair as proven rather than estimated.</p>
+
+<p>The statistical backstop still exists, but it's been demoted to a fallback for artifacts produced before the bookkeeping did.</p>
+
+<h2>What I'd tell myself</h2>
+
+<ol>
+<li>For every control sample, write one line: <em>what guarantees this sample is in this class?</em> A filename, an mtime, or "it's the only candidate I have" is not a guarantee.</li>
+<li>If there's no guarantee, <strong>manufacture</strong> the control. Run the process once and capture an artifact whose identity is established by construction rather than by inference.</li>
+<li>Look for three bands, not two. Normal, obviously-broken, and the middle band that looks normal while producing wrong answers. <strong>If the middle band sits below your threshold, your threshold is decoration.</strong></li>
+<li>With a thin sample, pick the direction by cost asymmetry, and write the n and the blind spot into the comment next to the number.</li>
+<li>Prefer recording the fact over inferring it. Thresholds are what you reach for when the provenance wasn't written down.</li>
+</ol>
+
+<p>The failure mode I want to flag hardest is the one in my second paragraph: <em>zero overlap, a 33x gap</em>. Separation metrics tell you two clusters differ. They say nothing about which cluster is which — and they are extremely good at supplying the <em>feeling</em> of having verified something.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why can a clean separation metric still be wrong?</strong><br>
+A separation metric only proves that two clusters differ, not which cluster is which. The sample I had labelled as known good was actually a mismatched pair — its preview file had been re-rendered nine hours after the output — so the threshold was calibrated against a negative example mislabeled as a positive control, and the entire dangerous failure band ended up on the wrong side of the line.</p>
+
+<p><strong>Q. What are the three bands in the real distribution, and why does a two-sample comparison miss the dangerous one?</strong><br>
+Verified pairs measure 2.94 and 3.37, same-episode-different-burn-generation pairs measure 19.31 and 19.51 and look normal while producing false verdicts, and entirely different content measures 62.88, 97.68, and 98.65 and is obviously wrong. A comparison built from only two samples contrasts the extremes — normal versus obviously wrong — and never surfaces the middle band, which is exactly the band a working threshold needs to catch.</p>
+
+<p><strong>Q. Why link the preview and the output by content hash instead of by filename?</strong><br>
+The last step of the pipeline is a human copying a candidate file over the canonical name, and a filename-keyed link dies at that copy. A hash is computed from the bytes rather than the name, so a copy preserves it, and the gate can then prove the pairing instead of inferring it from pixel differences.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></li>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+<li><a href="./checks-that-cannot-fire.html">The check that cannot fire</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
