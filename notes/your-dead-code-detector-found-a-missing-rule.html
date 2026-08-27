@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Dead-Code Detector Found Six Orphan Constants. None of Them Were Dead. — hexisteme notes</title>
+<meta name="description" content="An audit flagged six constants as unreferenced. Every one turned out to be a specification the code had quietly retyped as string literals, and two of them were letting typos walk straight through a review gate.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Dead-Code Detector Found Six Orphan Constants. None of Them Were Dead.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Distinguishing dead code from unenforced specifications in a codebase audit", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I tell dead code from an unenforced specification?", "acceptedAnswer": {"@type": "Answer", "text": "Grep for the constant's members as bare string literals elsewhere in the codebase. If the code retypes the values it should be checking against, you have a missing joint, not dead code. A constant that reads like a vocabulary — a tuple of legal strings, a set of tags, a status enum — should be assumed unenforced until you have checked."}}, {"@type": "Question", "name": "Why is an unrecognized value more dangerous than a missing one?", "acceptedAnswer": {"@type": "Answer", "text": "A missing value means nobody filled it in, which usually has a legitimate default. An unrecognized value means somebody filled it in and you cannot read it — you know an intent existed and you lost it. Code that treats the two identically hands the broken case whatever permissive default the absent case earned."}}, {"@type": "Question", "name": "How do I check that a new validation test actually measures something?", "acceptedAnswer": {"@type": "Answer", "text": "Revert the fix and run the test against the old code. A blocking test must go red without the fix; a no-regression guard must pass both with and without it. If a test you wrote for a fix is green against the unfixed code, it is not measuring the fix."}}]}
+</script>
+</head>
+<body>
+<h1>Your Dead-Code Detector Found Six Orphan Constants. None of Them Were Dead.</h1>
+<div class="note">Zero references outside the defining file has two causes that look identical: nothing needs this value, or nothing is enforcing it. The second is the dangerous one, because the constant sitting in the file looks like the rule is being kept.</div>
+
+<p>An audit flagged six constants in my codebase as orphans: <strong>defined in exactly one file, referenced from nowhere outside it.</strong> That's the standard shape of dead code, and the standard next step is to delete it.</p>
+
+<p>I opened all six. Not one was dead. Every one of them was a <em>specification</em> — a word-list the code was supposed to obey — sitting next to code that had written the same values out again as string literals. Nothing joined the two.</p>
+
+<p>Two of the six were letting typos walk straight through a review gate.</p>
+
+<h2>The shape</h2>
+
+<p>Here's the smallest one. A dataclass carries a <code>confidence</code> field, and there's a constant declaring what values are legal:</p>
+
+<pre><code>VALID_CONFIDENCE = (&quot;verified&quot;, &quot;unverified&quot;, &quot;not_found&quot;)</code></pre>
+
+<p>And here's the method that decides whether a piece of evidence can be published on a page:</p>
+
+<pre><code>def is_usable(self) -&gt; bool:
+    if self.confidence == &quot;not_found&quot;:
+        return False
+    if not self.claim.strip() or not self.quote.strip():
+        return False
+    return self.source_url.startswith((&quot;http://&quot;, &quot;https://&quot;))</code></pre>
+
+<p><code>VALID_CONFIDENCE</code> has zero references. <code>is_usable</code> re-types one of its three members as a literal. The constant is the <em>spec</em>; the method is the <em>implementation</em>; and there is no line of code anywhere that makes the implementation answer to the spec.</p>
+
+<p>Now note where the value comes from. It's parsed out of a config file:</p>
+
+<pre><code>confidence=str(item.get(&quot;confidence&quot;, &quot;unverified&quot;))</code></pre>
+
+<p><code>str()</code>. No validation. So a human types <code>notfound</code> instead of <code>not_found</code> — one character — and the evidence sails through <code>is_usable()</code>, joins the supporting-evidence set, and a downstream check that hunts for unsupported numeric claims now treats every number in that evidence as <em>sourced</em>.</p>
+
+<p>The whole point of <code>not_found</code> is to mark evidence you couldn't confirm. A typo in that word turns it into confirmed evidence.</p>
+
+<p>Measured, before the fix:</p>
+
+<table>
+<thead><tr><th><code>confidence</code></th><th><code>is_usable()</code></th></tr></thead>
+<tbody>
+<tr><td><code>verified</code></td><td>True</td></tr>
+<tr><td><code>unverified</code></td><td>True</td></tr>
+<tr><td><code>not_found</code></td><td><strong>False</strong></td></tr>
+<tr><td><code>notfound</code></td><td><strong>True</strong></td></tr>
+<tr><td><code>NOT_FOUND</code></td><td><strong>True</strong></td></tr>
+<tr><td><code>verifed</code></td><td><strong>True</strong></td></tr>
+<tr><td><code>""</code></td><td><strong>True</strong></td></tr>
+</tbody>
+</table>
+
+<h2>The worse one</h2>
+
+<p>The same shape, in a manual-review gate. Checklist items carry <code>answered_by</code>, which is either <code>"human"</code> or <code>"agent_by_delegation"</code>. Delegated answers get extra scrutiny — they must cite a basis, they're checked against the current delegation scope, and they're revoked when the delegation is withdrawn. Human answers get none of that, correctly: a person already looked.</p>
+
+<p>The filter was one line:</p>
+
+<pre><code>for item in manual_checklist:
+    if item.get(&quot;answered_by&quot;) != MANUAL_ANSWER_DELEGATED:
+        continue          # not delegated → not our business
+    ...</code></pre>
+
+<p>That line routes two completely different states through the same door: <em>"a human answered"</em> (legitimately outside this check) and <em>"we don't know who answered"</em> (the least trustworthy state there is).</p>
+
+<p>So <code>agent-by-delegation</code> with a hyphen, or <code>agent_by_delegation </code> with a trailing space, or just <code>agent</code> — each of those skips the basis requirement, skips the scope check, skips revocation, and keeps <code>answer: true</code>.</p>
+
+<p>A typo didn't weaken the delegation. It <strong>promoted a machine's answer to a human's answer.</strong></p>
+
+<p><code>MANUAL_ANSWER_HUMAN</code> was one of my six orphans. Of course it was — the code never needed to name the human case, because "not delegated" silently meant it.</p>
+
+<h2>Why the detector was right and wrong at once</h2>
+
+<p>"Zero references outside the defining file" is a real measurement. My mistake was reading it as a verdict on the constant, when it's actually a measurement of the <em>joint</em>.</p>
+
+<p>Two things produce that reading:</p>
+
+<p>1. Nothing uses this value. → Dead code. Delete it. 2. Something should be checking against this value and isn't. → <strong>Missing enforcement.</strong></p>
+
+<p>They're indistinguishable from the reference count alone, and case 2 is the dangerous one, because the constant sitting there in the file <em>looks</em> like the rule is being enforced. It documents an invariant that nothing maintains. A reader — including me, six months later — takes it as a guarantee.</p>
+
+<p>The reference count doesn't tell you which case you're in. You have to open the file.</p>
+
+<p>I've hit this before from the other side: I once wrote a rollback criterion into a spec and never built the instrument that reads the number. Same disease. <strong>A criterion with no instrument, and a vocabulary with no enforcer, are the same bug wearing different clothes.</strong></p>
+
+<h2>Fixing it: don't be lenient about broken values</h2>
+
+<p>Both fixes have the same shape. The old code treated an unrecognized value as equivalent to an absent one, and absence had a permissive default. So:</p>
+
+<pre><code>if self.confidence not in VALID_CONFIDENCE:
+    return False        # unknown is worse than not_found —
+                        # we don&#x27;t even know what was checked</code></pre>
+
+<p>The rule I settled on: <strong>a broken value is not an absent value.</strong> Absent means "nobody filled this in," which often has a legitimate default. Broken means "somebody filled this in and we can't read it," which means you know less than nothing — you know an intent existed and you lost it.</p>
+
+<p>I'd already applied that rule elsewhere without noticing it was a rule. A staleness check in the same codebase treats an unparseable date as <em>stale</em>, not as <em>missing</em>. Same instinct, and it was the precedent that settled these two.</p>
+
+<h2>The trap on the other side</h2>
+
+<p>Tightening a permissive default breaks the legitimate uses of that default. Here, the absent <code>answered_by</code> field genuinely means <code>human</code> — every checklist written before delegation existed looks like that. Rejecting unknown values <em>and</em> absent ones would have invalidated every human answer in the archive.</p>
+
+<p>So each fix got a second test, asserting the thing that must <strong>keep</strong> working:</p>
+
+<pre><code>def test_a_missing_answered_by_field_still_means_human():
+    ...
+def test_the_two_usable_confidence_values_still_pass():
+    ...</code></pre>
+
+<p>These pass before the fix and after. They're not measuring the fix; they're measuring that the fix didn't overshoot. Run them against the old code and they're green — which is exactly right, and exactly why you need the other kind too.</p>
+
+<h2>Prove the tests can fail</h2>
+
+<p>Before committing, I reverted both source fixes and ran the new tests against the old code. <strong>Eleven failures</strong> — five typo cases, six confidence cases — and the two no-regression tests passed. That's the positive control: each blocking test genuinely goes red without the fix, and each guard test genuinely passes both ways.</p>
+
+<p>This takes about ninety seconds and it's the difference between "I wrote a test" and "I wrote a test that measures something."</p>
+
+<h2>The mistake I made while fixing it</h2>
+
+<p>For the four constants that <em>weren't</em> broken, I wrote invariant tests to lock them. One of the four was a grouping rule — "count the non-stock cuts, per scene" — written out three times in the repo. Here's my first attempt at joining them:</p>
+
+<pre><code>needed = count_framings_needed(cuts)
+
+grouped = {}
+for cut in cuts:                          # ← I retyped the rule here
+    if cut.source == CUT_SOURCE_BROLL:
+        continue
+    grouped[cut.scene_index] = grouped.get(cut.scene_index, 0) + 1
+
+assert needed == grouped</code></pre>
+
+<p>The docstring said "this joins the three copies." It doesn't. It creates a <strong>fourth</strong> copy and compares it to the first. Neither of the two live copies is touched. If the production implementation drifts, this test stays green.</p>
+
+<p>I was fixing "a spec with no enforcer" by writing a spec with no enforcer.</p>
+
+<p>The fix was to call the live function for real and assert against its output. Then I mutated each copy in turn to confirm the joint actually holds:</p>
+
+<table>
+<thead><tr><th>Mutation</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>copy #1 counts stock cuts too</td><td><code>assert {1:3, 2:1, 3:1} == {1:2, 2:1}</code> — fails</td></tr>
+<tr><td>copy #2's grouping includes stock</td><td><code>assert 3 == 2</code> — fails</td></tr>
+</tbody>
+</table>
+
+<p>Caught from both directions. <em>Now</em> it's a joint.</p>
+
+<p>(The equality only holds for one class of scene — the other class allocates round-robin, so it can legitimately have fewer images than cuts. That's the scene where a <code>zip()</code> pairs the two lists, and <code>zip</code> stops silently at the shorter one, so it's precisely the place worth measuring. Scoping the invariant to where it's actually load-bearing is part of the work.)</p>
+
+<h2>What to do with your own orphan list</h2>
+
+<p>1. <strong>Open every one.</strong> The reference count told you where to look, not what you found. 2. For each, ask: <em>is this a value nobody needs, or a rule nobody enforces?</em> If the constant reads like a vocabulary — a tuple of legal strings, a set of tags, a status enum — assume the second until you've checked. 3. <strong>Grep for the literals.</strong> If the members appear as bare strings elsewhere in the codebase, you've found the missing joint. That grep is the whole diagnosis. 4. <strong>Trace where the value enters.</strong> Mine came from a config file through <code>str()</code>. A vocabulary only needs an enforcer at the boundary values cross — if every producer is internal and typo-proof, you may genuinely not need one. 5. When you write the enforcement, <strong>write the both-ways pair</strong>: one test that fails without the fix, one that passes with and without it. Then revert the fix and watch them behave differently.</p>
+
+<p>The orphan list wasn't a list of things to delete. It was a list of places where I'd written down what I meant and never made the code answer for it.</p>
+
+<h2>FAQ</h2>
+<h3>How do I tell dead code from an unenforced specification?</h3>
+<p>Grep for the constant's members as bare string literals elsewhere in the codebase. If the code retypes the values it should be checking against, you have a missing joint, not dead code. A constant that reads like a vocabulary — a tuple of legal strings, a set of tags, a status enum — should be assumed unenforced until you have checked.</p>
+<h3>Why is an unrecognized value more dangerous than a missing one?</h3>
+<p>A missing value means nobody filled it in, which usually has a legitimate default. An unrecognized value means somebody filled it in and you cannot read it — you know an intent existed and you lost it. Code that treats the two identically hands the broken case whatever permissive default the absent case earned.</p>
+<h3>How do I check that a new validation test actually measures something?</h3>
+<p>Revert the fix and run the test against the old code. A blocking test must go red without the fix; a no-regression guard must pass both with and without it. If a test you wrote for a fix is green against the unfixed code, it is not measuring the fix.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./i-wrote-a-rollback-rule-and-no-way-to-read-the-number.html">I Wrote a Rollback Rule and No Way to Read the Number</a></li>
+<li><a href="./the-known-good-sample-was-not-known-good.html">The Known-Good Sample Was Not Known Good</a></li>
+<li><a href="./checks-that-cannot-fire.html">Checks That Cannot Fire</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
