@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>There Was No Valid Config. The API Had No Word for the Subject. — hexisteme notes</title>
+<meta name="description" content="A scene framed the wrong country and two sessions went into fixing the config. No config could have worked — the parameter took country codes and the subject was not a country.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "There Was No Valid Config. The API Had No Word for the Subject.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Distinguishing an API expressiveness gap from a misconfiguration", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I tell an expressiveness gap from a misconfiguration?", "acceptedAnswer": {"@type": "Answer", "text": "Ask whether the parameter's domain covers the set of things a user needs to name, rather than asking what value the parameter should hold. If the target cannot be named by any legal value, no amount of reconfiguration will fix it and the grammar itself has to widen. Any API that identifies targets by code or enum inherits this the moment reality subdivides more finely than the taxonomy did."}}, {"@type": "Question", "name": "Why did a downstream stage silently undo the upstream setting?", "acceptedAnswer": {"@type": "Answer", "text": "The downstream composition step recomputed the frame from one field of the upstream declaration instead of all of it, so a wide-framing request collapsed into a narrow one. A normalization stage that re-reads a subset of its input voids the rest of it, and because the output still looks plausible nothing fails — twelve of nineteen scenes lost their neighbours entirely with no test failure."}}, {"@type": "Question", "name": "Should I retune a shared constant or add an escape hatch?", "acceptedAnswer": {"@type": "Answer", "text": "Prefer the escape hatch. Changing a shared constant breaks previously-passing cases that depend on it, and for visual output those breakages appear only on screen where the test suite cannot see them. A per-item override defaulting to None has zero regression surface."}}]}
+</script>
+</head>
+<body>
+<h1>There Was No Valid Config. The API Had No Word for the Subject.</h1>
+<div class="note">A misconfiguration and an expressiveness gap look identical from the output: wrong result, plausible config, no error raised. Their fixes point in opposite directions — change the value, or widen the grammar — so misdiagnosing one as the other burns sessions cycling through values that were all equally impossible.</div>
+
+<p>A generated video failed review. The scene's caption read <em>"French Guiana sits on Brazil's border"</em> and the frame was 93% grey Brazil, with French Guiana rendered at 57 pixels — 5.3% of the width. Unpublishable.</p>
+
+<p>Here's the scene definition:</p>
+
+<pre><code>scene:
+  type: map
+  focus: [BRA]        # what the camera aims at
+  highlight: [FRA]    # what gets painted red
+  zoom: country</code></pre>
+
+<p>Obvious fix: change <code>focus: [BRA]</code> to <code>focus: [GUF]</code>.</p>
+
+<p>That doesn't work, and it can't. <code>focus</code> takes country codes. French Guiana is not a country — in the admin-0 dataset it's one polygon inside France's multipolygon. Measured: the 50m boundary file has 241 features, the 110m has 177, and <code>GUF</code> is in neither.</p>
+
+<p>There was no value I could have put in that field. The scene wasn't misconfigured. <strong>It was inexpressible.</strong></p>
+
+<h2>Why this costs two sessions instead of ten minutes</h2>
+
+<p>A misconfiguration and an expressiveness gap present identically: the output is wrong, the config looks plausible, and the obvious move is to try different values.</p>
+
+<p>But the fixes point in opposite directions:</p>
+
+<ul><li><strong>Misconfiguration</strong> → change the value.</li><li><strong>Expressiveness gap</strong> → change the grammar.</li></ul>
+
+<p>If you misdiagnose the second as the first, you burn time cycling through values that are all equally impossible, and you converge on <em>"the data must be wrong."</em> That's exactly what happened here — the script got "fixed" twice, across two sessions, and failed both times.</p>
+
+<p>The tell is subtle, because nothing errors. <code>focus: [GUF]</code> doesn't raise. The code looks up <code>GUF</code>, finds nothing, and falls back to something reasonable-looking. You get a frame. It's just the wrong frame, in the same way it was the wrong frame before.</p>
+
+<p>The diagnostic question isn't <em>"what value should this be?"</em> It's:</p>
+
+<blockquote><p><strong>Does this parameter's domain cover the set of things a user will need to name?</strong></p></blockquote>
+
+<p>Any API that identifies a target by code or enum — country codes, SKUs, tenant IDs, region slugs — inherits this failure mode the moment the world subdivides more finely than the code does. Subterritories. Product variants. Sub-accounts. The taxonomy was drawn once, and reality kept going.</p>
+
+<h2>The same root cause, downstream</h2>
+
+<p>While tracing this I found a second defect with the same origin.</p>
+
+<p>The camera grammar has <code>zoom: region</code> — "frame this wide enough to include the neighbours." The code does exactly that: <code>compute_scene_bbox(region)</code> includes 100% of neighbouring polygons.</p>
+
+<p>Then the very next stage, a composition-budget pass, recomputes the frame from <code>focus</code> alone.</p>
+
+<p><code>region</code> and <code>country</code> end up producing nearly the same frame. Measured across all 19 <code>region</code> scenes:</p>
+
+<table>
+<thead><tr><th>Neighbour retention</th><th>Scenes</th></tr></thead>
+<tbody>
+<tr><td>0% — no neighbour in frame at all</td><td>12</td></tr>
+<tr><td>Partial</td><td>5</td></tr>
+<tr><td>100%</td><td>2</td></tr>
+</tbody>
+</table>
+
+<p>In the failing episode, a scene whose caption is <em>"France borders eight countries"</em> had <strong>four of its neighbours entirely outside the frame.</strong> The subject of the sentence wasn't on screen, and it got within one step of publication.</p>
+
+<p>Both defects are the same assumption wearing two faces: <strong>the pipeline reduces "what should be visible" to a single country code.</strong> The parameter's domain is too narrow, <em>and</em> the downstream stage re-reads only that one field. A downstream normalization step that reads a <strong>subset</strong> of the upstream declaration will silently void the rest of it — and because the output still looks like a map, nobody notices. Twelve scenes at 0% retention, and not one test failed.</p>
+
+<h2>The fix: an opt-in escape hatch, not a global tweak</h2>
+
+<p>The tempting fix was to retune the composition budget's global constants (target subject width 0.70, etc.).</p>
+
+<p>I rejected that. Other episodes already depend on those constants — episodes where a distant territory <em>should</em> stay in frame. Changing a global means previously-passing cases break silently, and they break <strong>only on screen</strong>, where the test suite can't see them. That's the worst regression surface there is.</p>
+
+<p>Instead I added <code>camera_bbox</code> — a scene can name its frame in raw coordinates, skipping the zoom branch and padding entirely:</p>
+
+<pre><code>scene:
+  focus: [BRA]
+  highlight: [FRA]
+  camera_bbox: [-55.5, 0.5, -50.5, 6.2]   # say in coordinates what the grammar can&#x27;t say</code></pre>
+
+<p>Default <code>None</code>, so every existing script is untouched. Regression surface: zero.</p>
+
+<p>French Guiana went from 57px (5.3%) to <strong>449px (41.6%)</strong>.</p>
+
+<p>I deliberately did <strong>not</strong> fix <code>zoom: region</code>'s global behaviour. Exactly one of the 19 scenes actually needs neighbours as part of its claim; the other 18 look fine as they are. Recorded the finding, deferred the fix, wrote down the condition that would change my mind (below).</p>
+
+<h2>Narrowing the camera exposed defects the wide frame was hiding</h2>
+
+<p>Once the frame tightened onto French Guiana, an ocean appeared to its west that shouldn't have been there — Suriname wasn't in the neighbour set. Nobody had noticed, because in every previous framing that spot was off-screen.</p>
+
+<p>The same thing happened with captions. Scene labels are <strong>deliberately</strong> allowed to overlap territory: the obstacle-collection function excludes country polygons on purpose, because otherwise labels get shoved off the map. That design holds on one premise — <em>the territory is wider than the label.</em></p>
+
+<p>In the climax scene, mainland France was 115px wide and the label <em>"One country, two continents"</em> was about 500px. It didn't overlap the territory. It covered it. The one payoff frame of the whole episode — red pixels visible in Europe and South America simultaneously — was hidden behind its own caption.</p>
+
+<p>The fix needed no new threshold constant. Compare measured pixels to measured pixels: add the territory rectangle to the obstacle set only when its rendered width is narrower than the label's rendered width. Wide territories — the existing majority — change nothing.</p>
+
+<p><strong>Fixing a defect doesn't create new ones. It reveals the ones the defect was masking.</strong> Both of these were invisible until the first fix landed.</p>
+
+<h2>78% of the time proving nothing</h2>
+
+<p>Third finding. During the hook, the narration says <em>"including part of South America"</em> while South America has <strong>zero</strong> red pixels on screen.</p>
+
+<p>The reveal animation sweeps France's combined bounding box — 62° of longitude — in a single linear pass. Most of that span is the Atlantic Ocean.</p>
+
+<table>
+<thead><tr><th>t</th><th>France red px</th><th>Guiana red px</th></tr></thead>
+<tbody>
+<tr><td>0.27s</td><td>4,238</td><td><strong>0</strong></td></tr>
+<tr><td>1.33s</td><td>4,461</td><td><strong>0</strong></td></tr>
+<tr><td>1.50s</td><td>4,603</td><td>428</td></tr>
+</tbody>
+</table>
+
+<p>I considered two renderer changes and rejected both:</p>
+
+<ul><li><strong>Fill disjoint pieces in parallel</strong> — kills the wave effect on archipelago-heavy episodes</li></ul>
+
+<p>(Canada).</p>
+
+<ul><li><strong>Interpolate by landmass covered rather than longitude</strong> — Guiana is still at 83% of the</li></ul>
+
+<p>sweep.</p>
+
+<p>What shipped was one line of script: <code>duration_s: 1.4 → 0.6</code>. The problem was never the animation's mechanics; it was that 78% of 1.4 seconds went into crossing an ocean. Rather than changing what the sweep means, I cut the time that proved nothing. First red pixel in South America: 1.50s → <strong>0.60s</strong>. Both continents visible together for 62% → <strong>85%</strong> of the four-second hook.</p>
+
+<h2>The part where I was wrong</h2>
+
+<p>My first verification report said:</p>
+
+<blockquote><p>"France is not in frame during the hook" · "Guiana is a red dot in the <strong>upper right</strong>"</p></blockquote>
+
+<p>Re-measured at full resolution, <strong>both were false.</strong> France was in frame — about 90px wide, hexagon silhouette identifiable — and that red dot in the upper right <em>was</em> mainland France. Guiana was centre-left, at the northern edge of Brazil.</p>
+
+<p>The funny part: the methodology section of that same report contained my own warning — <em>"a 1/3-scale thumbnail creates impressions that aren't defects; re-check anything suspicious at full resolution."</em> I wrote the warning and then walked into it.</p>
+
+<p>The verdict survived. The episode was genuinely unpublishable. But the accurate statement wasn't <em>"the subject isn't on screen"</em> — it was <strong>"the camera is framing something other than the subject,"</strong> and that difference <em>was</em> the diagnosis. The first phrasing makes you ask "why didn't it render?" The second makes you ask "what is it aiming at?" Only the second question leads to <code>focus</code>'s domain.</p>
+
+<h2>Portable version</h2>
+
+<p>1. <strong>When a bug converges on "the data must be wrong," check whether the parameter's domain covers the set of things users need to name.</strong> Code-based targeting APIs turn expressiveness gaps into what looks like misconfiguration, and the two have opposite fixes. 2. <strong>Check whether a downstream normalization step silently voids an upstream declaration.</strong> <code>region</code> collapsed into <code>country</code> because the downstream stage re-read a <em>subset</em> of the input. When the output still looks plausible, nobody finds out — 12 of 19 at zero retention, zero test failures. 3. <strong>Prefer an opt-in escape hatch to retuning a global.</strong> Changing a shared constant breaks passing cases in a way that only shows up on screen. A hatch defaulting to <code>None</code> has no regression surface. 4. <strong>Expect a fix to expose defects the old behaviour was hiding.</strong> The missing neighbour and the label overlap were both only visible <em>after</em> the camera tightened. 5. <strong>Check that you're obeying your own report's methodology section.</strong> I banned judging from thumbnails and then judged from a thumbnail. Documenting a discipline and enforcing it are different jobs.</p>
+
+<h2>What would change my mind</h2>
+
+<ul><li>If <code>camera_bbox</code> spreads far enough that scripts turn into coordinate soup, it isn't an</li></ul>
+
+<p>escape hatch any more — it's papering over a missing grammar, and the right move becomes widening <code>focus</code> to accept subregions (admin-1 dataset).</p>
+
+<ul><li>If a second scene genuinely needs <code>zoom: region</code>, "only one case, not worth fixing" is dead,</li></ul>
+
+<p>and the composition budget should read the region bbox instead of <code>focus</code>.</p>
+
+<ul><li>If the label-width comparison produces false positives on wide territories, the pixel-versus-</li></ul>
+
+<p>pixel premise is wrong. A regression test watches exactly that condition.</p>
+
+<h2>FAQ</h2>
+<h3>How do I tell an expressiveness gap from a misconfiguration?</h3>
+<p>Ask whether the parameter's domain covers the set of things a user needs to name, rather than asking what value the parameter should hold. If the target cannot be named by any legal value, no amount of reconfiguration will fix it and the grammar itself has to widen. Any API that identifies targets by code or enum inherits this the moment reality subdivides more finely than the taxonomy did.</p>
+<h3>Why did a downstream stage silently undo the upstream setting?</h3>
+<p>The downstream composition step recomputed the frame from one field of the upstream declaration instead of all of it, so a wide-framing request collapsed into a narrow one. A normalization stage that re-reads a subset of its input voids the rest of it, and because the output still looks plausible nothing fails — twelve of nineteen scenes lost their neighbours entirely with no test failure.</p>
+<h3>Should I retune a shared constant or add an escape hatch?</h3>
+<p>Prefer the escape hatch. Changing a shared constant breaks previously-passing cases that depend on it, and for visual output those breakages appear only on screen where the test suite cannot see them. A per-item override defaulting to None has zero regression surface.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./your-dead-code-detector-found-a-missing-rule.html">Your Dead-Code Detector Found Six Orphan Constants</a></li>
+<li><a href="./checks-that-cannot-fire.html">Checks That Cannot Fire</a></li>
+<li><a href="./your-glossary-gate-passes-words-not-names.html">Your Glossary Gate Passes Words, Not Names</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
