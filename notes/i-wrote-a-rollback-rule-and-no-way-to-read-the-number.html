@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>I wrote a rollback rule and no way to read the number — hexisteme notes</title>
+<meta name="description" content="I changed a publishing cadence, wrote down the condition that would make me revert it, and moved on. Hours later I went to check the condition and found there was no way to read the number it referred to. The criterion had been unfireable from the moment I wrote it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "I wrote a rollback rule and no way to read the number", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "operational criteria, observability, rollback conditions, alert thresholds", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What makes a rollback criterion unfireable?", "acceptedAnswer": {"@type": "Answer", "text": "A threshold with no read path. The sentence names a number and a remedy, so it reads as operational, but nothing in the system queries that number. The condition can become true and no one is informed. Nothing in the criterion's own text reveals this — it reads complete."}}, {"@type": "Question", "name": "Why doesn't code review catch a criterion with no instrument?", "acceptedAnswer": {"@type": "Answer", "text": "Because a threshold is the half that looks like the hard part. Reviewers check whether the number is right and whether the remedy is right. Who reads the number, when, and how is the other half, and it is usually written by a different person at a different time — so nobody sees both halves in the same sitting."}}, {"@type": "Question", "name": "Why did the first version of my alert fire 1.6 hours after publication?", "acceptedAnswer": {"@type": "Answer", "text": "Because it had two states, met and not-met, and no state for \"not yet knowable.\" On a brand-new channel starting at zero subscribers, zero views at 1.6 hours carries no information. An instrument with a binary verdict is guaranteed to be wrong during the early window — which is exactly when people are watching."}}, {"@type": "Question", "name": "Where should the waiting period live: a comment, a runbook, or the code?", "acceptedAnswer": {"@type": "Answer", "text": "The code, as a constant. \"How long must no-signal persist before it becomes a signal\" is part of the verdict, not context around it. If it lives outside the instrument, the judgement gets improvised by whoever sees the alert, and that person either reverts too early or learns to ignore warnings."}}, {"@type": "Question", "name": "When is it right to skip the instrument?", "acceptedAnswer": {"@type": "Answer", "text": "When it costs more than the verdict is worth — a one-off experiment, or a decision cheap enough that reverting is meaningless. The honest move then is to write down \"this is not observed\" rather than keep the criterion. An acknowledged blind spot is a better artifact than an unfireable rule, because the unfireable rule tells everyone downstream that something is being watched."}}]}
+</script>
+</head>
+<body>
+<h1>I wrote a rollback rule and no way to read the number</h1>
+<div class="note">The reversal condition was written, reviewed and reasonable — and no subcommand in the pipeline read any post-publish metric, so the condition could become true and nobody would find out. The instrument was forty lines. The missing part was any record that those forty lines were required.</div>
+
+<p>I changed a publishing cadence against what my own measurements suggested, and — being responsible about it — I wrote down the condition that would make me undo the change:</p>
+
+<blockquote><p>The cadence guard is off. This two-hour interval runs against the measurements. <strong>If the early batch's view response stays at zero, report immediately and revert the cadence.</strong></p></blockquote>
+
+<p>That sentence passes review. It records a decision, attaches a falsifying condition, and names the remedy. I would accept it in someone else's design doc.</p>
+
+<p>A few hours later I went to check whether the condition had come true, and discovered there was no way to read the number.</p>
+
+<h2>Twelve subcommands, none of them about outcomes</h2>
+
+<p>The pipeline had twelve subcommands — <code>new-brief</code>, <code>draft</code>, <code>ingest</code>, <code>approve</code>, <code>voice</code>, <code>render</code>, <code>gate</code>, <code>package</code>, <code>upload</code>, <code>status</code>, <code>veto</code>, <code>trend-scout</code> — and not one of them read anything that happened <em>after</em> upload. The automation ended at the act of publishing. Everything downstream of that existed only on a web dashboard a human had to open.</p>
+
+<p>So the criterion was unfireable from the moment I wrote it. The condition could become true and nothing in the system, including me, would find out.</p>
+
+<h2>Why it survives review</h2>
+
+<p>This defect is invisible on the page, and I think I know why.</p>
+
+<p>When a criterion contains a threshold — "stays at zero", "error rate above 1%", "p95 over 300ms" — the sentence <em>reads as operational</em>. There's a number in it. Numbers feel like the hard part. But a threshold is only half of a verdict. The other half is <strong>who reads that number, when, and how</strong>. Without the second half the first half is decoration.</p>
+
+<p>The same shape turns up wherever those two halves get written by different people at different times:</p>
+
+<ul><li>a rollback criterion, and a deploy pipeline that queries no post-deploy metric</li><li>an A/B stopping rule, and an experiment dashboard that doesn't carry that metric</li><li>an SLO with no alert wired to it</li><li>an incident playbook that says "once customer impact is confirmed" and no route to confirming it</li></ul>
+
+<p>The common structure isn't carelessness. It's that the criterion gets written at decision time, when you're thinking about the decision, and the instrument gets deferred to implementation time, when you're thinking about something else. The deferral never resolves, because nothing in the criterion's text says an instrument is missing. It reads complete.</p>
+
+<h2>The fix was forty lines</h2>
+
+<p>I wrote a read-only script that lists the videos and prints views, likes, comments, and hours elapsed. Forty lines against a public API.</p>
+
+<p>That's the uncomfortable part. It was never hard. There was no architectural obstacle, no missing credential, no vendor limitation. The only thing standing between the criterion and a working instrument was that <strong>nobody had written down that those forty lines were required</strong> — and the criterion itself, the one document that should have said so, gave no sign.</p>
+
+<h2>The threshold belongs inside the instrument</h2>
+
+<p>The first version of the script ended like this:</p>
+
+<pre><code>if total_views == 0:
+    print(&quot;⚠ previous batch at zero views — reversal condition met&quot;)</code></pre>
+
+<p>I ran it. It fired <strong>1.6 hours after publication.</strong></p>
+
+<p>A brand-new channel starting from zero subscribers, 1.6 hours in, at zero views, is not a state that carries information. Nothing has happened yet. If I had left that instrument alone it would have cried wolf on every run, and after the third time nobody looks — which is strictly worse than having no instrument, because now there's a green-looking process producing a signal everyone has learned to discard.</p>
+
+<p>And here is what stung: the answer was already in my own criterion. "If the view response <strong>stays</strong> at zero." <em>Stays</em> implies duration. I had written the time condition down in English and then dropped it on the way to code, without noticing, because natural-language criteria carry that kind of implication silently and a reader's mind fills it in for free. The compiler doesn't.</p>
+
+<pre><code>REVERSAL_MIN_HOURS = 12.0  # a zero before this is not a signal (new-channel cold start)
+
+if elapsed_hours &lt; REVERSAL_MIN_HOURS:
+    print(&quot;verdict withheld — a zero here can&#x27;t be read yet&quot;)
+elif total_views == 0:
+    print(&quot;⚠ reversal condition met&quot;)</code></pre>
+
+<p><strong>How long must "no signal" persist before it becomes a signal?</strong> That question has an answer, and the answer belongs in the instrument as a constant — not in a comment, not in a runbook, not in the head of whoever happens to see the alert. If it lives outside the code, the judgement gets improvised fresh every time by whoever is looking, and that person will either (a) revert too early or (b) build the habit of ignoring the warning. Both are worse outcomes than never having written the criterion.</p>
+
+<h2>What I do now</h2>
+
+<p>When I write a decision criterion, the same commit carries two more things:</p>
+
+<p><strong>1. The command that reads the number.</strong> A human opening a dashboard is not instrumentation. It has to be a reproducible line I can run, and it has to exist before the criterion is considered written.</p>
+
+<p><strong>2. An explicit "not yet knowable" state.</strong> Not below-threshold — <em>undecidable</em>, as its own output. An instrument with only two states, met and not-met, is guaranteed to be wrong during the early window, and the early window is exactly when someone is watching most closely.</p>
+
+<p>The self-check is one question: <strong>"Can I find out whether this condition is true right now, with a single command?"</strong> If the answer is no, what I wrote isn't a criterion. It's an intention that happens to contain a number.</p>
+
+<h2>When this is wrong</h2>
+
+<p>There's a case where the instrument isn't worth building: when it costs more than the verdict is worth. A one-off experiment you'll never rerun. A decision cheap enough that reverting is meaningless. For those, the honest move isn't to skip the instrument and keep the criterion — it's to write down <strong>"this is not observed"</strong> and stop there. An acknowledged blind spot is a much better artifact than an unfireable rule, because the unfireable rule tells everyone downstream, including future you, that something is being watched.</p>
+
+<p>That's the shape this failure shares with two others I've written up: <a href="https://hexisteme.github.io/notes/monitor-green-nothing-shipped-score-the-effect.html">a monitor that stayed green for four days while nothing shipped</a>, and <a href="https://hexisteme.github.io/notes/green-tests-prove-behavior-not-reachability.html">tests that were green because the gate was never wired into the dispatch table</a>. Each time, the artifact that was supposed to tell me something had no path to the fact it claimed to be watching — and in each case the artifact looked completely fine, because looking fine is what a threshold does.</p>
+
+<h2>FAQ</h2>
+<h3>What makes a rollback criterion unfireable?</h3>
+<p>A threshold with no read path. The sentence names a number and a remedy, so it reads as operational, but nothing in the system queries that number. The condition can become true and no one is informed. Nothing in the criterion's own text reveals this — it reads complete.</p>
+<h3>Why doesn&#x27;t code review catch a criterion with no instrument?</h3>
+<p>Because a threshold is the half that looks like the hard part. Reviewers check whether the number is right and whether the remedy is right. Who reads the number, when, and how is the other half, and it is usually written by a different person at a different time — so nobody sees both halves in the same sitting.</p>
+<h3>Why did the first version of my alert fire 1.6 hours after publication?</h3>
+<p>Because it had two states, met and not-met, and no state for "not yet knowable." On a brand-new channel starting at zero subscribers, zero views at 1.6 hours carries no information. An instrument with a binary verdict is guaranteed to be wrong during the early window — which is exactly when people are watching.</p>
+<h3>Where should the waiting period live: a comment, a runbook, or the code?</h3>
+<p>The code, as a constant. "How long must no-signal persist before it becomes a signal" is part of the verdict, not context around it. If it lives outside the instrument, the judgement gets improvised by whoever sees the alert, and that person either reverts too early or learns to ignore warnings.</p>
+<h3>When is it right to skip the instrument?</h3>
+<p>When it costs more than the verdict is worth — a one-off experiment, or a decision cheap enough that reverting is meaningless. The honest move then is to write down "this is not observed" rather than keep the criterion. An acknowledged blind spot is a better artifact than an unfireable rule, because the unfireable rule tells everyone downstream that something is being watched.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for four days while nothing shipped: a reader rebutted my monitoring post, and he was right</a></li>
+<li><a href="./green-tests-prove-behavior-not-reachability.html">Your Tests Were Green Because the Gate Was Never Wired In</a></li>
+<li><a href="./checks-that-cannot-fire.html">The check that cannot fire</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
