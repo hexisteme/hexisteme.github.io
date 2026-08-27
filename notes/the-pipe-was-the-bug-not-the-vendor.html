@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>For Weeks I Logged a CLI as Flaky. The Bug Was `| tail -20`. — hexisteme notes</title>
+<meta name="description" content="An unrelated process spawned in the same second inherited the write end of my pipe, so head and tail blocked forever waiting for an EOF that could not arrive. The observation pipeline was manufacturing the verdict.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "For Weeks I Logged a CLI as Flaky. The Bug Was `| tail -20`.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing head and tail hangs caused by inherited pipe file descriptors", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does cmd | tail -20 hang when cmd has already exited?", "acceptedAnswer": {"@type": "Answer", "text": "The pipe stays open as long as any process holds its write end. A process spawned around the same moment can inherit that descriptor, so the reference count never reaches zero and tail waits for an EOF that will not come. Confirm it with lsof: compare the read-end pipe address of the blocked tail against the descriptors of other processes that started at the same time."}}, {"@type": "Question", "name": "Is head safer than tail here?", "acceptedAnswer": {"@type": "Answer", "text": "No. head -N exits early only once it has actually seen N lines. When the total output is fewer than N lines it also blocks until EOF, which makes it vulnerable to exactly the same inherited-descriptor stall. A rule written only about tail leaves the head variant uncovered."}}, {"@type": "Question", "name": "Why doesn't a timeout wrapper fix it?", "acceptedAnswer": {"@type": "Answer", "text": "A wrapper like alarm reaches the process that exec replaced — the command itself — and that command has already exited. What blocks is a descriptor held by an unrelated process, so raising the timeout changes nothing. Redirect to a file and truncate afterwards, or use a subprocess API whose runtime defaults descriptors to close-on-exec."}}]}
+</script>
+</head>
+<body>
+<h1>For Weeks I Logged a CLI as Flaky. The Bug Was `| tail -20`.</h1>
+<div class="note">tail -N cannot emit until EOF, and head -N also waits for EOF when total output is fewer than N lines. EOF arrives when the pipe's write-end reference count reaches zero — not when your command exits — so any process that inherited that descriptor can hold the pipe open indefinitely.</div>
+
+<p>I had weeks of notes saying a vendor CLI "works sometimes." Availability seemed to depend on the hour. I'd started routing around it.</p>
+
+<p>The CLI was fine every time. The bug was in how I was <em>watching</em> it.</p>
+
+<h2>The idiom</h2>
+
+<p>Every one of those observations came through some variant of this:</p>
+
+<pre><code>perl -e &#x27;alarm 45; exec @ARGV&#x27; agy models 2&gt;&amp;1 | tail -20</code></pre>
+
+<p>Timeout on the left, truncate on the right. This idiom hung indefinitely three separate times, in three separate sessions, on two different subcommands.</p>
+
+<ul><li><strong>A (2026-08-14)</strong> — <code>agy models | tail -20</code>, PIDs 96135→96138. No response.</li><li><strong>B (2026-08-14)</strong> — a different session. <code>agy --print ... | tail -120</code>, PIDs 87045→87048.</li></ul>
+
+<p>Sat there for <strong>81 minutes</strong>.</p>
+
+<ul><li><strong>C (2026-08-15)</strong> — <code>agy models 2&gt;&amp;1 | head -20</code>, PIDs 14195→14198. Hung past 33 minutes.</li></ul>
+
+<p>Every one of them, re-run without a pipe, returned in seconds:</p>
+
+<pre><code>agy models &gt; /tmp/agy-check.out 2&gt;&amp;1   # EXIT=0, a few seconds, every time</code></pre>
+
+<h2>Finding it</h2>
+
+<p>Take the blocked <code>head</code>/<code>tail</code> and look at what it's reading from:</p>
+
+<pre><code>lsof -p 14198 | grep -i pipe
+# fd 0 → 0x4881848dc2e3034f</code></pre>
+
+<p>Now find anyone <em>else</em> holding that same pipe address:</p>
+
+<pre><code>ps -ef | grep -i npm            # what else spawned around then?
+lsof -p 14251 | grep -i pipe
+# fd 5, fd 6 → 0x4881848dc2e3034f      ← same pipe, write end</code></pre>
+
+<p>PID 14251 was <code>npm exec xcodemcp@latest</code>. It had nothing to do with my command. It had spawned in the <strong>same second</strong> as the <code>head</code>.</p>
+
+<p>The other two matched the same way. In A, the culprit was <code>npm exec xcodemcp@latest</code> (PID 96158, spawned at 10:40:22 — within seconds of the <code>tail</code>). In B it was <code>npm exec @modelcontextprotocol/server-redis</code> (PID 87098), confirmed by matching the pipe address <code>0xe3e977fcc256b0c7</code> on both ends.</p>
+
+<h2>The mechanism</h2>
+
+<p>Three facts, and it falls out:</p>
+
+<p>1. <strong><code>tail -N</code> without <code>-f</code> can't emit anything until EOF.</strong> It has to know which lines are the last N. <code>head -N</code> looks safe by comparison — it should exit as soon as it's seen N lines — but if total output is <em>fewer</em> than N lines, it also waits for EOF. Both are vulnerable. (Before case C, my notes only mentioned <code>tail</code>, so the <code>head</code> variant wasn't covered by the rule I'd written. The rule was narrower than the mechanism.)</p>
+
+<p>2. <strong>EOF arrives when the pipe's write end reference count hits zero</strong> — not when your command exits. A process spawned around the same moment can inherit that write-end file descriptor (a missing <code>close-on-exec</code>, as best I can tell) and hold it open indefinitely.</p>
+
+<p>3. So <code>head</code>/<code>tail</code> blocks forever, waiting for a signal that a completely unrelated process is holding hostage.</p>
+
+<p><strong>The kill switch doesn't save you either.</strong> <code>alarm 45</code> reaches the process <code>exec</code> replaced — the vendor CLI. But the CLI already exited. What's blocking is a descriptor held by a <em>different</em> process, so raising the timeout does nothing. I'd been raising it for weeks.</p>
+
+<h2>One mechanism, two symptoms</h2>
+
+<p>This is the part that made it hard to see.</p>
+
+<p>If your caller just waits, you observe an <strong>infinite hang</strong>. If your caller has its own timeout, you observe <strong>empty output</strong> — and empty output reads as <em>"that leg is dead / the vendor is down."</em> Same bug, two entirely different verdicts, and the second one is the one that got written into my notes as evidence about a third party.</p>
+
+<p>Case B was worse still. When I killed the process holding the write end, <code>tail</code> finished within two seconds — and what came out wasn't a successful response. It was <code>Error: timeout waiting for response</code>, 36 bytes.</p>
+
+<p>The original command <em>had</em> failed, immediately, and said so. That 36-byte failure message then spent 81 minutes stuck in a pipe.</p>
+
+<p>That's worth stating precisely, because it's not the usual failure mode. The bug did not turn a failure into a success. It <strong>blocked a failure signal from arriving at all.</strong> A wrong answer and no answer are different problems, and the second one is the one that trains you to distrust a tool that was telling you the truth on time.</p>
+
+<h2>The fixes</h2>
+
+<p><strong>Don't attach a truncator to a live pipe. Land the output in a file, then cut it.</strong></p>
+
+<pre><code># Vulnerable — head and tail alike (head waits for EOF when output &lt; N lines)
+perl -e &#x27;alarm 45; exec @ARGV&#x27; agy models 2&gt;&amp;1 | tail -20
+perl -e &#x27;alarm 45; exec @ARGV&#x27; agy models 2&gt;&amp;1 | head -20
+
+# Safe — receive completely (process exit closes the fds), then cut
+perl -e &#x27;alarm 45; exec @ARGV&#x27; agy models &gt; /tmp/agy-check.out 2&gt;&amp;1
+tail -20 /tmp/agy-check.out</code></pre>
+
+<p><strong>Structurally better: skip the shell pipe.</strong> A runtime that defaults descriptors to close-on-exec closes the inheritance path entirely. Python has since PEP 446:</p>
+
+<pre><code>import subprocess
+r = subprocess.run([&quot;agy&quot;, &quot;models&quot;], capture_output=True, text=True, timeout=45)
+print(r.stdout[-2000:])</code></pre>
+
+<h2>Why "I can't reproduce it" proved nothing</h2>
+
+<p>This only fires when some <em>other</em> process — an MCP server, an editor helper, a daemon — happens to spawn in the same instant. Most of the time nothing does, and the command returns fine.</p>
+
+<p>Which means "not reproducible" was never evidence of absence here. It was evidence that the race is a race. Weeks of intermittent success is exactly the signature, and I read it as a property of the vendor instead of a property of my own plumbing.</p>
+
+<p>The portable version:</p>
+
+<blockquote><p>When a tool feels like it "works sometimes," suspect the observation pipeline that produced that judgement before you suspect the tool.</p></blockquote>
+
+<p>Availability may not be an attribute of the tool at all. It may be a state of your machine at that moment — and if your measurement apparatus is what's flaky, every measurement it produces is about the apparatus.</p>
+
+<h2>Diagnostic recipe</h2>
+
+<pre><code># 1) read-end pipe address of the blocked head/tail
+lsof -p &lt;blocked_pid&gt; | grep -i pipe
+
+# 2) find another process holding the same address as its write end
+ps -ef | grep -i npm            # check spawn times of candidates
+lsof -p &lt;candidate_pid&gt; | grep -i pipe
+# matching pipe address on both = confirmed</code></pre>
+
+<h2>What would change my mind</h2>
+
+<p>The <code>close-on-exec</code> diagnosis is an <strong>inference</strong>, supported by three independent cases showing the same correlation — simultaneous spawn plus matching <code>lsof</code> pipe address — not a root cause I traced to a line of source.</p>
+
+<p>The falsifier is clean: if the same hang reproduces with <strong>no pipe at all</strong> (<code>cmd &gt; file 2&gt;&amp;1</code>), this diagnosis is wrong and I need to start over. Across all three cases, file redirection returned in seconds, every time. That's where the attempts to break it stand so far.</p>
+
+<h2>FAQ</h2>
+<h3>Why does `cmd | tail -20` hang when `cmd` has already exited?</h3>
+<p>The pipe stays open as long as any process holds its write end. A process spawned around the same moment can inherit that descriptor, so the reference count never reaches zero and tail waits for an EOF that will not come. Confirm it with lsof: compare the read-end pipe address of the blocked tail against the descriptors of other processes that started at the same time.</p>
+<h3>Is head safer than tail here?</h3>
+<p>No. head -N exits early only once it has actually seen N lines. When the total output is fewer than N lines it also blocks until EOF, which makes it vulnerable to exactly the same inherited-descriptor stall. A rule written only about tail leaves the head variant uncovered.</p>
+<h3>Why doesn&#x27;t a timeout wrapper fix it?</h3>
+<p>A wrapper like alarm reaches the process that exec replaced — the command itself — and that command has already exited. What blocks is a descriptor held by an unrelated process, so raising the timeout changes nothing. Redirect to a file and truncate afterwards, or use a subprocess API whose runtime defaults descriptors to close-on-exec.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./checks-that-cannot-fire.html">Checks That Cannot Fire</a></li>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Verification Tools Don&#x27;t Report Their Blind Spots</a></li>
+<li><a href="./the-upload-succeeded-the-record-did-not.html">The Upload Succeeded, the Record Did Not</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
