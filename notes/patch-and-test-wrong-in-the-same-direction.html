@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The patch and the test were wrong in the same direction — hexisteme notes</title>
+<meta name="description" content="A model wrote a patch that could not possibly fix the defect, and my test passed it. Both had compressed the same English requirement the same shallow way, so the green checkmark was manufactured by two independent errors that happened to agree.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The patch and the test were wrong in the same direction", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "software testing, test validity, AI code review, assertion drift", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why is a wrong patch passing a wrong test worse than either mistake alone?", "acceptedAnswer": {"@type": "Answer", "text": "Because each one is supposed to be the other's backstop. A shallow patch is expected — that is why the test exists. A test that asserts something adjacent to its intent is expected too — that is why you review patches. When both fail toward each other, nothing is left holding, and the failure presents as a pass."}}, {"@type": "Question", "name": "How do you find tests that assert something other than what they claim?", "acceptedAnswer": {"@type": "Answer", "text": "Compare docstring to assertion mechanically. An AST walk that extracts each test's stated intent and its ast.Assert nodes and prints them side by side takes minutes. Over fourteen tests it surfaced two real divergences, one of which — a half-assertion that forbade the wrong answer but never required the right one — would not have been visible on a normal read."}}, {"@type": "Question", "name": "What is a half-assertion and why is it more dangerous than no assertion?", "acceptedAnswer": {"@type": "Answer", "text": "A half-assertion checks one clause of a two-clause requirement. A test that checks nothing becomes obvious the first time something breaks. A test that checks half of what it claims looks like coverage forever, because it does go red sometimes — just never for the failure it was written to catch."}}, {"@type": "Question", "name": "When is agreement between two checks actually evidence?", "acceptedAnswer": {"@type": "Answer", "text": "Only when the two could have failed differently. Two checks derived from the same English sentence, each read once, are one check with extra steps — they share the axis that matters. This is the same reason polling several models on an identical prompt and counting agreement tells you almost nothing."}}, {"@type": "Question", "name": "How do you verify a tightened test instead of trusting it?", "acceptedAnswer": {"@type": "Answer", "text": "Run controls in both directions. Unpatched source must go red; the specific gaming patch that used to pass must now go red; a genuine fix must go green; and the nearest-neighbour degenerate case must go red. Without the green control you have only proven the test can fail, which any broken test can do."}}]}
+</script>
+</head>
+<body>
+<h1>The patch and the test were wrong in the same direction</h1>
+<div class="note">A model patched <code>main()</code> with <code>sys.exit(0)</code> for a defect whose entire content was "there is no non-zero exit path." My test asserted that a <code>sys.exit</code> call existed, not that it could be non-zero. Green. Two errors, same direction, and agreement was the thing I had been treating as evidence.</div>
+
+<p>I had a defect, a model that proposed a fix, and a test that graded the fix. The patch was wrong. The test passed it.</p>
+
+<p>Neither of them was careless. They had both read the same requirement at the same shallow depth and landed in the same wrong place, independently. The green checkmark was manufactured by two unrelated errors that happened to agree.</p>
+
+<h2>The setup</h2>
+
+<p>I was handing known defects to different models and grading their patches mechanically instead of reading every one. That's the whole reason the tests existed: I didn't want my own judgement in the loop for thirteen separate fixes.</p>
+
+<p>Defect thirteen was the plainest of the lot:</p>
+
+<blockquote><p><code>main()</code> has no way to signal failure through the process exit code. Whatever fails inside it, the process ends with status 0. The only way a failure escapes is an unhandled exception leaking out by accident.</p></blockquote>
+
+<p>The test I wrote for it opens with a docstring stating, in its own words, what a fix has to achieve:</p>
+
+<blockquote><p><em>What becomes true once it's fixed: on a failure path there exists at least one means of producing a non-zero exit code, e.g. <code>sys.exit(1)</code>.</em></p></blockquote>
+
+<p>And here is what the test actually asserted:</p>
+
+<pre><code>has_sys_import    = any(... &quot;import sys&quot; ...)
+has_sys_exit_call = any(... a call to sys.exit(...) ...)
+
+assert has_sys_import and has_sys_exit_call</code></pre>
+
+<p>Existence. Not non-zero. The docstring and the assertion are two different specifications, and I wrote them ten lines apart in the same sitting.</p>
+
+<h2>The patch</h2>
+
+<p>The model returned this:</p>
+
+<pre><code>--- a/audit.py
++++ b/audit.py
+@@
+ import json, math, statistics, random
++import sys
+@@
+     if __name__ == &quot;__main__&quot;:
+-    main()
++    main()
++    sys.exit(0)</code></pre>
+
+<p><code>sys.exit(0)</code> exits zero. Always. It cannot signal failure — which is the entire content of the defect. The model even flagged its own unease in the risks field it returned alongside the patch ("may mask unexpected exceptions"), and submitted it anyway.</p>
+
+<p>I applied it and ran the test. <strong>Green.</strong></p>
+
+<h2>Why this is worse than either mistake alone</h2>
+
+<p>Take the two errors separately and they're unremarkable. A model produced a shallow patch: that happens constantly, and it is precisely why you have a test. A test asserted something adjacent to its stated intent: that happens too, and it's why you review patches.</p>
+
+<p>The trouble is that each one is supposed to be the other's backstop, and here they failed <em>toward each other</em>.</p>
+
+<p>Both parties compressed "signal failure via a non-zero exit code" into "there should be a <code>sys.exit</code> around here somewhere." That is not a coincidence in the way two dice landing on the same number is a coincidence. Both were reading the same English sentence under the same pressure to be done, and the shallow reading of that sentence is a strong attractor. Anything that reads it quickly lands there.</p>
+
+<p>Independent processes only give you independent errors if they are independent <em>along the axis that matters</em>. Mine shared an axis I hadn't noticed I'd built: a natural-language requirement, read once, by two readers who both wanted to move on.</p>
+
+<p>If I had not opened the test, my records would now contain the sentence <em>"this model fixed defect thirteen."</em> Not a bug in the record — a false statement about a tool's capability, entered with a passing test as its evidence.</p>
+
+<h2>The audit</h2>
+
+<p>If one test measured something adjacent to its own docstring, I had no reason to believe it was the only one. So I pulled every test's stated intent and every test's assertions and put them side by side:</p>
+
+<pre><code>for fn in [n for n in tree.body if isinstance(n, ast.FunctionDef)]:
+    intent  = re.search(r&quot;What becomes true once it&#x27;s fixed:\s*(.+?)(?:\n\n|\Z)&quot;, doc, re.S)
+    asserts = [a for a in ast.walk(fn) if isinstance(a, ast.Assert)]</code></pre>
+
+<p>Fourteen tests. Two diverged.</p>
+
+<p>The second one I would never have caught by reading normally, because it isn't wrong — it's <em>half right</em>. Its docstring demands two things of a fix:</p>
+
+<blockquote><p><em>the verdict must emit an explicit "unevaluable" signal, and must not return an affirmative "no problem" verdict.</em></p></blockquote>
+
+<p>The assertion checked the second clause only:</p>
+
+<pre><code>assert &quot;no problem&quot; not in result[&quot;verdict&quot;]   # not affirmative — checked
+                                               # explicit signal — never checked</code></pre>
+
+<p>So <code>verdict = ""</code> passes. Silence passes. And silence is the exact failure this defect is about: a caller who cannot tell "we couldn't evaluate this" from "we evaluated it and it's fine."</p>
+
+<p>The test forbade the wrong answer and forgot to require the right one.</p>
+
+<p>Half-assertions are the dangerous shape. A test that checks nothing becomes obvious the first time something breaks. A test that checks half of what it claims looks like coverage forever.</p>
+
+<h2>Fixing the judge, with controls in both directions</h2>
+
+<p>I made the assertion require an argument that <em>can</em> be non-zero — excluding only the literal <code>0</code>, <code>None</code>, and the no-argument form, and letting variables and expressions through. Strict where I know it's wrong; permissive where I'd be guessing.</p>
+
+<pre><code>def _can_be_nonzero(call: ast.Call) -&gt; bool:
+    if not call.args:
+        return False                          # sys.exit()  == 0
+    a = call.args[0]
+    if isinstance(a, ast.Constant):
+        return a.value not in (0, None)       # sys.exit(0) == 0
+    return True                               # a variable can be non-zero</code></pre>
+
+<p>Then I checked it in four directions, because a tightened test that only rejects the one case I just saw has learned my example rather than the requirement:</p>
+
+<table>
+<thead><tr><th>control</th><th>expected</th><th>measured</th></tr></thead>
+<tbody>
+<tr><td>original unpatched source</td><td>RED</td><td>RED</td></tr>
+<tr><td>the gaming patch <code>sys.exit(0)</code></td><td><strong>RED</strong> (was GREEN)</td><td><strong>RED</strong></td></tr>
+<tr><td>a real fix <code>sys.exit(1)</code> on a failure path</td><td>GREEN</td><td>GREEN</td></tr>
+<tr><td>bare <code>sys.exit()</code></td><td>RED</td><td>RED</td></tr>
+</tbody>
+</table>
+
+<p>The second row is the one that matters. Before, that row was green, and everything I would have concluded from that green was wrong.</p>
+
+<h2>The record was also lying, in the other direction</h2>
+
+<p>There is a prior step I nearly skipped, and it flips the verdict on the <em>model</em> rather than on the test.</p>
+
+<p>For a different defect in the same batch, the stored artifact was <strong>185 bytes</strong> — a small, valid, schema-shaped object with an empty action field. The usage block on the same response reported <strong>4,425 output tokens</strong>. Those two numbers cannot both describe the same reply.</p>
+
+<p>They did, because the gateway returns the model's reasoning in a separate <code>reasoning_content</code> field when you request structured output, while <code>completion_tokens</code> bills for both. I had never read that field. So a response where the model worked and failed to serialize looked <em>byte for byte</em> identical to a response where the model did nothing at all.</p>
+
+<p>I captured it. The same task, called again, stored <strong>24,209 bytes</strong> instead of 185. A sibling task's record went from 67 bytes to 16 KB — and inside that one was the model walking the source, naming exact line numbers, and assembling a diff. It had done the work and failed at the envelope.</p>
+
+<p>Without that capture, the record would have read <em>"this model produces no patch"</em> — also a false statement about capability, and much harder to catch later, because there'd be no artifact left to contradict it.</p>
+
+<p>Two records, two different false sentences, both fully supported by the evidence I was keeping. That's what a measurement gap looks like from the inside: not an obviously missing number, but a record that reads as complete and says something untrue.</p>
+
+<h2>What I take from it</h2>
+
+<p><strong>A pass is a claim about your judge, not just about the work.</strong> When something goes green the first time, that is the cheapest moment you will ever have to check whether the judge measures what it says it measures. It costs one file open. I burned six dispatches investigating a tool's capability and the thing that decided the verdict was sitting in my own test file the whole time.</p>
+
+<p><strong>Compare docstring to assertion mechanically.</strong> Not for style — for divergence. The intent is prose written while you understood the problem; the assertion is code written while you wanted to finish. They drift, and nothing in your toolchain compares them. An AST walk that prints intent and assertions side by side takes minutes, and it found two real gaps in fourteen tests.</p>
+
+<p><strong>"Independent" is a claim about the axis, not the count.</strong> Two checks derived from one sentence, read once each, are one check with extra steps. This is the same reason polling several models on an identical prompt and counting agreement tells you almost nothing: you haven't sampled independent errors, you've sampled one prompt's attractor several times. I had a written rule against exactly this for models — and it never occurred to me that a worker and its test are the same structure.</p>
+
+<p>This is a cousin of two failures I've written about before: <a href="https://hexisteme.github.io/notes/the-negative-control-that-tested-the-wrong-field.html">a negative control that tested the wrong field</a>, where the control passed because it was watching something that could not have changed; and <a href="https://hexisteme.github.io/notes/green-tests-prove-behavior-not-reachability.html">green tests that prove behavior, not reachability</a>, where the assertions were true of code nothing ever called. All three are the same species — the instrument is measuring something adjacent to its target, and adjacency is invisible from a passing run.</p>
+
+<p>The new part here is the second party. It isn't only that my instrument was off. It's that the thing being measured was off <em>in the same direction</em>, so the two of them agreed, and agreement is what I had been treating as evidence.</p>
+
+<p><strong>Agreement is only evidence when the parties could have failed differently.</strong> Mine couldn't.</p>
+
+<h2>FAQ</h2>
+<h3>Why is a wrong patch passing a wrong test worse than either mistake alone?</h3>
+<p>Because each one is supposed to be the other's backstop. A shallow patch is expected — that is why the test exists. A test that asserts something adjacent to its intent is expected too — that is why you review patches. When both fail toward each other, nothing is left holding, and the failure presents as a pass.</p>
+<h3>How do you find tests that assert something other than what they claim?</h3>
+<p>Compare docstring to assertion mechanically. An AST walk that extracts each test's stated intent and its <code>ast.Assert</code> nodes and prints them side by side takes minutes. Over fourteen tests it surfaced two real divergences, one of which — a half-assertion that forbade the wrong answer but never required the right one — would not have been visible on a normal read.</p>
+<h3>What is a half-assertion and why is it more dangerous than no assertion?</h3>
+<p>A half-assertion checks one clause of a two-clause requirement. A test that checks nothing becomes obvious the first time something breaks. A test that checks half of what it claims looks like coverage forever, because it does go red sometimes — just never for the failure it was written to catch.</p>
+<h3>When is agreement between two checks actually evidence?</h3>
+<p>Only when the two could have failed differently. Two checks derived from the same English sentence, each read once, are one check with extra steps — they share the axis that matters. This is the same reason polling several models on an identical prompt and counting agreement tells you almost nothing.</p>
+<h3>How do you verify a tightened test instead of trusting it?</h3>
+<p>Run controls in both directions. Unpatched source must go red; the specific gaming patch that used to pass must now go red; a genuine fix must go green; and the nearest-neighbour degenerate case must go red. Without the green control you have only proven the test can fail, which any broken test can do.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></li>
+<li><a href="./green-tests-prove-behavior-not-reachability.html">Your Tests Were Green Because the Gate Was Never Wired In</a></li>
+<li><a href="./i-confirmed-the-formula-where-both-formulas-agree.html">I Confirmed My API Formula at the One Point Where Both Formulas Agree</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
