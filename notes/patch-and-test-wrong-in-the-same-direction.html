@@ -90,7 +90,7 @@ assert has_sys_import and has_sys_exit_call</code></pre>
     intent  = re.search(r&quot;What becomes true once it&#x27;s fixed:\s*(.+?)(?:\n\n|\Z)&quot;, doc, re.S)
     asserts = [a for a in ast.walk(fn) if isinstance(a, ast.Assert)]</code></pre>
 
-<p>Fourteen tests. Two diverged.</p>
+<p>Fourteen tests. Two diverged — or so I recorded at the time.</p>
 
 <p>The second one I would never have caught by reading normally, because it isn't wrong — it's <em>half right</em>. Its docstring demands two things of a fix:</p>
 
@@ -147,11 +147,29 @@ assert has_sys_import and has_sys_exit_call</code></pre>
 
 <p>Two records, two different false sentences, both fully supported by the evidence I was keeping. That's what a measurement gap looks like from the inside: not an obviously missing number, but a record that reads as complete and says something untrue.</p>
 
+<h2>The audit missed four</h2>
+
+<p>That count held until the same afternoon.</p>
+
+<p>I handed the same fourteen tests to three models that had no access to my conclusions — different slices each, none able to see the others' answers — with one question: does each assertion enforce what its own docstring declares?</p>
+
+<p>They returned four more divergences. Not in tests I had skipped. In the same fourteen, on the same screen my AST walk had already printed.</p>
+
+<p>I confirmed one of them by construction. A docstring required that single-member groups be marked <code>nan</code> or excluded from the result; the assertion checked only that the value wasn't exactly <code>0.0</code>. So I wrote an implementation that returns the group's original input value for singletons, and ran it:</p>
+
+<pre><code>out = [10.0, -5.0, 5.0, 100.0]      # singleton group A -&gt; 10.0</code></pre>
+
+<p>Green. Not <code>nan</code>, not excluded, not a deviation — just the input handed back. Same species as <code>sys.exit(0)</code>: the assertion forbids one specific wrong answer instead of requiring the right one, and there are infinitely many wrong answers.</p>
+
+<p>So the mechanical comparison ran, printed the evidence, and I still missed two thirds of what it surfaced. That's the part worth sitting with. The AST walk pairs intent with assertion and puts them side by side. It does not tell you whether one covers the other. That judgement is a person reading two pieces of prose quickly — which is precisely the step that produced the bad assertion to begin with. I automated the retrieval and then applied, to its output, the same shallow reading the whole exercise was meant to catch.</p>
+
+<p>What actually caught them was a rule I already had and had never pointed at myself: <strong>for each pair, construct a state that passes the assertion and violates the docstring.</strong> Failure to construct one is the evidence of alignment. Reading the pair and nodding is not evidence of anything. I had been enforcing exactly this on the models — a claim with no concrete passing case gets discarded — while my own audit ran on nodding.</p>
+
 <h2>What I take from it</h2>
 
 <p><strong>A pass is a claim about your judge, not just about the work.</strong> When something goes green the first time, that is the cheapest moment you will ever have to check whether the judge measures what it says it measures. It costs one file open. I burned six dispatches investigating a tool's capability and the thing that decided the verdict was sitting in my own test file the whole time.</p>
 
-<p><strong>Compare docstring to assertion mechanically.</strong> Not for style — for divergence. The intent is prose written while you understood the problem; the assertion is code written while you wanted to finish. They drift, and nothing in your toolchain compares them. An AST walk that prints intent and assertions side by side takes minutes, and it found two real gaps in fourteen tests.</p>
+<p><strong>Compare docstring to assertion mechanically — then attack each pair.</strong> The intent is prose written while you understood the problem; the assertion is code written while you wanted to finish. They drift, and nothing in your toolchain compares them. An AST walk that prints intent and assertions side by side takes minutes. But the walk only retrieves the pairs; deciding whether the assertion covers the declaration is still a human reading prose fast, and that reading is the original defect. Make the verdict constructive instead: for each pair, try to build a state that passes the assertion and violates the docstring. My eyeball pass over the walk's output found two gaps in fourteen tests. The constructive pass found six.</p>
 
 <p><strong>"Independent" is a claim about the axis, not the count.</strong> Two checks derived from one sentence, read once each, are one check with extra steps. This is the same reason polling several models on an identical prompt and counting agreement tells you almost nothing: you haven't sampled independent errors, you've sampled one prompt's attractor several times. I had a written rule against exactly this for models — and it never occurred to me that a worker and its test are the same structure.</p>
 
