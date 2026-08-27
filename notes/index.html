@@ -26,6 +26,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <span class="tag">testing</span><span class="tag">python</span><span class="tag">architecture</span><span class="tag">debugging</span>
 </div>
 
+<div class="card">
+  <h3><a href="patch-and-test-wrong-in-the-same-direction.html">The patch and the test were wrong in the same direction</a></h3>
+  <p>A model fixed &ldquo;<code>main()</code> can never exit non-zero&rdquo; by appending <code>sys.exit(0)</code>, and my test passed it &mdash; because the assertion checked that a <code>sys.exit</code> call existed, not that it could be non-zero. Both had compressed the same English requirement the same shallow way. An AST sweep comparing every docstring&rsquo;s stated intent against its assertions found a second divergence, a half-assertion that forbade the wrong answer and never required the right one.</p>
+  <span class="tag">testing</span><span class="tag">ai</span><span class="tag">codequality</span><span class="tag">debugging</span>
+</div>
+
 
 <div class="card">
   <h3><a href="rdu-reusable-decision-units.html">RDU: Reusable Decision Units for Consistent AI Agents</a></h3>
