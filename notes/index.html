@@ -308,6 +308,24 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="it-fit-in-memory-and-was-still-unusable.html">It fit in memory and was still unusable &mdash; do the bandwidth arithmetic first</a></h3>
+  <p>A 15GB model loaded fully onto the GPU with no swap, and generated at 5.6 tokens per second. The arithmetic ceiling &mdash; bandwidth divided by bytes touched per token &mdash; was 8. At a ratio of 0.70 you&rsquo;re bandwidth-bound, which means the obvious fix (quantize smaller) buys under 9% while costing real quality. Capacity is free to check, which is exactly why it gets mistaken for a verdict on throughput.</p>
+  <span class="tag">performance</span><span class="tag">machinelearning</span><span class="tag">hardware</span><span class="tag">architecture</span>
+</div>
+
+<div class="card">
+  <h3><a href="mcp-sdk-breaking-change-killed-three-unrelated-servers.html">Four tools died the same day. It was two bugs, and one of them killed three.</a></h3>
+  <p>Different repos, different authors, different purposes, all dead on the same morning with the same useless <code>Connection closed</code>. Independent failures don&rsquo;t synchronize &mdash; a shared unpinned dependency does. Also: why pinning everything trades three outages for twenty-two units of staleness debt, and the delegation rule that has to ban <em>operators</em> rather than intentions.</p>
+  <span class="tag">devops</span><span class="tag">python</span><span class="tag">architecture</span><span class="tag">debugging</span>
+</div>
+
+<div class="card">
+  <h3><a href="the-dedicated-ocr-engine-lost-to-the-general-model.html">The dedicated OCR engine lost to the general-purpose model &mdash; 300&times; slower</a></h3>
+  <p>The specialist read the image 300 times faster and made four times as many character errors, which wasn&rsquo;t what decided it. It returned the table decomposed by column, so which value belonged to which row was unrecoverable &mdash; and that output is syntactically perfect, so no cheap-first fallback can detect it. Escalation ladders are only sound when the cheap tier&rsquo;s failure is visible at the boundary.</p>
+  <span class="tag">machinelearning</span><span class="tag">ai</span><span class="tag">architecture</span><span class="tag">testing</span>
+</div>
+
+<div class="card">
   <h3><a href="the-pipe-was-the-bug-not-the-vendor.html">For weeks I logged a CLI as flaky. The bug was <code>| tail -20</code>.</a></h3>
   <p>Three sessions of <code>lsof</code> later: the CLI returned in seconds every time. An unrelated npm process spawned in the same second had inherited the write end of my pipe, so <code>head</code> and <code>tail</code> blocked forever waiting for an EOF that could never arrive &mdash; and the timeout wrapper couldn&rsquo;t help, because it only reaches the process that already exited. In one case a 36-byte error message spent 81 minutes stuck in the pipe.</p>
   <span class="tag">unix</span><span class="tag">bash</span><span class="tag">debugging</span><span class="tag">devops</span>

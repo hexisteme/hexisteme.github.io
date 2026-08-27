@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Four Tools Died the Same Day. It Was Two Bugs, and One of Them Killed Three. — hexisteme notes</title>
+<meta name="description" content="Three servers in different repos died the same morning. Independent failures do not synchronize — a shared unpinned dependency does.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Four Tools Died the Same Day. It Was Two Bugs, and One of Them Killed Three.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing synchronized failures from a shared unpinned dependency, and why selective pinning beats pinning everything", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Several unrelated services broke at once. Where do I start?", "acceptedAnswer": {"@type": "Answer", "text": "Stop looking at the services and diff their shared dependency graph. Three independent failures landing in the same hour is possible; one shared thing moving is overwhelmingly more likely. Going service by service reads the same stack trace several times and reports it as several bugs — the moment the first trace names a shared library, the next question is which other services pull it."}}, {"@type": "Question", "name": "Should I pin every dependency after a breaking change?", "acceptedAnswer": {"@type": "Answer", "text": "No. An upper bound freezes security patches along with breaking changes, so pinning everything trades a handful of outages for permanent staleness debt across the whole fleet. Pin only what actually broke, record the pin date in a ledger, and re-check each bound on a schedule. A pin is a response to an incident; the prevention is detection."}}, {"@type": "Question", "name": "How do I stop a delegated agent from leaking credentials?", "acceptedAnswer": {"@type": "Answer", "text": "Name forbidden operators rather than forbidden intentions. An instruction like do not print secrets is a rule about goals, and careless disclosure is not goal-directed — an agent that never intends to print a key will still serialize a container that holds one. Ban the bulk-serialization operations themselves: tojson, to_entries, dump, repr, and logging whole config objects."}}]}
+</script>
+</head>
+<body>
+<h1>Four Tools Died the Same Day. It Was Two Bugs, and One of Them Killed Three.</h1>
+<div class="note">Several components failing at the same time is evidence of one upstream event, not several local ones. A dependency with no upper bound is a different program every time it runs, so a single major release turns every deterministic import that shares it into an undefined one, simultaneously.</div>
+
+<p>Four of my MCP servers were dead. All four reported the same useless thing: <code>Connection closed</code>.</p>
+
+<p>It looked like four incidents. It was two — and one of them accounted for three.</p>
+
+<table>
+<thead><tr><th>Server</th><th>Symptom</th><th>Actual cause</th></tr></thead>
+<tbody>
+<tr><td>A</td><td><code>Connection closed</code></td><td>Corrupted package-runner cache — a partial install left a dependency missing</td></tr>
+<tr><td>B</td><td><code>Connection closed</code></td><td><strong>SDK 2.0.0</strong>: <code>McpError</code> renamed to <code>MCPError</code></td></tr>
+<tr><td>C</td><td><code>Connection closed</code></td><td><strong>SDK 2.0.0</strong>: the <code>…server.fastmcp</code> module removed</td></tr>
+<tr><td>D</td><td><code>Connection closed</code></td><td>Same as C</td></tr>
+</tbody>
+</table>
+
+<h2>Simultaneous death is a signal, not a coincidence</h2>
+
+<p>B, C, and D were different repos, different authors, different purposes. They died the same morning.</p>
+
+<p>Three independent failures landing on the same day is <em>possible</em>. One shared thing moving is overwhelmingly more likely. And the shared thing was sitting in the launch commands:</p>
+
+<pre><code>uv run --with &#x27;mcp[cli]&#x27;  mcp run .../server-c.py     # no upper bound
+uv run --with &#x27;mcp[cli]&#x27;  mcp run .../server-d.py     # no upper bound
+uvx mcp-server-b                                      # pulls the SDK transitively</code></pre>
+
+<p><strong>A dependency with no upper bound is a different program every time you run it.</strong> The SDK cut 2.0.0 and three deterministic imports became undefined simultaneously.</p>
+
+<p>The diagnostic mistake I nearly made was going server by server. That path reads the same stack trace three times and calls it three bugs. The moment I saw <code>…server.fastmcp</code> in the first trace, the right question wasn't "how do I fix this server" — it was <strong>"what else shares this SDK?"</strong></p>
+
+<blockquote><p>When several components fail at the same time, stop looking at the components and look at the shared dependency graph.</p></blockquote>
+
+<p>That's a cheap habit and it collapses an afternoon into ten minutes. Same-timestamp failures across unrelated systems are usually one upstream event.</p>
+
+<h2>Pinning everything is the wrong fix</h2>
+
+<p>The reflex is "pin all of it." That's worse than the disease.</p>
+
+<p>An upper bound freezes <strong>security patches</strong> along with breaking changes. Pinning all 22 of my servers would trade three outages for twenty-two units of staleness debt, forever, most of it on servers that were never going to break.</p>
+
+<p>What I adopted:</p>
+
+<ul><li><strong>Pin only what actually broke</strong> (three of twenty-two).</li><li>Record the pin date in a <strong>pin ledger</strong>.</li><li>Flag any pin older than 90 days for "can this bound come off yet?"</li><li>Leave the other sixteen unpinned. Deal with breakage when it happens.</li></ul>
+
+<p>The principle underneath:</p>
+
+<blockquote><p><strong>A pin is a response to an incident, not a prevention. The prevention is detection.</strong></p></blockquote>
+
+<p>You cannot pin your way out of upstream churn — you can only choose whether you find out from a health check or from a user. So I built the health check.</p>
+
+<h2>What the health check actually looks for</h2>
+
+<p>Two things, and the second one is the point:</p>
+
+<p>1. <strong>Retrospective</strong> — which servers are dead right now, plus the exact command to reproduce each failure, so diagnosis starts at second zero rather than after ten minutes of reconstructing the invocation. 2. <strong>Prospective</strong> — which servers <em>could</em> die the same way. This is the real product.</p>
+
+<p>Scoping that second list took a revision. My first pass flagged 19 servers and the signal was mush. The correct population is narrower: <strong>servers that re-resolve upstream on every launch through a package runner</strong> (<code>npx</code>, <code>uvx</code>, <code>uv</code>, <code>npm</code>). An absolute-path binary — a venv Python, a built Node script — has no version to pin; neither does a URL transport. Including them wasn't cautious, it was noise. Sixteen, not nineteen.</p>
+
+<p>A watchlist that flags things you can't act on trains you to ignore the watchlist.</p>
+
+<h2>The side finding: enabled ≠ used</h2>
+
+<p>While I was in there, I compared 60 days of measured usage against what was actually switched on.</p>
+
+<ul><li>A language server for the platform accounting for <strong>~13% of my activity</strong> (310 prompts): <strong>off.</strong></li><li>A language server for a language I'd mentioned <strong>once in five months</strong>, with no session</li></ul>
+
+<p>history in any relevant directory: <strong>on.</strong></p>
+
+<p>I swapped them.</p>
+
+<p>Nobody chose that configuration. There was a good reason for each toggle at the moment it was set, the reason expired, and the toggle stayed. <strong>Plugin state rots silently</strong> because nothing in the system ever asks whether the original justification still holds.</p>
+
+<p>Worth a periodic diff: what's enabled, against what you actually use. Both halves are measurable. Almost nobody measures them together.</p>
+
+<h2>Mirroring configs, and the tool I deliberately left out</h2>
+
+<p>I also mirrored the server set into a second client. Two things worth stealing:</p>
+
+<p><strong>Package-runner servers need an explicit <code>PATH</code>.</strong> The desktop client launches processes without a login shell, so a server invoked as <code>uvx --from git+https://…</code> can't find <code>git</code>. It fails in a way that looks nothing like a <code>PATH</code> problem.</p>
+
+<p><strong>I excluded the trading and wallet servers</strong> — the ones exposing order placement, transfers, and token mint/burn. That client had a permission-bypass mode enabled, meaning a single misinterpretation on a general chat surface could place a real order or move real funds. My project rules define a safety hierarchy for exactly those operations, and that surface was the one place the hierarchy had no enforcement point.</p>
+
+<p>The rule I'd write from that: <strong>when a capability's guardrail lives in one surface's config, that capability doesn't belong in surfaces that don't read that config.</strong> Copying a tool list across clients copies the tools; it doesn't copy the constraints.</p>
+
+<p>(And: that client reads its config only at startup. A full quit and relaunch, or you're debugging a file the process never opened.)</p>
+
+<h2>The incident inside the incident</h2>
+
+<p>A subagent I'd delegated the mirroring to ran a <code>jq '… | tojson'</code> over the config's value objects while diagnosing — and printed <strong>eight live API keys into its own transcript.</strong> It self-reported.</p>
+
+<p>Remediation was straightforward: replace the values in that transcript, <code>chmod 600</code>. Residual risk is real, because the values passed through a model API; whether to rotate is the owner's call.</p>
+
+<p>The lesson is about the delegation brief, and it's uncomfortable:</p>
+
+<p>My brief said <em>"don't print secret values."</em> The agent complied with that. It never intended to print a secret. It serialized a <strong>container</strong> that happened to hold them.</p>
+
+<blockquote><p>The ban has to name <strong>forbidden operators</strong>, not forbidden intentions.</p></blockquote>
+
+<p><code>tojson</code>, <code>to_entries</code>, <code>dump</code>, <code>repr</code>, <code>console.log(obj)</code>, <code>print(vars(x))</code> — bulk serialization of any structure that might transitively contain a credential. "Don't print secrets" is a rule about goals, and careless disclosure isn't goal-directed. Since then my delegation briefs name the operators.</p>
+
+<h2>What would falsify all this</h2>
+
+<ul><li><strong>If the SDK diagnosis were wrong</strong>, the three servers would keep dying after pinning.</li></ul>
+
+<p>Falsified: all three exit 0 and reconnect.</p>
+
+<ul><li><strong>If the selective-pin policy is wrong</strong>, a security patch lands within 90 days that exists</li></ul>
+
+<p>only above the bound and I miss it. The ledger's re-check reminder is designed to catch that — and if the reminder fires and nobody reads it, the policy failed, not the tooling.</p>
+
+<ul><li><strong>If leaving sixteen servers unpinned is wrong</strong>, another synchronized death from an upstream</li></ul>
+
+<p>breaking change happens within 90 days. If it recurs, "pin what broke" becomes "pin the critical N preemptively."</p>
+
+<h2>FAQ</h2>
+<h3>Several unrelated services broke at once. Where do I start?</h3>
+<p>Stop looking at the services and diff their shared dependency graph. Three independent failures landing in the same hour is possible; one shared thing moving is overwhelmingly more likely. Going service by service reads the same stack trace several times and reports it as several bugs — the moment the first trace names a shared library, the next question is which other services pull it.</p>
+<h3>Should I pin every dependency after a breaking change?</h3>
+<p>No. An upper bound freezes security patches along with breaking changes, so pinning everything trades a handful of outages for permanent staleness debt across the whole fleet. Pin only what actually broke, record the pin date in a ledger, and re-check each bound on a schedule. A pin is a response to an incident; the prevention is detection.</p>
+<h3>How do I stop a delegated agent from leaking credentials?</h3>
+<p>Name forbidden operators rather than forbidden intentions. An instruction like do not print secrets is a rule about goals, and careless disclosure is not goal-directed — an agent that never intends to print a key will still serialize a container that holds one. Ban the bulk-serialization operations themselves: tojson, to_entries, dump, repr, and logging whole config objects.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-pipe-was-the-bug-not-the-vendor.html">The Pipe Was the Bug, Not the Vendor</a></li>
+<li><a href="./the-key-owner-was-not-the-spender.html">The Key Owner Was Not the Spender</a></li>
+<li><a href="./your-dead-code-detector-found-a-missing-rule.html">Your Dead-Code Detector Found Six Orphan Constants</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>

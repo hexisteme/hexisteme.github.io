@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower — hexisteme notes</title>
+<meta name="description" content="Apple Vision read the image 300x faster with four times the character errors — but what decided it was that Vision shredded the table into columns, and a shredded table is syntactically perfect.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Choosing between a dedicated OCR engine and a general vision model, and when cheap-first escalation is unsound", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is a dedicated OCR engine more accurate than a general vision model?", "acceptedAnswer": {"@type": "Answer", "text": "On raw character accuracy in this measurement the general 27B model was ahead, 2 errors to 8, but that was not the decisive difference. The dedicated engine returned the table decomposed by column, so which speed belonged to which model was unrecoverable from the output. A specialist beats a generalist only within the cut of the task it actually specializes in."}}, {"@type": "Question", "name": "When is a cheap-first escalation ladder unsound?", "acceptedAnswer": {"@type": "Answer", "text": "When the cheap tier can fail by silently dropping a relation rather than producing a wrong value. Column-shredded OCR output is syntactically perfect and indistinguishable downstream from a correct read, so there is nothing for the escalation trigger to detect. Cheap-first is only an optimization when failure is observable at the boundary."}}, {"@type": "Question", "name": "Can OCR be trusted on IDs, hashes, or license keys?", "acceptedAnswer": {"@type": "Answer", "text": "No engine in this class can. Both the dedicated engine and the vision model misread capital O as digit zero even at 4x magnification with an explicit instruction to distinguish them, on a font that draws the two glyphs visibly differently. That is a property of the tool class, so the remedy is a checksum or human confirmation rather than a better engine."}}]}
+</script>
+</head>
+<body>
+<h1>The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower</h1>
+<div class="note">A specialist tool beats a general one only within the cut of the task it specializes in. Vision is dedicated to character recognition, not document understanding — it returned every character but lost the row associations, and lost relations leave no error signal for a fallback to detect.</div>
+
+<p>I had a 27B vision model running locally (IQ4_XS quantized, 15GB resident) and needed to decide whether it was worth using for OCR. The comparison was macOS's built-in Vision framework (<code>VNRecognizeTextRequest</code>) — a <strong>dedicated</strong> text-recognition engine, free, zero memory footprint.</p>
+
+<p>My expectation going in: the specialist wins on character accuracy, and the general-purpose model is reserved for when you need semantic understanding. Slow and expensive, use sparingly.</p>
+
+<p>That expectation was wrong, and it was wrong in a way that would have been invisible in production.</p>
+
+<h2>Method: an image whose answer I already knew</h2>
+
+<p>The usual mistake in an OCR comparison is measuring against real documents, where you don't have ground truth. Then you can't distinguish <em>plausible</em> output from <em>correct</em> output — and plausible output is exactly what both engines produce when they fail.</p>
+
+<p>So I rendered a 1100×720 test image with the answer fixed in advance:</p>
+
+<ul><li>A title and date in Korean, a 4-column × 3-row table (model / memory / speed / status), four</li></ul>
+
+<p>lines of prose</p>
+
+<ul><li>One adversarial line: <code>A0-1lO9-B8</code> — digit <code>1</code> next to lowercase <code>l</code>, capital <code>O</code> next to</li></ul>
+
+<p>digit <code>0</code></p>
+
+<ul><li>Two empty table cells containing <code>-</code></li></ul>
+
+<p>Then I looked at it. The first render was <strong>wrong</strong> — a label came out as tofu boxes (□□), because the monospace font had no Korean glyphs. If ground truth is broken at the moment you fix it, every measurement afterwards is void. That check costs thirty seconds and it's the whole experiment.</p>
+
+<h2>The results</h2>
+
+<table>
+<thead><tr><th></th><th>Local 27B VLM</th><th>Apple Vision (dedicated)</th></tr></thead>
+<tbody>
+<tr><td>Character errors</td><td><strong>2</strong></td><td><strong>8</strong></td></tr>
+<tr><td>Reading order</td><td>preserved</td><td><strong>destroyed</strong></td></tr>
+<tr><td>Table cells dropped</td><td>0</td><td>2 (the <code>-</code> cells)</td></tr>
+<tr><td>Wall clock</td><td>82.8s (cold)</td><td><strong>0.27s</strong></td></tr>
+</tbody>
+</table>
+
+<p>Vision's eight errors: <code>IQ4_XS</code>→<code>I04_XS</code>, <code>cloud</code>→<code>cLoud</code> (twice), <code>tok/s</code>→<code>tok/5</code>, two characters inside a code string, em dash <code>—</code>→<code>-</code>, arrow <code>→</code>→<code>-&gt;</code>.</p>
+
+<p><strong>300× faster.</strong> On accuracy alone, four times the error rate on a document of this size is arguably a fine trade.</p>
+
+<p>Accuracy alone is not what decided it.</p>
+
+<h2>The difference was structural, not lexical</h2>
+
+<p>Vision returned the table <strong>decomposed by column.</strong> Three model names in a row, then three memory figures, then the speed and status columns appended at the end of the document.</p>
+
+<p>Which means: <strong>you cannot recover which speed belongs to which model from the output.</strong> The row associations are gone. Not garbled — <em>gone</em>. The characters are all there, correctly grouped, in a well-formed sequence, and the relation between them has evaporated.</p>
+
+<p>The VLM kept the rows. Next to that, 2 errors versus 8 is a rounding difference.</p>
+
+<p>What this actually says is narrower than "the general model is better":</p>
+
+<blockquote><p><strong>"A dedicated tool beats a general one" depends entirely on where you cut the task.</strong></p></blockquote>
+
+<p>Vision is dedicated to <em>character recognition</em>. It is not dedicated to <em>document understanding</em>. My task needed the second and I was picking tools by the first one's benchmark. The specialist was genuinely better at the thing it specializes in — I had just mislabeled what I needed.</p>
+
+<h2>Why this breaks the cheap-first fallback</h2>
+
+<p>The obvious architecture is: run the cheap engine, detect failure, escalate to the expensive one. Almost everyone reaches for this.</p>
+
+<p>It requires failure to be <strong>detectable</strong>.</p>
+
+<p>Column-shredded output is syntactically perfect. It has plausible text, plausible structure, no error signal of any kind. Downstream, it is indistinguishable from a correct read. The information didn't get corrupted — it got <em>dropped</em>, and dropped information leaves no residue to detect.</p>
+
+<p>This generalizes past OCR. Any escalation ladder — cheap model then expensive model, cache then origin, heuristic then solver — is only sound when the cheap tier's failure mode is <strong>observable at the boundary</strong>. If the cheap tier can fail by silently discarding a relation rather than producing a wrong value, "cheap first" isn't an optimization. It's an undetected data loss path with a cost saving attached.</p>
+
+<h2>Both engines failed in exactly the same place</h2>
+
+<p>The adversarial string <code>A0-1lO9-B8</code>:</p>
+
+<table>
+<thead><tr><th>Attempt</th><th>Output</th></tr></thead>
+<tbody>
+<tr><td>VLM, full image</td><td><code>A0-1109-B8</code> — 2 misreads</td></tr>
+<tr><td>VLM, that line at 4× with an explicit "distinguish 0/O and 1/l" instruction</td><td><code>A0-1l09-B8</code> — recovered <code>l</code>, still lost <code>O</code></td></tr>
+<tr><td>Vision, on the enlarged crop</td><td><code>A0-1109-B8</code> — 2 misreads, unchanged</td></tr>
+</tbody>
+</table>
+
+<p>I inspected the enlarged image myself. The font renders digit <code>0</code> with a slash through it and capital <code>O</code> as a plain oval. The two glyphs are <strong>visibly different.</strong> This isn't image ambiguity that more pixels would resolve — it's both engines genuinely misreading a distinguishable character, and resolution doesn't touch it.</p>
+
+<p>So:</p>
+
+<blockquote><p><strong>No OCR engine can be trusted on strings where homoglyphs change the meaning</strong> — codes, IDs, hashes, addresses, license keys.</p></blockquote>
+
+<p>That's not a tool-selection problem. It's a property of the entire tool class, which means the remedy isn't a better engine. It's human confirmation or a checksum. If you're about to build an OCR path for identifiers, build the checksum first.</p>
+
+<h2>What I adopted</h2>
+
+<p>Vision as the first pass; escalate to the VLM only for documents where reading order carries meaning — tables, forms.</p>
+
+<p><strong>With one correction to that rule, from the paragraph above:</strong> since column-shredding isn't detectable downstream, "escalate on failure" doesn't work for tables. If the corpus is mostly tables, go to the VLM <em>first</em> and eat the 300×. Cheap-first is only valid when failure is visible.</p>
+
+<h2>What would change my mind</h2>
+
+<ul><li>If the target documents are mostly prose, Vision alone is sufficient and the VLM is a 300×</li></ul>
+
+<p>waste.</p>
+
+<ul><li>If Vision gains layout analysis and starts preserving table structure, this verdict is dead.</li><li>The homoglyph failure is common to both engines, so improving one doesn't touch that part of</li></ul>
+
+<p>the conclusion.</p>
+
+<h2>FAQ</h2>
+<h3>Is a dedicated OCR engine more accurate than a general vision model?</h3>
+<p>On raw character accuracy in this measurement the general 27B model was ahead, 2 errors to 8, but that was not the decisive difference. The dedicated engine returned the table decomposed by column, so which speed belonged to which model was unrecoverable from the output. A specialist beats a generalist only within the cut of the task it actually specializes in.</p>
+<h3>When is a cheap-first escalation ladder unsound?</h3>
+<p>When the cheap tier can fail by silently dropping a relation rather than producing a wrong value. Column-shredded OCR output is syntactically perfect and indistinguishable downstream from a correct read, so there is nothing for the escalation trigger to detect. Cheap-first is only an optimization when failure is observable at the boundary.</p>
+<h3>Can OCR be trusted on IDs, hashes, or license keys?</h3>
+<p>No engine in this class can. Both the dedicated engine and the vision model misread capital O as digit zero even at 4x magnification with an explicit instruction to distinguish them, on a font that draws the two glyphs visibly differently. That is a property of the tool class, so the remedy is a checksum or human confirmation rather than a better engine.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-known-good-sample-was-not-known-good.html">The Known-Good Sample Was Not Known Good</a></li>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Verification Tools Don&#x27;t Report Their Blind Spots</a></li>
+<li><a href="./the-pipe-was-the-bug-not-the-vendor.html">The Pipe Was the Bug, Not the Vendor</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
