@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The check said zero overlaps — hexisteme notes</title>
+<meta name="description" content="An automated overlap check on a video pipeline reported a clean render three times on the same clip, and each time it was correctly answering a narrower question than the one that mattered — captions it never saw, a same-color collision its own definition couldn't represent, and a pixel signal that turned out to carry no usable information at all.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The check said zero overlaps. Three times, it was right about the wrong question.", "datePublished": "2026-08-28", "dateModified": "2026-08-28", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Automated overlap checks in a video-rendering pipeline, blind spots in paired-category detectors, and choosing pixel-level versus source-level instrumentation.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did the same overlap check report zero problems three separate times?", "acceptedAnswer": {"@type": "Answer", "text": "Each time it was telling the truth about a smaller population than the one that mattered. It only compared objects the rendering scene itself drew, so a caption added afterward was never in scope. Then it only compared two specific color clusters against each other, so same-color ghosting was never in scope either. Once both were fixed, a pixel-only instrument ran out of information, and the real defect turned out to be one line of source, not a pattern in pixels."}}, {"@type": "Question", "name": "Why is a check that only compares two named categories dangerous?", "acceptedAnswer": {"@type": "Answer", "text": "Because damage that happens entirely inside one category is invisible to it by construction. In this case, a bounding-box overlap check also couldn't tell two identically-positioned objects from a single object, so the worst version of the defect — a perfect, total overlap — was the least visible one to the check."}}, {"@type": "Question", "name": "What should you do when a detector won't converge no matter how you tune it?", "acceptedAnswer": {"@type": "Answer", "text": "Stop tuning it and change which layer you're looking at. After three separate pixel-based discriminators failed to separate a real defect from legitimate animations, reading the source that generated the frames explained the ambiguity in one line — a text crossfade call that pixels alone couldn't distinguish from other causes of gradual change."}}]}
+</script>
+</head>
+<body>
+
+<h1>The check said zero overlaps</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-28</p>
+
+<div class="note">An automated overlap check on a video-rendering pipeline reported zero collisions three separate times while text was visibly unreadable on screen: once because a burned-in caption never entered the check's comparison at all, once because the check only paired two specific color clusters and couldn't see a same-color collision — the kind that gets less visible the more total it is — and once because the real defect was one line of source code, findable only after three separate pixel discriminators failed to separate it from legitimate animations.</div>
+
+<p>A check can be entirely correct and still miss what it was built to catch, if it's answering a narrower question than the one you think you're asking. I ran into this three times, on the same check, on the same video-rendering pipeline, before I stopped trusting a pass and started asking what population it had actually looked at.</p>
+
+<p>The check runs before a clip ships: it scans finished frames for text overlapping other text and reports how many timestamps collide. Three times, across two clips, it reported zero while text was visibly, unreadably overlapping on screen. The check never lied. The closest name I already had for this shape, <a href="./verification-tools-dont-report-their-blind-spots.html">verification tools don't report their blind spots</a>, undersells it: the tool printed an accurate number that was still the wrong thing to trust.</p>
+
+<div class="warn">A check that passes is not proof that nothing is wrong. It's proof that nothing wrong showed up inside whatever population the check was built to examine — and that population can be smaller than it looks.</div>
+
+<h2>Zero, the first time: a layer the check never draws</h2>
+
+<p>The first report came back on a freshly rendered clip: zero overlapping timestamps. The frames told a different story — a dollar-value label sat exactly on top of a caption burned into the video, unreadable. Three figures in the clip were hidden the same way — $4.404 billion, $4.147 billion, $23.769 billion — each under the same caption band the moment it appeared.</p>
+
+<p>The check compares text objects the rendering scene itself draws. The caption isn't one of those: it gets burned in during a separate pass, after the scene renders, and never exists in the scene's own coordinate space. Zero was true — nothing the scene drew overlapped anything else the scene drew. Rendering the scene alone hides this too — the caption band is empty in isolation — and the defect only exists once both pieces are assembled.</p>
+
+<p>I didn't estimate where the caption sat. I pixel-diffed matching frames from the finished video against the pre-caption render, at three timestamps: a one-line caption occupies a band from about y = -4.178 to y = -3.585. The old placement for the value label sat almost exactly in the middle of it.</p>
+
+<p>The fix moved the label into a gap between two other fixed elements — the top of a bar and a tick label above it — space nothing else could structurally reach. I hardcoded the boundary as a named constant, <code>BURNED_CAPTION_TOP_Y</code>, commented as measured rather than assumed, and asserted against it. Nothing here replaced opening a rendered frame and looking.</p>
+
+<h2>Zero, the second time: the worst case is the one it can't see</h2>
+
+<p>Same check, same clip, right after that fix — zero again, and found only after I'd already called the first one done.</p>
+
+<p>Frames near the midpoint showed two adjacent year labels ghosting into each other — one year's numbers still visible while the next faded in, both readable at once, so neither was. Every transition point did the same, adding up to roughly a fifth of the clip's runtime — about 9.4 of 47.4 seconds.</p>
+
+<p>This time the blind spot was a pairing, not a missing layer. The check's definition of "overlap" was a white pixel cluster intersecting an amber cluster — two named categories. The ghosting was white text fading into white text: the same category transitioning into itself, a combination the definition never included. Worse, during the fade the two texts sit at the exact same coordinates, and a bounding-box check doesn't see two boxes in an identical position as an intersection — it sees one box. A slight misalignment would have registered; a perfect, total overlap did not.</p>
+
+<p>My first replacement instrument was wrong, caught only because I widened the positive control before trusting it. Ghosting is text rendered semi-transparent, so I measured the fraction of "mid-tone" pixels. An old, ghosting frame came back 88.8% mid-tone; a hard-swapped frame came back 29.0% — a 3x gap. Widening the "known normal" sample broke it: frames unambiguously fine by eye scored anywhere from 29.4% to 90.0%. The metric was measuring color, not transparency — red lettering elsewhere in the clip has a luminance around 112, dead center of the 60–195 range I'd called "mid-tone," so any red text scored as ghosting.</p>
+
+<p>The working instrument measured the definition instead of a proxy: ghosting is a region that changes gradually across more than one frame; a legitimate swap is a one-frame event. Independent of color, I measured the length of continuous frame-to-frame change:</p>
+
+<table>
+<tr><th>version</th><th>change events</th><th>longest run</th><th>largest single-frame jump</th></tr>
+<tr><td>old (crossfade)</td><td>34</td><td>19 frames</td><td>6.8</td></tr>
+<tr><td>new (hard swap)</td><td>18</td><td>1 frame</td><td>31.3</td></tr>
+</table>
+
+<p>19 and 1 land on opposite sides of any threshold. The largest jump is <em>lower</em> on the broken clip, backwards from expectation, because a crossfade spreads change thinly instead of concentrating it.</p>
+
+<p>The fix: text never crossfades, only bars animate. All 7 crossfade calls became an outright swap — remove old text, add new — with freed time absorbed by an equal-length wait so clip length held: 47.36s to 47.33s, against a narration track needing 45.99s, with 1.34s to spare.</p>
+
+<h2>Zero, the third time: an instrument stalls, so read the source instead</h2>
+
+<p>Later the same day, I pointed the frame-change-length instrument from case two at a different clip I believed already repaired. It came back with a longest run of 23 frames — worse than the number that first flagged a problem. A repair can't make a measurement worse, so either the fix hadn't landed, or the instrument was wrong.</p>
+
+<p>It was the instrument. The 23 frames were two legitimate entrance animations — a panel and a callout fading onto the screen, which changes a text region gradually for a different, correct reason. A discriminator for that — content at both ends of a change, versus coming up from nothing — brought the number to 7. Opening those frames too found a second legitimate cause: a background panel's opacity ramping up behind static text.</p>
+
+<p>Three discriminators, three failures to separate the classes:</p>
+
+<table>
+<tr><th>discriminator</th><th>on the real defect</th><th>on the false positive</th><th>separates them?</th></tr>
+<tr><td>lowest ink level during the change</td><td>0.94</td><td>0.96 / 1.00</td><td>no — ranges overlap</td></tr>
+<tr><td>largest single frame-to-frame jump</td><td>low</td><td>low</td><td>no — inverted, same surprise as case two</td></tr>
+<tr><td>mid-tone pixel fraction</td><td>—</td><td>—</td><td>no — the same color-proxy that already failed once, reused</td></tr>
+</table>
+
+<p>The third failure repeated a mistake I'd already made and written down earlier in the same investigation. Three discriminators landing on the same overlap is evidence the channel lacks the information, not that a fourth would work.</p>
+
+<p>So I changed layers and read the source that generated the frames. One line explained everything the pixels had been ambiguous about: a call whose entire purpose is to superimpose two text objects at the same position while one fades out and the other in. Ambiguous in pixels, unambiguous in one line of source.</p>
+
+<p>It wasn't isolated — it was documented as the correct way to change an on-screen number, in the header comment of three separate scene files, for a real reason: the objects it replaced default to a class that shells out to a LaTeX binary and throws a hard error without it. But "there's no LaTeX" and "so cross-fade the text" got written as one instruction and copied as if the second followed from the first. It doesn't — swapping the old object out and the new one in, no fade, satisfies the same constraint without ever putting two objects on screen at once.</p>
+
+<p>The impact wasn't theoretical: a clip that had already shipped had the identical pattern, unreadable for about half a second, confirmed by opening the frame.</p>
+
+<p>I fixed all 12 call sites carrying the convention and re-rendered. Then, instead of trusting the improved number, I looked at the same segment again. The numbers no longer overlapped each other. One label was still sitting on a caption underneath it — nothing to do with any crossfade.</p>
+
+<p>The second cause was separate: a coordinate named <code>HERO_Y</code> that part of the scene converges toward was exactly where an unrelated label stood. An earlier change had made that label persist for the clip's full length instead of disappearing, conflicting with everything sharing its coordinate. I'd already patched that conflict once, in one beat; a second beat using the same coordinate had never been touched. The scene was already calling the overlap-assertion helpers in eight other places — and not in this one. That is the more dangerous shape: a list of call sites long enough that scanning it reads as "this scene checks for overlap," so nobody counts the gaps.</p>
+
+<p>Measuring the same segment across all three states made the fix legible:</p>
+
+<table>
+<tr><th>version</th><th>longest change-run</th><th>clip length</th></tr>
+<tr><td>originally shipped</td><td>19 frames</td><td>1461 frames</td></tr>
+<tr><td>crossfades fixed</td><td>8 frames</td><td>1461 frames</td></tr>
+<tr><td>+ coordinate collision fixed</td><td>4 frames</td><td>1461 frames</td></tr>
+</table>
+
+<p>Clip length never moved, because the swap consumed no animation time and the collision fix layered a fade onto an existing animation instead of extending it.</p>
+
+<h3>The repair tool had the same defect it was written to remove</h3>
+
+<p>One more layer sat underneath, and it was mine. The swap helper I'd written did <code>remove(old)</code> then <code>add(new)</code>. One caller passes a group, not a single text object — two labels added individually, later bundled for convenience. Rather than reason about the framework's semantics I asked it, in four lines:</p>
+
+<pre>add(a); add(b); remove(Group(a, b))
+&rarr; both are still on screen</pre>
+
+<p>Removing a group doesn't remove members added individually. The new text would have been drawn on top of the old one, at the same coordinate — the helper written to eliminate the overlap reproducing it exactly, at five call sites across four files. I caught it before rendering by counting which callers pass a group and testing the assumption instead of trusting it. Code that fixes things is still code, and rarely gets the checks the code it fixes does.</p>
+
+<div class="warn">So its check has two layers: one asserts the rule, the other exercises the framework and fails if that removal behavior ever changes. A rule with no test on its premise becomes a ritual the day the premise stops holding.</div>
+
+<h2>What transfers</h2>
+
+<ol>
+<li><strong>When a check passes, ask what population it examined, not whether it has a bug.</strong> A check defined as "A against B" cannot see a failure entirely inside A.</li>
+<li><strong>Some checks are self-concealing at the extreme.</strong> They catch the partial version of a failure and go blind at the total version. Ask what perfect failure looks like to a check before trusting what it reports.</li>
+<li><strong>If a detector fails to converge after several honest, independent discriminators, that's evidence the channel lacks the information</strong> — not that the next one will work.</li>
+<li><strong>Choose the layer by asking where the defect leaves a trace.</strong> Some vanish into a best-effort fallback and exist only in the output; others are one line in source.</li>
+<li><strong>A convention spreads faster than the code that first needed it</strong>, because people copy it by reading a sentence, not by copying code. A fix that changes the code but leaves the sentence gets quietly undone by the next reader.</li>
+<li><strong>Don't fuse a constraint and an implementation choice into one sentence.</strong> "There's no LaTeX, so cross-fade the text" states a true constraint and an implementation that doesn't follow — written together, the next reader copies both as one fact.</li>
+<li><strong>Peeling off one layer means looking again, not concluding.</strong> An improving number is progress, not completion — the second defect in the third case surfaced only because I re-rendered and looked again.</li>
+<li><strong>A collision found in one place is evidence of a class, not an incident.</strong> Fixing the one place it was noticed leaves every other place sharing that coordinate exactly as broken.</li>
+<li><strong>Your repair tool is code too</strong> — the helper written to remove the overlap would have recreated it, and nothing in the plan called for testing it.</li>
+<li><strong>Test a rule's premise separately from the rule</strong> — "remove the whole family, not the group" is only worth obeying while the framework still behaves that way, so something should fail loudly the day it doesn't.</li>
+<li><strong>Partial assertion coverage is more dangerous than none</strong> — the scene asserted against overlap in eight places and skipped one, and the defect landed in the one it skipped. Many call sites read as "this is covered," so count the holes, not the hits.</li>
+</ol>
+
+<p>None of these three zeroes were false. Each was a true statement about a smaller world than the one that mattered, and the only way to find the gap was to stop reading the number and go open the frame.</p>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why did the same overlap check report zero problems three separate times?</strong><br>
+Each time it was telling the truth about a smaller population than the one that mattered. It only compared objects the rendering scene itself drew, so a caption added afterward was never in scope. Then it only compared two specific color clusters against each other, so same-color ghosting was never in scope either. Once both were fixed, a pixel-only instrument ran out of information, and the real defect turned out to be one line of source, not a pattern in pixels.</p>
+
+<p><strong>Q. Why is a check that only compares two named categories dangerous?</strong><br>
+Because damage that happens entirely inside one category is invisible to it by construction. In this case, a bounding-box overlap check also couldn't tell two identically-positioned objects from a single object, so the worst version of the defect — a perfect, total overlap — was the least visible one to the check.</p>
+
+<p><strong>Q. What should you do when a detector won't converge no matter how you tune it?</strong><br>
+Stop tuning it and change which layer you're looking at. After three separate pixel-based discriminators failed to separate a real defect from legitimate animations, reading the source that generated the frames explained the ambiguity in one line — a text crossfade call that pixels alone couldn't distinguish from other causes of gradual change.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Verification Tools Don't Report Their Blind Spots</a></li>
+<li><a href="./checks-that-cannot-fire.html">Checks That Cannot Fire</a></li>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The Negative Control That Tested the Wrong Field</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
