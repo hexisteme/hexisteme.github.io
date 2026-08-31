@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eight Frames Said Fail. Twenty-Four Said Pass. — hexisteme notes</title>
+<meta name="description" content="A pre-registered threshold fixed a pass line (motion median at least 50% of the original) but never fixed the frame count behind it, so the same clip scored 47.5% and 56.5% depending on how it was measured. The rule I wrote to fix that then exposed a second problem one layer down — a compliance rate is only as good as the denominator nobody had defined for it.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Eight Frames Said Fail. Twenty-Four Said Pass.", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "why a pre-registered threshold with an unpinned sample size can flip its own pass/fail verdict, and why a rule's compliance rate is meaningless without an equally well-defined denominator", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did the same screen metric produce a passing and a failing verdict on the same clip?", "acceptedAnswer": {"@type": "Answer", "text": "The pre-registration fixed the threshold (motion median at least 50% of the original) but never fixed how many frames the metric would be sampled over. Measured at 8 frames the value came out 47.5%, which tripped the falsifier; measured at 24 frames it came out 56.5%, which didn't. The threshold was pinned, the measurement wasn't, so which side of the line the same clip landed on depended on a parameter nobody had committed to in advance."}}, {"@type": "Question", "name": "Did writing the corrective rule down actually work?", "acceptedAnswer": {"@type": "Answer", "text": "Once, yes. The very next pre-registration document, written in the same commit, pinned the measurement window, committed to reporting both the 8- and 24-frame counts, and named the sampling rule — and said explicitly it was enacting the lesson for the first time. That is the only time the rule has been tested, and it held."}}, {"@type": "Question", "name": "So why isn't \"the rule held\" the headline?", "acceptedAnswer": {"@type": "Answer", "text": "Because a day later I counted the full corpus of pre-registration documents for an unrelated reason and found only 1 of 3 had pinned the required slots in prose, read that as \"the rule didn't survive 24 hours,\" and wrote it down. That reading was wrong: the other two documents were created before the rule existed, so they were never in scope. The correct compliance rate was 1/1, not 1/3, as of that 2026-08-15 audit — but a denominator of 1 isn't evidence a rule is durable either, it just means the rule had been tested once so far."}}, {"@type": "Question", "name": "What did the fix for the fix miss?", "acceptedAnswer": {"@type": "Answer", "text": "I turned the rule into a machine-checkable schema and a corpus-wide checker script, which is real progress. But nothing in the repository calls that checker — no git hook, no CI job, no scheduler. Four active hooks exist and are registered elsewhere in the repo, and none of them call it. Writing an enforcement mechanism and having it actually enforced turned out to be two different pieces of work."}}, {"@type": "Question", "name": "Has the rule been tested again since that 2026-08-15 audit?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, once more, as of a 2026-08-31 recheck. A fourth pre-registration document, for a publish-window experiment, was born after the rule (git birth commit dated 2026-08-19) and pinned all three required slots at registration, plus three properly declared amendments. That puts the compliance rate at 2/2, not 1/1 — but the piece's own falsifier asks for 3 or more further rule-applicable outputs before the rate means anything, so this is one data point toward that bar, not proof the bar has been cleared."}}, {"@type": "Question", "name": "What's the actual takeaway to reuse elsewhere?", "acceptedAnswer": {"@type": "Answer", "text": "Cite the fraction, not the last compliant instance, and never drop the denominator — rule-compliant outputs divided by rule-applicable outputs, bounded by the rule's own birth date. If that denominator is 1 or 2, the honest answer is \"not enough signal yet,\" not a percentage."}}]}
+</script>
+</head>
+<body>
+<h1>Eight Frames Said Fail. Twenty-Four Said Pass.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">A pre-registered threshold set a pass line — motion median at least 50% of the original — but never pinned the frame count it would be measured over. The same clip scored 47.5% at 8 frames (fail) and 56.5% at 24 (pass): the verdict's sign flipped on a parameter nobody had fixed, so the threshold adjudicated nothing. The rule I wrote to fix that held on its one and only test, but a same-week corpus count first read the result as 1 compliant document out of 3 — until a git-log check showed the other two documents predated the rule and were never in scope, correcting the compliance rate to 1/1. Neither reading was safe: a compliance rate without a defined denominator reads in either direction, and even the corrected 1/1 = 100% is one observation dressed as certainty. A 2026-08-31 recheck found a second genuine instance — still compliant, still short of the sample the piece's own falsifier requires before calling the rule durable.</div>
+
+<p>On 2026-08-14, a screen-metric experiment in my YouTube Shorts pipeline ended undeterminable. Not because the metric misbehaved, but because a threshold I had pre-registered depended on a number I had never pinned down. Once I fixed that, a second, quieter version of the same mistake was already waiting one layer downstream — inside the rule I wrote to fix the first one.</p>
+
+<h2>What the threshold couldn't decide</h2>
+
+<p>The pre-registration set a single bar: motion median has to be at least 50% of the original for a clip to pass. It said nothing about how many frames that median gets computed from.</p>
+
+<p>Measured across 8 frames, the clip's motion median came out at 47.5% — below the bar, falsifier fires, clip fails. Measured across 24, it came out at 56.5% — above the bar, falsifier doesn't fire, clip passes. Same clip, same threshold, same metric definition — only a sampling parameter the pre-registration never fixed, and that alone flipped the verdict's sign.</p>
+
+<p>A threshold with an unpinned measurement isn't wrong, it's undefined: pass on one run, fail on the next, both honestly computed. (This isn't the underpowered-sample problem from <a href="https://hexisteme.github.io/notes/perfect-instrumentation-wont-save-an-underpowered-experiment.html">Perfect Instrumentation Won't Save an Underpowered Experiment</a> — that piece has a real, fixed measurement and not enough of it; this one never had a fixed measurement at all.)</p>
+
+<h2>The rule I wrote right there in the retro</h2>
+
+<p>I wrote the fix into that experiment's retro (<code>report/simreveal-axisB-official-render-20260814.md</code>, §4-3), on the spot. (The passages quoted in this section are translated from the Korean original.)</p>
+
+<pre><code>Rule starting with the next pre-registration: a rate prediction has to pin its
+measurement parameters — sample count, window, sampling rule — alongside its
+threshold. A threshold without a pinned measurement can&#x27;t adjudicate anything.</code></pre>
+
+<p>Same commit, next pre-registration document (<code>report/prereg-simreveal-axisB-replication-montecarlo-20260815.md</code>). Its §2 followed the rule exactly: window fixed to <code>[0, 5.5s]</code>, sample count committed to report both 8 and 24, sampling rule spelled out. It said so directly:</p>
+
+<blockquote><p>The reason axis B ended undeterminable on motion median on 08-14 was that the prediction fixed only the threshold (50%) and never fixed the sample count (§4-3). Enacting that lesson here for the first time.</p></blockquote>
+
+<p>Less than a day after I wrote the rule, the person who wrote it followed it. So far, a pipeline working exactly as designed.</p>
+
+<h2>Counting the corpus, a day later</h2>
+
+<p>On 2026-08-15 I was doing unrelated work — an audit forcing machine-readable front matter onto every pre-registration document — and for the first time counted the whole corpus instead of one document. <code>report/prereg-*.md</code> came to 3 files. Only 1, the Monte Carlo replication above, had pinned the rule's three required slots (sample count, measurement window, sampling rule) in prose at registration.</p>
+
+<p><strong>1/3.</strong> I read that as "the rule didn't survive 24 hours" and wrote it into the retro — a cousin of an older counting mistake, <a href="https://hexisteme.github.io/notes/the-count-read-in-the-thousands-it-was-thirty-seven-things.html">The Count Read in the Thousands. It Was Thirty-Seven Things, Recounted.</a>, though that total was real and just uninterpreted. This one was about to be flat-out wrong.</p>
+
+<h2>That reading was wrong</h2>
+
+<p>I wrote the sentence before checking the thing I should have checked before writing it. Then I checked when the other two documents were actually born:</p>
+
+<pre><code>$ git log --diff-filter=A --format=&#x27;%h %ad&#x27; --date=short -- report/prereg-*.md
+03da812 2026-08-15   # the commit where the rule was written = the montecarlo replication&#x27;s birth commit
+670cdff 2026-08-14   # ink-coverage
+b3478d8 2026-08-14   # sim-graph-reveal</code></pre>
+
+<p>Both of the other two were created <strong>before the rule existed.</strong> They were never in scope. Counting them as violations meant counting retroactive non-application as non-compliance. The correct denominator isn't 3, it's 1 — compliance rate <code>1/1</code>, 100%.</p>
+
+<h2>Two wrong readings, one missing definition</h2>
+
+<p>The lesson isn't "the rule died." It's that the same data got read two opposite ways, on the same day, by the same person:</p>
+
+<table>
+<thead><tr><th>reading</th><th>fraction</th><th>conclusion</th><th>why it's wrong</th></tr></thead>
+<tbody>
+<tr><td>count the numerator alone</td><td>1 compliant case</td><td>the rule is alive</td><td>only one case was ever put to the test</td></tr>
+<tr><td>extend the denominator back past the rule's birth</td><td>1/3</td><td>the rule is dead</td><td>it puts out-of-scope documents in the denominator</td></tr>
+</tbody>
+</table>
+
+<p>Both are wrong, for the same reason: <strong>the denominator was never defined.</strong></p>
+
+<p>(A different flavor of the same word: <a href="https://hexisteme.github.io/notes/the-denominator-was-already-on-disk.html">The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.</a> is about a denominator never written down anywhere, reconstructed from retained logs; this one was never missing, just scoped wrong.)</p>
+
+<p>The corrected <code>1/1 = 100%</code> isn't comforting either — maximum reassurance and minimum evidence at once, since the rule has only ever been tested once. That one test case had already declared, in its own text, that it was "enacting this lesson here for the first time," so the story of the rule working was complete inside a single document, written, followed, and later re-read by the same person. "Wrote the rule" and "followed the rule" described one data point, not the whole corpus.</p>
+
+<p>One clause at the outset would have prevented all three readings: had the fraction been defined the moment the rule was written, it would have read <code>1/1</code> from day one, and the denominator being 1 would have been the signal itself — <em>don't adjudicate yet.</em> The discovery wasn't a designed audit either, just luck: the unrelated front-matter task happened to require counting the corpus start to finish.</p>
+
+<h2>The fix, and the same failure inside the fix</h2>
+
+<p>I moved the rule out of prose into something machine-checkable: <code>schema: prereg/v1</code> front matter on line 1 of every pre-registration document, plus a checker (<code>shorts-factory prereg</code>, in <code>src/shorts_factory/experiment_prereg.py</code>) scanning the corpus for missing slots, unevidenced exemptions, and undeclared amendments. I transcribed front matter retroactively into all 3 documents; where a slot hadn't been pinned at registration time, I left it <code>null</code> — backfilling with a post-hoc value would have been a lie about what was pinned when.</p>
+
+<p>That fix reproduced the exact failure it was fixing. Nothing calls the checker: no git hook, no CI workflow, no scheduler in the repository runs this subcommand.</p>
+
+<pre><code># the checker exists
+.venv/bin/python -m shorts_factory prereg   # or: agent-youtube prereg
+
+# but nothing wired to the repo calls it (confirmed 2026-08-15)
+grep -rl &quot;prereg&quot; .claude/hooks/ .codex/hooks.json   # no results</code></pre>
+
+<p>The thing I built to fix "a rule written in prose gets forgotten" landed exactly where it can be forgotten, for the same reason: nobody calls it automatically. I nearly got that claim wrong too — counting "automation surfaces," I almost stopped after git hooks and CI. Actually counting found 4 active hooks (<code>session_start_state.sh</code>, <code>pre_upload_channel_check.sh</code>, <code>post_render_verify.sh</code>, <code>post_edit_module_tests.sh</code>) plus <code>SessionStart</code>/<code>PreToolUse</code>/<code>PostToolUse</code> registrations in <code>.codex/hooks.json</code> — none call this checker. "There's no automation" isn't a sentence I get to write without naming what I checked.</p>
+
+<h2>What the same command prints today</h2>
+
+<p>This is where the essay's own honesty gets tested. Running the same commands against the repository as of 2026-08-15, the day of the audit:</p>
+
+<pre><code>$ ls report/prereg-*.md | wc -l
+3
+$ grep -c &#x27;^measurement_spec:&#x27; report/prereg-*.md
+report/prereg-ink-coverage-20260814.md:1
+report/prereg-sim-graph-reveal-20260814.md:1
+report/prereg-simreveal-axisB-replication-montecarlo-20260815.md:1</code></pre>
+
+<p>All 3 documents now carry <code>measurement_spec:</code>. That is not "the rule recovered to 3/3" — it's the value <em>after</em> the retroactive transcription above, a product of the audit work, not of the rule being followed; the field didn't exist before that work ran. "1/3" was counted <em>before</em> the transcription, while the rule existed only in prose; "3/3" is counted <em>after</em>. The two can't answer the same question — "is the rule being followed?" — because having the slot doesn't mean compliance. It means missing slots are now visible as <code>null</code> instead of silently absent (sim-graph-reveal's <code>sample_count</code> still is).</p>
+
+<p>A follow-up check, dated 2026-08-31: the corpus gained one document since that audit. <code>report/prereg-publish-window-20260818.md</code> was born in commit <code>c12f93f</code> on 2026-08-19 — four days after the rule, so it belongs in the denominator. Its front matter pins all three required slots (<code>sample_count</code>, <code>measurement_window</code>, <code>sampling_rule</code>) at registration, plus three amendments, each with a dated, non-silent <code>what:</code> entry. That makes the corrected rate <code>2/2</code>, not <code>1/1</code> — still short of the 3-or-more this piece's second falsifier actually asks for, but the first new data point since the rule's birth, and it points toward compliance.</p>
+
+<h2>What generalizes</h2>
+
+<ul><li>Cite a rule's health as a fraction, not the <em>last compliant instance</em>: outputs applied to, divided by outputs applicable to. A rule whose denominator can't be enumerated shipped without anyone observing it.</li><li>The denominator's boundary is the rule's birth — outputs made earlier don't belong in it, or retroactive non-application reads as violation (my mistake here). Recoverable with <code>git log --diff-filter=A</code> or an equivalent creation check.</li><li>A denominator must be <em>what the author marked</em>, not <em>what files exist</em>, to be countable. Here, the <code>prereg-*.md</code> filename convention was that mark.</li><li>If the denominator is 1 or 2, don't adjudicate — write "not enough signal yet." <code>n/n = 100%</code> is maximally reassuring and near-zero information at once; keeping the denominator in view when citing a fraction removes most of this trap.</li><li>Building an enforcement mechanism and having enforcement run are different pieces of work. Stopping at the checker just adds a command a human must remember. If you can't name a caller — hook, CI job, schedule — don't write "closed."</li><li>Count every automation surface before asserting automation is absent: git hooks, CI, agent-specific hook registries (<code>.claude/hooks/</code>, <code>.codex/hooks.json</code>, or equivalents), schedulers.</li></ul>
+
+<h2>Falsifier</h2>
+
+<p>This piece's claim is not "rules get forgotten." That conclusion isn't supported by this incident's evidence — I wrote it into an early draft and falsified it myself, above, where the 1/3 reading turned out wrong. The rule got one chance to apply, and that chance was followed.</p>
+
+<p>What's left is narrower: <strong>a compliance rate with an undefined denominator reads in whichever direction you're primed to read, and an <code>n=1</code> compliance rate reassures without informing.</strong> The sample here is one rule, one repository, one observation.</p>
+
+<p>Two ways this could be shown wrong:</p>
+
+<ul><li>If counting compliant instances alone — without a defined denominator — ever correctly judges a rule's health, the prescription above is overkill.</li><li>This incident's real test hasn't happened yet: does the compliance rate hold once 3 or more further rule-applicable outputs pile up after the rule's birth? One has arrived so far (above), still compliant — short of the bar, but pointed the right way. If the rate drops before that bar is reached, "a rule doesn't survive without enforcement" finally has evidence in this repository. Until then, I'm not entitled to write that sentence.</li></ul>
+
+<h2>FAQ</h2>
+<h3>Why did the same screen metric produce a passing and a failing verdict on the same clip?</h3>
+<p>The pre-registration fixed the threshold (motion median at least 50% of the original) but never fixed how many frames the metric would be sampled over. Measured at 8 frames the value came out 47.5%, which tripped the falsifier; measured at 24 frames it came out 56.5%, which didn't. The threshold was pinned, the measurement wasn't, so which side of the line the same clip landed on depended on a parameter nobody had committed to in advance.</p>
+<h3>Did writing the corrective rule down actually work?</h3>
+<p>Once, yes. The very next pre-registration document, written in the same commit, pinned the measurement window, committed to reporting both the 8- and 24-frame counts, and named the sampling rule — and said explicitly it was enacting the lesson for the first time. That is the only time the rule has been tested, and it held.</p>
+<h3>So why isn&#x27;t &quot;the rule held&quot; the headline?</h3>
+<p>Because a day later I counted the full corpus of pre-registration documents for an unrelated reason and found only 1 of 3 had pinned the required slots in prose, read that as "the rule didn't survive 24 hours," and wrote it down. That reading was wrong: the other two documents were created before the rule existed, so they were never in scope. The correct compliance rate was 1/1, not 1/3, as of that 2026-08-15 audit — but a denominator of 1 isn't evidence a rule is durable either, it just means the rule had been tested once so far.</p>
+<h3>What did the fix for the fix miss?</h3>
+<p>I turned the rule into a machine-checkable schema and a corpus-wide checker script, which is real progress. But nothing in the repository calls that checker — no git hook, no CI job, no scheduler. Four active hooks exist and are registered elsewhere in the repo, and none of them call it. Writing an enforcement mechanism and having it actually enforced turned out to be two different pieces of work.</p>
+<h3>Has the rule been tested again since that 2026-08-15 audit?</h3>
+<p>Yes, once more, as of a 2026-08-31 recheck. A fourth pre-registration document, for a publish-window experiment, was born after the rule (git birth commit dated 2026-08-19) and pinned all three required slots at registration, plus three properly declared amendments. That puts the compliance rate at 2/2, not 1/1 — but the piece's own falsifier asks for 3 or more further rule-applicable outputs before the rate means anything, so this is one data point toward that bar, not proof the bar has been cleared.</p>
+<h3>What&#x27;s the actual takeaway to reuse elsewhere?</h3>
+<p>Cite the fraction, not the last compliant instance, and never drop the denominator — rule-compliant outputs divided by rule-applicable outputs, bounded by the rule's own birth date. If that denominator is 1 or 2, the honest answer is "not enough signal yet," not a percentage.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./perfect-instrumentation-wont-save-an-underpowered-experiment.html">Perfect Instrumentation Won&#x27;t Save an Underpowered Experiment</a></li>
+<li><a href="./the-count-read-in-the-thousands-it-was-thirty-seven-things.html">The Count Read in the Thousands. It Was Thirty-Seven Things, Recounted.</a></li>
+<li><a href="./forced-dissent-slot-has-a-floor.html">A Forced Dissent Slot Has a Floor: Read It by Convergence, Not Presence</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
