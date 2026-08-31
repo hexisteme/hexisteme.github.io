@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A Detector That Never Fires Scores Perfect on False Positives — hexisteme notes</title>
+<meta name="description" content="Three attempts at an overlap detector for rendered video frames failed the same hidden way, and the fourth split in two — one predicate got wired into the gate, one didn&#x27;t. The split turned on whether each could be made to fire on a known-bad frame, not on false positives.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A Detector That Never Fires Scores Perfect on False Positives", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Detector acceptance testing: false-positive rate versus sensitivity, and positive controls for automated QA checks", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why isn't a zero false-positive rate enough to trust a detector?", "acceptedAnswer": {"@type": "Answer", "text": "Because a detector that never fires also scores zero false positives, and from the outside the two are indistinguishable. The only way to tell them apart is a positive control: reproduce a known defect and confirm the detector actually fires on it. Here, instrument_swallowed scored 0 false positives across 25 published episodes, but that number only became evidence once disabling the actual code fix reproduced the defect and the detector fired 8 times."}}, {"@type": "Question", "name": "What's the difference between the two predicates in this detector?", "acceptedAnswer": {"@type": "Answer", "text": "instrument_swallowed asks a purely geometric question — is a line completely contained inside a chip — with one right answer regardless of context, so a containment ratio of 1.0 is enough. subject_severed asks whether a chip cut something the episode was specifically arguing about, which depends on the episode's content, not the pixels: the same 56-pixel cut was a defect in one episode and normal in three others."}}, {"@type": "Question", "name": "Why wasn't the second predicate wired into the gate if it caught the defect too?", "acceptedAnswer": {"@type": "Answer", "text": "It fired on 18 of 25 published episodes, including the real defect, but no threshold separated the defect from three completely normal episodes tied at the identical run length. A check that can't discriminate known-bad from known-good isn't ready to gate anything, no matter how often it fires."}}, {"@type": "Question", "name": "Why not just keep improving the color-based heuristics?", "acceptedAnswer": {"@type": "Answer", "text": "Because three different color-based techniques — edge extremes, focus-color runs, an amber-blob classifier — all failed for the same underlying reason: they inferred geometry from an already-rendered PNG instead of using the geometry the renderer already knew. Once the renderer logged its own bounding boxes to a receipt file, overlap became an exact intersection check instead of a heuristic guess."}}]}
+</script>
+</head>
+<body>
+<h1>A Detector That Never Fires Scores Perfect on False Positives</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">An overlap detector for rendered video frames — a label chip covering a ruler's own tick marks, another cutting the map corridor an episode was about — took four attempts. The first three inferred geometry from color and failed the same hidden way. The fourth made the renderer log what it actually drew, producing two candidate checks: one proved it could fire on a reproduced defect and shipped with zero false positives; the other fired on 18 of 25 real episodes with no threshold separating the actual defect from three normal ones tied at the same value, and stayed out of the gate.</div>
+
+<p>Two rework incidents this week had the identical shape: a label chip rendered on top of the exact thing the episode was about. In one episode, <code>chile</code>, a ruler's label chip covered the ruler's own body and tick marks — the episode's conclusion rested on comparing the length of two rulers, and the horizontal one wasn't visible anywhere in the frame. In another, <code>siliguri</code>, a scene label chip sat above a narrow corridor of Indian territory and severed it, and that corridor was the episode's subject. Both episodes rendered without error. Schema validation passed. Compliance gates passed. Regression tests passed. The defect was visible on the screen and nowhere else.</p>
+
+<p>This is the fourth attempt at an automatic detector for it, and the first three failed the same way. I've written about checks that go quiet before, each a different failure: <a href="https://hexisteme.github.io/notes/my-probe-passed-because-it-could-not-fail.html">a probe whose own prep procedure made a pass the only possible outcome, no matter what had happened to the file under test</a>; <a href="https://hexisteme.github.io/notes/checks-that-cannot-fire.html">a threshold written as an absolute constant, tuned to fixtures at one scale, silently disabled at another</a>; <a href="https://hexisteme.github.io/notes/your-checker-returned-zero-check-its-aperture.html">a checker whose zero, four separate times in one audit, meant "I didn't look there" rather than "nothing is there"</a>; <a href="https://hexisteme.github.io/notes/the-check-said-zero-overlaps-both-times.html">a check whose "zero overlaps" was right about a narrower question than the one I was asking</a>. This one is none of those four. Every attempt below ran, at full aperture, with a live path to failure — and still couldn't tell a broken frame from a clean one. What was missing wasn't a working check. It was a test for whether a check was working at all.</p>
+
+<h2>Three failures, one blind spot</h2>
+
+<p>I built and discarded three separate detectors before this one, and all three failed for the same underlying reason.</p>
+
+<p>The first checked a safe area: the four edge extremes of whatever sat at the frame's border. Both defects sit dead center, so the extremes never moved. For <code>siliguri</code>, the broken frame and the repaired frame produced identical edge extremes.</p>
+
+<p>The second counted a "focus-color run" around the label, tried under six different definitions of what a run is. Under every one, the real defect scored no higher than a clean episode: 26 against 27 under one definition, tied at 28 apiece under another, next to <code>lesotho</code>, a normal episode. All six definitions failed the same way.</p>
+
+<p>The third isolated the amber-colored label blob down to just its glyph. It separated seven samples cleanly. Checked retroactively against 27 published episodes, 10 of the 11 frames it flagged were false positives — 91%.</p>
+
+<p>All three inferred geometry from the color of an already-rendered PNG. The renderer, meanwhile, knew exactly what it had drawn and where, and threw that information away the moment the pixels hit disk. All three failures pointed at the same missing thing.</p>
+
+<h2>Teaching the renderer to keep a receipt</h2>
+
+<p>The fix wasn't a fourth color heuristic. I made the renderer log its own output. <code>src/shorts_factory/render_receipt.py</code> tags each matplotlib artist with <code>set_gid()</code> to record its role, then reads back the measured bounding box with <code>get_window_extent(renderer)</code> right after <code>savefig</code> and writes it to <code>render_geometry.json</code>.</p>
+
+<p>Two properties made this cheap to add. <code>set_gid</code> is read only by the SVG backend — the Agg backend that rasterizes the frame ignores it — so tagging is provably pixel-neutral: a test, <code>test_tagging_is_pixel_neutral_for_map_frames</code>, monkeypatches the tag call to a no-op and confirms the rendered sha256 still matches. And <code>savefig</code> has already done the drawing by the time the receipt gets collected, so reading the extent back costs nothing extra.</p>
+
+<p>The receipt only records the occluding side — chips, lines, cards. Map polygons don't get logged; one country can be tens of multipolygons across roughly a thousand frames, and the receipt would end up bigger than the video it documents. Instead it records camera state — <code>camera_bbox</code>, <code>axes_rect</code>, <code>highlight</code>, <code>geo</code> — precise enough to reproject the occluded side offline, since the projection is equirectangular — one linear formula.</p>
+
+<p>Overlap stopped being a heuristic at that point. It became arithmetic: does one bounding box intersect another.</p>
+
+<h3>Two traps that would have been quiet false negatives</h3>
+
+<p>Two matplotlib behaviors nearly undid this, both failing the same direction: evidence quietly missing, downstream code reading the absence as "no overlap."</p>
+
+<p>A <code>Collection</code> artist's <code>get_window_extent</code> returns <code>(inf, inf, -inf, -inf)</code> even after drawing, confirmed on matplotlib 3.11.1. Left alone, <code>ruler_ticks</code> (a <code>LineCollection</code>) and <code>density_dots</code> (a scatter) would silently drop out of every receipt — the exact false negative this module exists to prevent. The fix: <code>get_datalim(ax.transData)</code>, both corners transformed through <code>transData</code>, padded by marker radius (<code>√s / 2</code>, <code>s</code> in points squared).</p>
+
+<p>Axes built with <code>ax.inset_axes()</code> don't show up in <code>fig.axes</code> — they live in <code>ax.child_axes</code>. A Monte Carlo minimap's tagged elements were structurally uncollectable as a result: only 3 of its 4 <code>sim_particles</code> ever made it into a receipt. The fix makes the axis-walking function, <code>_iter_axes</code>, recurse into <code>child_axes</code>.</p>
+
+<p>I pinned both down with regression tests.</p>
+
+<h2>Measuring before wiring anything</h2>
+
+<p>The repository runs on a standing rule: measure retroactive false positives against published output before wiring anything into a gate — the rule that caught the third attempt's 91% false-positive rate, and the same discipline applied here.</p>
+
+<p>The instrument, <code>scripts/measure_render_occlusion.py</code>, defaults to exit code 0 — a verdict threshold activates only when explicitly requested — and it ran against all 25 published episodes.</p>
+
+<p>Re-rendering all 25 for that measurement would take 2.7 hours. Instead I built a probe mode, <code>geometry_probe_step</code>: it samples every N frames and writes nothing at all — no frame PNGs, no <code>render_events.json</code>, no receipt. Read-only is structural here, not a promise, so it can't touch published output no matter what it finds. Sampling every 1.0 seconds across 25 episodes took 12 minutes; a directory listing taken before and after confirmed nothing on disk had moved.</p>
+
+<h2>Two predicates, one split</h2>
+
+<p>Two detectors came out of the receipt data, and I didn't treat them the same way.</p>
+
+<p><code>instrument_swallowed</code> — the <code>chile</code>-type defect — fires when a tool line (ruler body, tick marks, leader line, path line, arrow) sits entirely inside an opaque chip with higher z-order. I didn't invent a threshold; it only counts a containment ratio of exactly 1.0.</p>
+
+<table>
+<thead><tr><th>Axis</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>Specificity (retroactive false positives)</td><td>0 across 25 published episodes</td></tr>
+<tr><td>Sensitivity (true defect)</td><td>Disabling the fix (<code>_ruler_label_offset_pt</code>) reproduces the defect episode: 8 firings (t=17.5s, <code>ruler_ticks</code> fully contained in <code>ruler_label</code> — "101 km" — covered=1.0). The repaired version: 0</td></tr>
+</tbody>
+</table>
+
+<p>I wired that into <code>compliance_gate.check_instrument_not_swallowed</code>.</p>
+
+<p><code>subject_severed</code> — the <code>siliguri</code>-type defect — measures the longest contiguous run of pixels in a row where an overlay chip cuts across the highlighted territory.</p>
+
+<table>
+<thead><tr><th>Chip role</th><th>Episodes it fires on / 25</th><th>Max run</th></tr></thead>
+<tbody>
+<tr><td><code>judgment_card</code></td><td>5</td><td>144px</td></tr>
+<tr><td><code>scene_label</code> (same role as the actual defect)</td><td>13</td><td>56px</td></tr>
+<tr><td><code>ruler_label</code></td><td>4</td><td>40px</td></tr>
+<tr><td><code>marker_label</code></td><td>4</td><td>36px</td></tr>
+</tbody>
+</table>
+
+<p>It fires on 18 of the 25 episodes. The top-level <code>judgment_card</code> is an outro card designed to cover the map, so its hits aren't defects — the count is real, the alarm isn't. Narrow to <code>scene_label</code>, the same role the actual defect used, and the top three episodes by run length are <code>southamerica-east</code>, <code>lesotho</code>, and <code>russia-nk</code>. All three are normal episodes, tied with the corridor defect itself at 56 pixels. There's no threshold that sits between them.</p>
+
+<p>I didn't wire that one anywhere. It stayed an instrument, not a gate.</p>
+
+<h2>The only test that tells a detector apart from a stub</h2>
+
+<p>Here's the part that generalizes past matplotlib and video frames. <code>instrument_swallowed</code>'s "0 false positives across 25 published episodes" is not, on its own, distinguishable from a function that always returns an empty list. Both produce the identical report: zero findings, every time. The only way to tell them apart is to check whether the detector can fire at all — hold out a sample labeled known-bad, not just a pile of presumed known-good ones, and confirm it fires.</p>
+
+<p>That's what the sensitivity row above really is. <code>_ruler_label_offset_pt</code> is the line of code that fixes the <code>chile</code> defect, so turning it off reproduces the defect exactly, on demand: eight firings with the fix removed, zero with it back in place. <code>instrument_swallowed</code> wasn't verified by its clean run against 25 real episodes. It was verified by being made to fail on purpose, and doing so.</p>
+
+<blockquote><p>Zero false positives is not evidence that a detector works. It's the score a detector that never fires gets for free. The only way to tell the two apart is a positive control: hold out a known-bad sample and confirm the detector actually fires on it.</p></blockquote>
+
+<p><code>subject_severed</code> never earned that kind of confirmation. The wall it hit is the same one the second, color-based attempt hit: whether a chip cutting 56 pixels off a territory is a defect depends on what the episode is arguing, not on the pixels. The identical run length is a defect in <code>siliguri</code> and completely normal in three others. Switching coordinate systems from color to exact geometry fixed <code>instrument_swallowed</code>'s precision problem — the false-positive rate that sank the third attempt. It did nothing for <code>subject_severed</code>, because what an episode is trying to say was never a precision problem.</p>
+
+<h2>An exemption rule worth keeping</h2>
+
+<p>One design choice here is worth keeping. The gate guarding <code>instrument_swallowed</code> passes automatically when <code>render_geometry.json</code> doesn't exist — renders made before the receipt system existed are supposed to lack one. That contrasts with a hardcoded list of episode names the same repository uses to exempt the <code>editor_note</code> evidence system, written the same day: a list has to be maintained by hand and can be forgotten after a snapshot, while re-rendering an old episode here turns the check back on with nothing to remember. A list is still the right call sometimes — file presence alone can't always tell missing evidence apart from the defect itself. Either way, the reason has to live in the code, not in memory.</p>
+
+<h2>What's still unsolved</h2>
+
+<p><code>siliguri</code>-type defects still aren't caught automatically. The current evidence guarantees a chip cut 56 pixels off a territory; it says nothing about whether those pixels were the point of the episode. That claim exists — in <code>script.yaml</code>'s <code>camera_bbox</code> and <code>emphasis</code> fields — but it never makes it into the rendered pixels or the receipt describing them. Closing that gap means putting what the script claims into the evidence itself — schema work, not instrument work, and it's next.</p>
+
+<p>Both predicates came from the same receipt data, the same week, checked against the same 25 episodes. One runs in the gate today. The other is still a script I run by hand, because it never earned the right to run unattended — and the only reason I know the difference is that I asked both to prove it, not just report it.</p>
+
+<h2>FAQ</h2>
+<h3>Why isn&#x27;t a zero false-positive rate enough to trust a detector?</h3>
+<p>Because a detector that never fires also scores zero false positives, and from the outside the two are indistinguishable. The only way to tell them apart is a positive control: reproduce a known defect and confirm the detector actually fires on it. Here, <code>instrument_swallowed</code> scored 0 false positives across 25 published episodes, but that number only became evidence once disabling the actual code fix reproduced the defect and the detector fired 8 times.</p>
+<h3>What&#x27;s the difference between the two predicates in this detector?</h3>
+<p><code>instrument_swallowed</code> asks a purely geometric question — is a line completely contained inside a chip — with one right answer regardless of context, so a containment ratio of 1.0 is enough. <code>subject_severed</code> asks whether a chip cut something the episode was specifically arguing about, which depends on the episode's content, not the pixels: the same 56-pixel cut was a defect in one episode and normal in three others.</p>
+<h3>Why wasn&#x27;t the second predicate wired into the gate if it caught the defect too?</h3>
+<p>It fired on 18 of 25 published episodes, including the real defect, but no threshold separated the defect from three completely normal episodes tied at the identical run length. A check that can't discriminate known-bad from known-good isn't ready to gate anything, no matter how often it fires.</p>
+<h3>Why not just keep improving the color-based heuristics?</h3>
+<p>Because three different color-based techniques — edge extremes, focus-color runs, an amber-blob classifier — all failed for the same underlying reason: they inferred geometry from an already-rendered PNG instead of using the geometry the renderer already knew. Once the renderer logged its own bounding boxes to a receipt file, overlap became an exact intersection check instead of a heuristic guess.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+<li><a href="./your-checker-returned-zero-check-its-aperture.html">Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</a></li>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
