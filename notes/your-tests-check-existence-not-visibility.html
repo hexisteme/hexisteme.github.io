@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Assert Counted 100 Dots. The Screen Showed Two. — hexisteme notes</title>
+<meta name="description" content="A statistics short&#x27;s scene code passed every automated check — count, constants, margins, exit code — and the render showed 2 of 100 dots. Closing the gap took two more rounds, including a pixel check that caught a real defect then passed a 10.5-second hole anyway.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Assert Counted 100 Dots. The Screen Showed Two.", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a Manim render that passed every automated assertion — count, constants, margins, exit code — showed only 2 of 100 dots on screen, and why the pixel-level check built to close that gap needed a second correction before it measured the right quantity.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What's the difference between a test that checks existence and one that checks visibility?", "acceptedAnswer": {"@type": "Answer", "text": "An existence check asks whether an object is in the scene graph — its coordinates, its count, its properties. A visibility check asks whether a human can actually perceive it in the rendered output. In this render, assert len(dots) == 100 and an assert_within_safe_margins check both passed, and only 2 of the 100 dots were actually identifiable on screen — the other 98 were painted the exact color of the band underneath them."}}, {"@type": "Question", "name": "Why did the safe-margins check pass when text was overlapping on screen?", "acceptedAnswer": {"@type": "Answer", "text": "The check does exactly what its name says — it verifies every element stays inside the frame boundary. It doesn't test whether two elements' bounding boxes intersect each other. In the same render, three text elements overlapped so badly the letters ran together, and the margin check passed in full, because overlap was never the property it measured."}}, {"@type": "Question", "name": "Does adding a pixel-level visual check fully close this gap?", "acceptedAnswer": {"@type": "Answer", "text": "Not by itself. A later check in the same pipeline opened rendered clips with ffmpeg and measured RGB standard deviation to catch near-monochrome frames, and it caught a real black-fade-in defect on first use. But the same check then passed a clip with a 10.5-second hole in it, because standard deviation measures contrast, not screen coverage, and a single white line on a black background raises variance while looking, to a human, like the emptiest frame in the episode."}}, {"@type": "Question", "name": "What's the actual fix, if more checks aren't enough?", "acceptedAnswer": {"@type": "Answer", "text": "Two things, in order. First, a human looks at the actual render before trusting any automated report — that step doesn't get replaced by more assertions. Second, whatever the human noticed gets encoded as an invariant that measures the same quantity the human judged. Here that meant deriving an occupancy threshold empirically — 98 samples split cleanly at 3.0% bright pixels — instead of reusing a contrast metric that couldn't see a mostly-empty, low-variance frame."}}, {"@type": "Question", "name": "Is this specific to Manim or 3D rendering pipelines?", "acceptedAnswer": {"@type": "Answer", "text": "No. It applies to any pipeline where an automated check reads a representation inside the pipeline — scene graph, log entry, DOM node, collected metric — while a human judges the artifact at the end of the pipeline: the rendered frame, the alert that fires, the screen-reader output, the dashboard panel. Logging, error handling, accessibility, documentation, and monitoring dashboards share the same shape: existence gets checked, visibility doesn't."}}]}
+</script>
+</head>
+<body>
+<h1>The Assert Counted 100 Dots. The Screen Showed Two.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">A 45-second statistics short had one success criterion: countable on screen. The delegated scene came back with all 9 constants verified, <code>assert len(dots) == 100</code> passing, 18/18 margin checks green, and zero crashes — and the render showed exactly 2 of 100 dots, because every dot was painted the same color as the band it sat on. Every check had asked whether something existed; none had asked whether it was visible. The pixel-level check built afterward to close that gap caught a real defect on first use, then passed a clip with a 10.5-second hole in it, because it measured contrast instead of the screen coverage a human actually judges.</div>
+
+<p>I had one requirement for a 45-second statistics short about the inspection paradox: everything the episode claimed had to be countable on screen. The claim was a bus schedule with gaps of 2, 2, 2, 2, and 12 minutes — the 12-minute gap alone is 60% of the full 20-minute cycle, so a passenger arriving at a random moment lands inside it 60% of the time. The proof, visually, was 100 dots for 100 passengers, 60 of them sitting on the long gap.</p>
+
+<p>I delegated the scene code to a subagent. It came back green on every check I had, and the rendered frames showed nothing to count.</p>
+
+<h2>Every gate came back green</h2>
+
+<p>The report listed, truthfully:</p>
+
+<ul><li><code>[VERIFIED]</code> on all 9 constants — <code>samples_per_gap=(10,10,10,10,60)</code> asserted at import time as computed, not hardcoded (10 per short gap, 60 on the long one)</li><li><code>assert len(dots) == 100</code>, passing</li><li><code>[SAFE-MARGIN OK]</code> 18/18 — the worker added the left/right check itself, catching 3 real overflow bugs that had been shipping silently</li><li>zero errors, warnings, tracebacks</li><li>exact fraction arithmetic (<code>Fraction</code>) so gap-boundary timestamps couldn't misclassify on floating-point rounding</li></ul>
+
+<p>Every line was true. I opened the frame: of the 100 dots the assertion confirmed existed, 2 were actually identifiable. The other 98 did nothing a viewer could see.</p>
+
+<h3>The bug was one line</h3>
+
+<pre><code>color = LONG_AMBER if idx == LONG_IDX else SHORT_GRAY
+dot   = Dot(point=pt(time_to_x(t_minutes), TIMELINE_Y), radius=0.045, color=color)</code></pre>
+
+<p>Every dot was painted the same color as the band it sat on, at <code>TIMELINE_Y</code> — dead center of that band. Amber dot on an amber band, gray on gray.</p>
+
+<p>All 100 were exactly where they belonged: right count, right coordinates, right color rule — long gap amber, short gaps gray, exactly as designed. Every one was rendered, with total precision, in camouflage. The 2 that survived straddled a color boundary, where the background under them changed.</p>
+
+<h2>What each gate actually asked</h2>
+
+<table>
+<thead><tr><th>Check</th><th>What it asked</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td><code>assert len(dots) == 100</code></td><td>Does it exist</td><td>Pass</td></tr>
+<tr><td><code>samples_per_gap</code> constant assert</td><td>Is the value correct</td><td>Pass</td></tr>
+<tr><td><code>assert_within_safe_margins</code></td><td>Is it inside the frame</td><td>Pass</td></tr>
+<tr><td>Renderer exit code</td><td>Did it crash</td><td>Pass</td></tr>
+<tr><td>Code review</td><td>Is the logic correct</td><td>Pass</td></tr>
+<tr><td>A human looks at the frame</td><td>Can you see it</td><td>Fail</td></tr>
+</tbody>
+</table>
+
+<p>Five of six gates were green, and none of the five had asked whether anything was visible — they couldn't. Every one inspects the <strong>scene graph</strong>: does the object exist, where are its coordinates. The defect lived in the <strong>rendered pixels</strong>, one transformation downstream of all five.</p>
+
+<p><code>assert_within_safe_margins</code> is worth a closer look — a genuinely good check that caught 3 real bugs. But its name promises "stays inside the margin," and a passing report reads it as "laid out correctly." The bug lived in that gap. Elsewhere in the same render, three text elements overlapped until letters ran together, and the margin check passed in full — it was never built to check whether two elements' boxes intersect, only their distance from the frame's edge.</p>
+
+<h2>Once is an accident, twice is a pattern</h2>
+
+<p>This was the second time this shape showed up in the same project.</p>
+
+<p>The first, on 2026-08-23, was a generated video shot meant to show dice pips. The generator couldn't control how many pips it drew, so the contract got rewritten to ask for a blank face instead — and QC scored the blank output as a pass. The episode's claim was about pip counts; the screen showed none. The checker asked "does this match the contract" — the contract had already quietly dropped what the episode was supposed to prove.</p>
+
+<p>Different surface — one contract abandoned its subject, one render hid it — same structure: <strong>the question a checker asks and the proposition that has to be true for the artifact to hold are two different questions.</strong></p>
+
+<p>The defense built afterward, <code>serves_line</code>, makes a shot's contract declare which sentence it enacts, and throws at load time if the contract bans that sentence's core nouns — two deterministic rules, no LLM call. It blocks an exact repeat of incident one. <strong>It did not block this one</strong> — sentence and contract agreed completely; the defect was one layer further down, where <code>serves_line</code> has no visibility.</p>
+
+<p>Push a defense down one layer, and the next defect moves down with it.</p>
+
+<h2>Watch first, then encode what you watched</h2>
+
+<p>The fix isn't "add more checks" — another check at the same layer reproduces the same blind spot one layer lower. Order matters:</p>
+
+<p><strong>A human looks first.</strong> A green report doesn't substitute for opening the render — that gap only closes when someone who knows it exists looks, once, at the actual output.</p>
+
+<p><strong>Then what got seen becomes an invariant</strong> — observation first, automation second. Two got planted here:</p>
+
+<ul><li>A <strong>contrast invariant</strong>: every dot's color must differ from whatever it sits on — band fill on a band, background on the background. An uncountable count isn't a count.</li><li>An <strong>overlap invariant</strong>: <code>assert_no_overlap(a, b)</code>, forbidding bounding-box intersection between text elements sharing the screen. The margin check only ever looked at the frame's boundary, never elements against each other.</li></ul>
+
+<p><strong>And doubt how much a checker's name promises.</strong> <code>assert_within_safe_margins</code> is honest — it says exactly what it checks. The failure was reading "passes the margin check" as "laid out correctly." A green light isn't evidence until you've confirmed its scope.</p>
+
+<h2>Where the same gap hides off-screen</h2>
+
+<p>Manim is the domain here, but the shape isn't specific to it — it shows up in any pipeline emitting a visual artifact: chart, PDF report, UI screenshot, game frame, dataviz panel.</p>
+
+<p>It shows up outside rendering too:</p>
+
+<ul><li><strong>Logs/alerts</strong> — event recorded, not whether a human receives it. An alarm that's always ringing is no alarm.</li><li><strong>Error handling</strong> — exception caught, not whether it's visible to the user after. A swallowed exception leaves a passing test.</li><li><strong>Accessibility</strong> — element in the DOM, not contrast ratio or screen-reader order. This bug is a literal 1:1 contrast accident.</li><li><strong>Documentation</strong> — section exists, not whether it's findable.</li><li><strong>Monitoring dashboards</strong> — metric collected, not rendered on the panel.</li></ul>
+
+<p>Automated checks read the representation <em>inside</em> the pipeline; a human reads the artifact at its <em>end</em>. Any transformation between the two stays unchecked.</p>
+
+<h2>Hours later, my own caveat stopped being true</h2>
+
+<p>I'd written down a condition that would prove "human looks first" wrong: a cheap automated check that inspects the rendered artifact itself and catches this class ahead of a human. I noted, honestly, that I hadn't tried one.</p>
+
+<p>That stopped being true within hours. The same afternoon, wiring a new scene type that ingests externally rendered clips, I added a publish-gate check that opens the clip's hook frame with <code>ffmpeg</code>, measures RGB stddev and unique-color count, and fails near-monochrome frames. Not scene-graph — rendered pixels.</p>
+
+<p>It caught a real defect on first use:</p>
+
+<pre><code>t= 0.00s  stddev=   0.000  unique_colors=     1   &lt;- pure black
+t= 0.25s  stddev=   7.674  unique_colors=    17
+t= 1.00s  stddev=  13.915  unique_colors=   136</code></pre>
+
+<p>The scene was fading in from black — in a short-form feed the hook frame is where a scroll stops, so this was real, and the machine caught it before I saw the frame myself.</p>
+
+<p>Did that flip the lesson? No — it made it more precise. <strong>That check exists because of the dot-camouflage incident.</strong> I'd specified that this scene type's hook check shouldn't auto-pass like the others — it had to grab a real frame and measure it. Without that instruction, a bare <code>pass: True</code> would have gone there instead, as it did for the sibling type next to it. Watching first produced the invariant, and the invariant caught the next instance before I did.</p>
+
+<h2>Then it passed a 10.5-second hole anyway</h2>
+
+<p>Later that afternoon, the hook check failed a clip, the worker fixed it, and the check passed — and the clip that had just passed still had 4.5 seconds of blackout in it. A separate re-measurement of the copy actually live in the episode found something worse: 10.5 continuous seconds empty, 0.25s to 10.25s. The hook check had caught only the leading edge of a longer hole. It touched the mouth, never the hole.</p>
+
+<p>The third incident landed at the exact layer where the invariant lived.</p>
+
+<p>The location was right — open the pixels, don't trust the scene graph. What was wrong was <strong>what got measured.</strong> A human judges occupancy: how much of the screen is filled. The check measured contrast: is the frame monochrome. They don't move together — one white line on a black background looks, to a human, about as empty as a frame gets, while variance goes <em>up</em>.</p>
+
+<p>Two counterexamples from the clip make it concrete (1080×1920 @ 30fps, 98 samples):</p>
+
+<table>
+<thead><tr><th>Time</th><th>What a human sees</th><th>stddev</th><th>Unique colors</th><th>Bright pixels</th><th>Existing check</th></tr></thead>
+<tbody>
+<tr><td>t=8.0s</td><td>Just one horizontal line</td><td>17.838</td><td>1258</td><td>0.613%</td><td>Pass</td></tr>
+<tr><td>t=45.5s</td><td>Completely black screen</td><td>2.648</td><td>22</td><td>0.000%</td><td>Pass</td></tr>
+</tbody>
+</table>
+
+<p>The second row is the whole problem: a frame with <strong>zero bright pixels</strong> slides under <code>stddev &lt;= 2.0</code> because compression noise alone nudges variance up. Denser sampling doesn't fix a wrong ruler.</p>
+
+<p>The replacement metric came from the same 98 samples, empirically: 18 dead samples topped out at 2.766% bright pixels, 80 live samples started at 3.174%, nothing in between — threshold set at 3.0%, inside that gap.</p>
+
+<p>Still a check built from one clip. No evidence the split holds on other scenes; 3.0% is what separates two groups in this sample, not a validated constant.</p>
+
+<h2>What actually held</h2>
+
+<p>For the camouflaged dots and the 10.5-second hole, what finally caught the defect was a human looking at an actual frame; the blank dice faces sailed through QC the same way. Automation helped: the hook check does catch the one property it was built for. But the order needs one more clause:</p>
+
+<p><strong>An invariant has to measure the same quantity a human actually judged, not a proxy that happened to agree on the frames already seen.</strong> A check on the wrong quantity is worse than no check — "no check" is visible, and a green light on a wrong quantity isn't.</p>
+
+<p>This isn't the only way "checks passed" and "visible" come apart in a render pipeline. A few near neighbors, same family of bug: <a href="https://hexisteme.github.io/notes/ai-cant-see-what-it-drew.html">The AI Can't See What It Drew</a> is about an agent with no way to look at the image it just produced; <a href="https://hexisteme.github.io/notes/measuring-uppercase-when-render-draws-mixed-case.html">my caption-width guard</a> measured a text property the renderer never produced; <a href="https://hexisteme.github.io/notes/imshow-aspect-collapsed-the-canvas.html">a collapsed canvas</a> traced dead space back to one rendering parameter reshaping the frame. This one sits on a different axis: the check and I looked at the same rendered artifact and asked two different questions of it. Existence and visibility are separate predicates over the same thing, and passing one tells you nothing about the other.</p>
+
+<p>Three incidents in, the checks keep getting sharper about the thing that just bit me. None can tell me, in advance, which quantity I'll measure wrong next — that still needs a person looking at a frame.</p>
+
+<h2>FAQ</h2>
+<h3>What&#x27;s the difference between a test that checks existence and one that checks visibility?</h3>
+<p>An existence check asks whether an object is in the scene graph — its coordinates, its count, its properties. A visibility check asks whether a human can actually perceive it in the rendered output. In this render, <code>assert len(dots) == 100</code> and an <code>assert_within_safe_margins</code> check both passed, and only 2 of the 100 dots were actually identifiable on screen — the other 98 were painted the exact color of the band underneath them.</p>
+<h3>Why did the safe-margins check pass when text was overlapping on screen?</h3>
+<p>The check does exactly what its name says — it verifies every element stays inside the frame boundary. It doesn't test whether two elements' bounding boxes intersect each other. In the same render, three text elements overlapped so badly the letters ran together, and the margin check passed in full, because overlap was never the property it measured.</p>
+<h3>Does adding a pixel-level visual check fully close this gap?</h3>
+<p>Not by itself. A later check in the same pipeline opened rendered clips with <code>ffmpeg</code> and measured RGB standard deviation to catch near-monochrome frames, and it caught a real black-fade-in defect on first use. But the same check then passed a clip with a 10.5-second hole in it, because standard deviation measures contrast, not screen coverage, and a single white line on a black background raises variance while looking, to a human, like the emptiest frame in the episode.</p>
+<h3>What&#x27;s the actual fix, if more checks aren&#x27;t enough?</h3>
+<p>Two things, in order. First, a human looks at the actual render before trusting any automated report — that step doesn't get replaced by more assertions. Second, whatever the human noticed gets encoded as an invariant that measures the same quantity the human judged. Here that meant deriving an occupancy threshold empirically — 98 samples split cleanly at 3.0% bright pixels — instead of reusing a contrast metric that couldn't see a mostly-empty, low-variance frame.</p>
+<h3>Is this specific to Manim or 3D rendering pipelines?</h3>
+<p>No. It applies to any pipeline where an automated check reads a representation inside the pipeline — scene graph, log entry, DOM node, collected metric — while a human judges the artifact at the end of the pipeline: the rendered frame, the alert that fires, the screen-reader output, the dashboard panel. Logging, error handling, accessibility, documentation, and monitoring dashboards share the same shape: existence gets checked, visibility doesn't.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./ai-cant-see-what-it-drew.html">The AI Can&#x27;t See What It Drew</a></li>
+<li><a href="./measuring-uppercase-when-render-draws-mixed-case.html">My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</a></li>
+<li><a href="./imshow-aspect-collapsed-the-canvas.html">The Dead Space Wasn&#x27;t a Config Miss — imshow Was Silently Reshaping the Axes</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
