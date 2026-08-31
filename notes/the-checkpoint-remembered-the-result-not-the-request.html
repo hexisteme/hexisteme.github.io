@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Checkpoint Remembered the Result, Not the Request — hexisteme notes</title>
+<meta name="description" content="A checkpoint-before-verify fix correctly recorded a video ID the moment it came back, but the resume path re-derived what counted as correct from today&#x27;s CLI flags and config instead of the request the checkpoint had actually recorded — and a clean resume set off a false &quot;downgrade detected&quot; alarm.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Checkpoint Remembered the Result, Not the Request", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A checkpoint that records only the result of an attempt, not the request it was made under, cannot correctly judge a resume — because correctness is always defined relative to the original request, not to whatever the current configuration says.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a correct fix (checkpoint before verify) still fail on resume?", "acceptedAnswer": {"@type": "Answer", "text": "The checkpoint recorded the result — video_id, privacy_status: public, verified: false — but the resume path never read the recorded privacy_status back. It re-derived what counted as correct from the current CLI flags and the config.yaml default (unlisted) instead of the value the original request had actually used (public), so a clean resume triggered a false downgrade alarm."}}, {"@type": "Question", "name": "What is \"downgrade detected\" and why was it a false positive here?", "acceptedAnswer": {"@type": "Answer", "text": "It's the most serious alarm this upload stage can raise — it fires when the platform's actual visibility doesn't match what was requested, meaning YouTube silently made a video more private than asked. In this case nothing had happened: the video was exactly public, as requested. The alarm fired because the resume path compared reality against the wrong expectation, not because anything had actually changed."}}, {"@type": "Question", "name": "Why didn't the existing tests catch this?", "acceptedAnswer": {"@type": "Answer", "text": "There was a test for the resume path, but it called the first and second run with the same config. When configuration doesn't change between runs, it doesn't matter whether the code reads the checkpoint or reads \"now\" — both give the same answer. The bug only appears when the two runs' configs disagree, which the test never tried."}}, {"@type": "Question", "name": "What was the actual fix?", "acceptedAnswer": {"@type": "Answer", "text": "On resume, the verification target is overwritten with the checkpoint's recorded values — privacy_status, title, tags, category_id, made_for_kids, video_language — instead of being recomputed from current CLI flags and config. The regression test deliberately mismatches the two runs' configs (upload as public, then resume with no flag so the default unlisted is in play) and pins that mismatch with an explicit assertion, so the test can't silently drift back into blindness."}}, {"@type": "Question", "name": "Does this generalize beyond video uploads?", "acceptedAnswer": {"@type": "Answer", "text": "Yes — anywhere a checkpoint exists. A payment idempotency key that stores only the key, not the amount or currency, ends up comparing a retry against whatever the cart holds now. Infra provisioning that records only the instance ID, not the requested spec, reports \"drift\" against whatever the current Terraform files say. A deploy retry without a recorded target version re-reads whatever HEAD happens to be when it wakes back up."}}]}
+</script>
+</head>
+<body>
+<h1>The Checkpoint Remembered the Result, Not the Request</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">A checkpoint-before-verify fix correctly wrote <code>verified: false</code> and the video ID to disk the moment upload succeeded, so a failed verification could resume instead of re-uploading. It then fired for real — and the resume raised a false "downgrade detected" alarm, because it re-derived the verification target from today's CLI flags and config instead of reading the request the checkpoint had already recorded.</div>
+
+<p>A few days before this, I'd fixed a bug in the same YouTube upload stage of my pipeline: the local record marking an episode as uploaded was written only after verification succeeded, so a verification failure left the video live on YouTube with nothing on disk that knew about it — and re-running the command would have uploaded it a second time. I wrote about that separately in <a href="https://hexisteme.github.io/notes/the-upload-succeeded-the-record-did-not.html">The Upload Succeeded, the Record Did Not</a>; the fix was to move the checkpoint earlier, writing the video ID to disk the instant it came back — marked <code>verified: false</code> — so a resume would finish the verification instead of re-uploading.</p>
+
+<p>That design was correct. It also got exercised for real, on a live publish run — and the resume failed anyway.</p>
+
+<h2>The incident</h2>
+
+<p>I was publishing five episodes as public. One of them failed verification. The cause was mundane: right after upload, re-querying the video through <code>videos.list</code> hits eventual consistency — <code>snippet.tags</code> can read back empty for a moment — and it didn't propagate within the retry budget (5 attempts at 5 seconds each, 25 seconds total). This is exactly the situation the earlier fix was built for. The checkpoint was written as designed:</p>
+
+<pre><code>{ &quot;video_id&quot;: &quot;fzxvS2S3I7I&quot;, &quot;privacy_status&quot;: &quot;public&quot;, &quot;verified&quot;: false }</code></pre>
+
+<p>I re-ran the command to resume. I didn't pass the visibility flag this time — it's a resume, why would I need to:</p>
+
+<pre><code>$ agent-youtube upload --episode EP-...-bolivia-navy
+Upload verification failed (downgrade detected): requested privacyStatus=&#x27;unlisted&#x27; but actual is &#x27;public&#x27;.</code></pre>
+
+<p>"Downgrade detected" is about the most serious alarm this stage can raise — it means the platform silently overrode what I asked for and made the video more private than intended. Except nothing had happened. The video was exactly public, exactly as requested. The alarm was wrong.</p>
+
+<h2>A false alarm, not a real one</h2>
+
+<p>The resume path had re-derived what "correct" means from the current moment instead of from the checkpoint. The requested value — <code>public</code> — was sitting right there in <code>upload.json</code>. The code didn't read it. It recomputed the expected value from the current CLI flags and the <code>config.yaml</code> default, which is <code>unlisted</code>. The first run had passed <code>--status public</code>; the resume run hadn't, because a resume isn't supposed to need it. Same video, same code, a different yardstick.</p>
+
+<h2>Why this one was hard to catch</h2>
+
+<p><strong>First, the symptom doesn't look different from a real alarm.</strong> "Downgrade detected" is the heaviest signal this stage can raise, and a false positive breaks two things at once: it blocks a perfectly good resume, and it trains you to shrug off the next real downgrade as "probably that same false alarm again." An alarm that cries wolf is worse than no alarm at all.</p>
+
+<p><strong>Second, it can't reproduce on the first run.</strong> When the request and the verification live inside the same process, they read the same variables — there's nothing to diverge. The mismatch only exists on the resume path, and the resume path only runs after something else has already failed. This bug needs a different bug to fire first before it can even show up.</p>
+
+<p><strong>Third, the tests were green.</strong> There was a test for exactly this case — if a checkpoint exists, does re-running resume verification instead of re-uploading? That test called the first and second run with the same config. When the config doesn't change, it doesn't matter where the yardstick comes from; the checkpoint and "now" already agree, so the result is identical either way. The test confirmed that resume runs. It never asked what resume uses to judge.</p>
+
+<h2>The fix: pin the request, not just the result</h2>
+
+<p>On resume, the verification target now gets overwritten with what the checkpoint recorded — <code>privacy_status</code>, <code>title</code>, <code>tags</code>, <code>category_id</code>, <code>made_for_kids</code>, <code>video_language</code> — instead of being re-derived from whatever the CLI flags and config happen to say today.</p>
+
+<p>The regression test had to be built to deliberately disagree with itself: upload as <code>public</code> to force the original failure, then resume with no flags at all — meaning the config default of <code>unlisted</code> is now in play — and it still has to pass. A test that hands the same config to both runs is structurally incapable of catching this, so I pinned the mismatch into the test itself: <code>assert config["default_status"] != "public"</code>. I also removed the fix to confirm the test goes red without it.</p>
+
+<h2>What generalizes</h2>
+
+<p>A checkpoint has to hold not just what happened, but what was asked for.</p>
+
+<p>The earlier fix established that the moment you receive an identifier is the moment you record it. This is the layer on top of that one: a record holding only the identifier can't later tell you whether the thing it points at is <em>correct</em>, because correctness is only ever defined relative to the request. A result-only checkpoint makes resume half-possible — you know what got built, not whether it's what you meant to build.</p>
+
+<p>The moment a resume path goes back to current config to fill that gap, it starts judging a past result by today's rules. Anything that shifts in between — a flag you didn't think to repeat, a config default someone changed, a deploy that landed while the job was sitting there — turns a perfectly fine piece of work into a reported failure. The gap between two runs isn't a precondition your resume logic gets to assume away. It's a variable.</p>
+
+<p>The same shape shows up anywhere a checkpoint exists:</p>
+
+<ul><li>A payment idempotency key that stores only the key, not the amount or currency, ends up comparing a retry against whatever the cart holds <em>now</em>. If the cart changed in between, the comparison means nothing.</li><li>Infra provisioning that records only the instance ID, not the requested spec, has its resume report "drift" against whatever the current Terraform files say — not against what was actually asked for the first time.</li><li>A deploy retry that never recorded the target version re-reads whatever HEAD happens to be when it wakes back up.</li></ul>
+
+<p>One question covers all of it: of the values this resume path reads, which ones could have changed since the first attempt? Anything that can belongs in the checkpoint, not in "look it up again." And the only way to test for it is to deliberately make the first attempt and the resume disagree on purpose — a test that calls both with identical conditions is structurally blind to this exact defect.</p>
+
+<h2>FAQ</h2>
+<h3>Why did a correct fix (checkpoint before verify) still fail on resume?</h3>
+<p>The checkpoint recorded the result — video_id, privacy_status: public, verified: false — but the resume path never read the recorded privacy_status back. It re-derived what counted as correct from the current CLI flags and the config.yaml default (unlisted) instead of the value the original request had actually used (public), so a clean resume triggered a false downgrade alarm.</p>
+<h3>What is &quot;downgrade detected&quot; and why was it a false positive here?</h3>
+<p>It's the most serious alarm this upload stage can raise — it fires when the platform's actual visibility doesn't match what was requested, meaning YouTube silently made a video more private than asked. In this case nothing had happened: the video was exactly public, as requested. The alarm fired because the resume path compared reality against the wrong expectation, not because anything had actually changed.</p>
+<h3>Why didn&#x27;t the existing tests catch this?</h3>
+<p>There was a test for the resume path, but it called the first and second run with the same config. When configuration doesn't change between runs, it doesn't matter whether the code reads the checkpoint or reads "now" — both give the same answer. The bug only appears when the two runs' configs disagree, which the test never tried.</p>
+<h3>What was the actual fix?</h3>
+<p>On resume, the verification target is overwritten with the checkpoint's recorded values — privacy_status, title, tags, category_id, made_for_kids, video_language — instead of being recomputed from current CLI flags and config. The regression test deliberately mismatches the two runs' configs (upload as public, then resume with no flag so the default unlisted is in play) and pins that mismatch with an explicit assertion, so the test can't silently drift back into blindness.</p>
+<h3>Does this generalize beyond video uploads?</h3>
+<p>Yes — anywhere a checkpoint exists. A payment idempotency key that stores only the key, not the amount or currency, ends up comparing a retry against whatever the cart holds now. Infra provisioning that records only the instance ID, not the requested spec, reports "drift" against whatever the current Terraform files say. A deploy retry without a recorded target version re-reads whatever HEAD happens to be when it wakes back up.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-upload-succeeded-the-record-did-not.html">The Upload Succeeded, the Record Did Not</a></li>
+<li><a href="./status-column-nobody-advances.html">Our Status Column Said 30 Waiting. Six Were.</a></li>
+<li><a href="./the-fix-was-committed-the-old-value-kept-running.html">The Fix Was Committed. The Old Value Kept Running.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
