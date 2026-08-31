@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>When You Delete a Rule, Hunt the Tests That Went Quiet — hexisteme notes</title>
+<meta name="description" content="I deleted a validation rule that had never once been right, and twenty tests turned red — that part was bookkeeping. The four tests that stayed green were the ones that had quietly stopped testing anything at all.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "When You Delete a Rule, Hunt the Tests That Went Quiet", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Auditing the tests that stay green after a validation rule is deleted, so a passing assertion does not quietly turn into a tautology.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What makes a green test \"vacuous\" after you delete the rule it depended on?", "acceptedAnswer": {"@type": "Answer", "text": "The test's fixture was chosen specifically because it triggered the rule you just removed. Once the rule is gone, that input triggers nothing, so an assertion like \"conflicts == []\" is still syntactically true — it just compares two empty results instead of proving an exemption or a conflict actually fired. The test keeps passing for a reason that has nothing to do with the behavior its name describes."}}, {"@type": "Question", "name": "How do you find tests that went vacuous after a deletion, instead of trusting the test runner's summary?", "acceptedAnswer": {"@type": "Answer", "text": "Grep every use of any fixture the deleted rule depended on, then open all of them — the ones that just went red included, not only the ones still passing. For each one, ask a single question: does this input still trigger anything? If the answer is no, the test is asserting a tautology and needs a fixture that exercises a rule that's still alive. The audit is mechanical and takes minutes; the effort is in deciding to run it on files the runner already called fine."}}, {"@type": "Question", "name": "Why were the twenty red tests less dangerous than the four that stayed green?", "acceptedAnswer": {"@type": "Answer", "text": "A red test tells you, immediately and specifically, what it's coupled to — you cannot ship past it without looking at it. A test that goes quiet gives you no signal at all: it reports the same green it always has, so nothing in the toolchain distinguishes \"still verifying the feature\" from \"comparing two empty lists.\" The failure mode isn't the assertion being wrong; it's the assertion becoming irrelevant while looking unchanged."}}, {"@type": "Question", "name": "How is this different from a test being green because the feature was never wired into production?", "acceptedAnswer": {"@type": "Answer", "text": "A wiring gap means the tested code path is unreachable from production — the function works in isolation but nothing live ever calls it. A vacuous-green test is reachable and does run; the code under test executes every time. What's gone is the ability of its input to provoke the behavior being asserted, because a rule the input relied on was deleted out from under it. One is a reachability problem, the other is a semantic one."}}, {"@type": "Question", "name": "Why check the domain spec before empirically testing a rule you suspect is wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Empirical falsification works but can cost real effort — prototypes, sweeps across real data, a false-positive tally. In this case that whole process converged on exactly the answer a domain glossary had stated the entire time: the hard-failure rule only covers a core noun, and numerals were never part of the specification. Reading the spec first would have found the same defect for the cost of opening one file."}}]}
+</script>
+</head>
+<body>
+<h1>When You Delete a Rule, Hunt the Tests That Went Quiet</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">I deleted a validation rule whose second clause was a category error — narration lives in the ears, <code>must_not_have</code> governs the screen — and against real contracts it had fired eight times and been wrong all eight. Twenty tests went red and got fixed as bookkeeping. Four tests stayed green, and all four had quietly stopped asserting anything: their fixtures no longer triggered the rule they were named after, so the checks had collapsed into comparisons like <code>[] == []</code>.</div>
+
+<p>I deleted a validation rule from a video pipeline that had never once been right. Twenty tests turned red immediately, and fixing them was mechanical — one assertion at a time. Then I went looking for the tests that hadn't turned red, and found four that had quietly stopped testing anything at all.</p>
+
+<p>The twenty red tests were the safe ones. Failing loudly, they told me exactly what they were coupled to. The four quiet ones told me nothing — they just kept passing, for reasons that had stopped having anything to do with the feature they were named after.</p>
+
+<h2>The rule I deleted</h2>
+
+<p>The pipeline builds video shots. Each shot carries a contract: a <code>must_have</code> list, a <code>must_not_have</code> list, and <code>serves_line</code> — the sentence of narration the shot exists to depict. One validation rule checked a shot's contract against itself, and it had two clauses.</p>
+
+<p>The first was lexical: if the narration and a forbidden item share a content word — the line says "three doors," the contract forbids <code>"doors"</code> — nothing can legally be drawn, so it's a hard failure. Reasonable.</p>
+
+<p>The second banned numeral class: if a forbidden item rules out numeric notation (<code>number</code>, <code>digit</code>, <code>numeral</code>) and the narration states a number, that also counted as a conflict.</p>
+
+<p>The second clause was a category error. <code>serves_line</code> is narration — it goes in your ears. <code>must_not_have</code> governs what's on screen — it goes in your eyes. A shot can say "twenty thousand games" out loud while drawing no digits at all; that isn't a contradiction, it's just house style. Run against real contracts, this clause fired eight times. It was wrong eight times.</p>
+
+<p>So I deleted it. That part really was easy.</p>
+
+<h2>Twenty red tests, and the four that weren't</h2>
+
+<p>The twenty failures were exactly what you'd expect from removing a rule: assertions that a numeral-only input produces a conflict, now producing none. Delete the assertion, rewrite it against the clause that survived, move on. Bookkeeping.</p>
+
+<p>But a deleted rule doesn't only break the tests that assert on it directly. It rewrites the <em>meaning</em> of every fixture that was chosen because it happened to trigger that rule — without touching the fixture's type, shape, or name. Nothing in the toolchain reports this. The test still runs. It still passes. It has simply stopped measuring anything.</p>
+
+<p>I had a module-level constant holding a real narration line whose only conflict ran through the deleted clause. Four tests were built on it:</p>
+
+<pre><code># &quot;declaring metaphor exempts the conflicts&quot;
+conflicts = find_conflicts(LINE, FORBIDDEN, relation=&quot;metaphor&quot;)
+assert conflicts == []</code></pre>
+
+<p>That test passed before the deletion and passed after it, and the two green checkmarks meant opposite things. Before, it proved the metaphor exemption actually suppressed a real conflict. After, there was no conflict left to exempt — the assertion had quietly become <code>[] == []</code>. It was green because the input had gone inert, not because the exemption still worked.</p>
+
+<p>The same rot had reached three more:</p>
+
+<ul><li>A test asserting that omitting the <code>relation</code> argument behaves like <code>literal</code> — it was comparing two empty lists.</li><li>A test asserting that the exemption preview stays empty unless the relation is <code>metaphor</code> — it was empty for every relation, <code>metaphor</code> included, so the boundary the test was named for no longer existed.</li><li>An integration test asserting that a <code>literal</code> contract still hard-fails. This one <em>did</em> go red, with <code>DID NOT RAISE</code> — and it's the only reason I opened this group of tests at all.</li></ul>
+
+<p>Three of the four would have sat there passing indefinitely, reading as coverage, in a file that no longer tested the thing its name promised.</p>
+
+<h2>How to hunt them</h2>
+
+<p>The audit itself is mechanical, and took about five minutes once I knew to run it:</p>
+
+<ul><li>Grep every use of any fixture the deleted rule depended on.</li><li>Open all of them — the ones that just went red included, not only the survivors.</li><li>For each one, ask a single question: does this input still trigger anything? If the answer is no, the test is asserting a tautology.</li><li>Replace the fixture with one that exercises the rule that's still alive.</li></ul>
+
+<p>The second step is the one that takes deliberate effort, because the test runner has already told you those files are fine. You're not chasing a failure. You're second-guessing a pass.</p>
+
+<h2>Two more things the deletion taught me</h2>
+
+<p><strong>Check the spec before you check reality.</strong> I'd falsified the numeral clause empirically — prototypes, sweeps across real contracts, a false-positive tally that came out eight for eight. Only afterward did I read the domain glossary, which had defined the hard-failure rule the whole time as "<code>must_not_have</code> forbids a core noun of <code>serves_line</code>." A core noun. Numerals were never in the specification. The clause was an expansion nobody had asked for, and the cheapest possible refutation had been sitting in a glossary file the entire time.</p>
+
+<p><strong>Measure the replacement before you ship it.</strong> My own earlier notes had proposed where the true positives really lived: contradictions <em>between</em> <code>must_have</code> and <code>must_not_have</code> on the same shot. It sounded right, so I prototyped it and ran it across the real corpus. Four firings, all four false positives. The two lists routinely describe the same subject from opposite sides by design — <code>must_have: "the door remaining closed"</code> and <code>must_not_have: "door fully opening"</code> share the word <code>door</code> while fully agreeing with each other. Plain word overlap can't tell contradiction from paraphrase. So I deleted a rule and shipped no replacement for it, and wrote down why, so the next person doesn't rebuild it.</p>
+
+<h2>The general shape</h2>
+
+<p>Deleting code silently rewrites the semantics of the data your tests feed it. A test suite only measures what its inputs manage to provoke, and removing a rule can leave an input provoking nothing at all, while every signature — the fixture's type, shape, and name — stays exactly as valid-looking as before.</p>
+
+<p>So the completion criterion for a deletion isn't "the suite is green." It's narrower:</p>
+
+<blockquote><p>For every test that touched the deleted rule, does its input still reach live code?</p></blockquote>
+
+<p>A red test is a question the suite is asking you. A test that went quiet is one that stopped asking — and silence reads exactly like success.</p>
+
+<h3>Three related traps, and how this one differs</h3>
+
+<p>This isn't the only way a green suite has lied to me, and it's worth being precise about which failure this is:</p>
+
+<ul><li><a href="https://hexisteme.github.io/notes/green-tests-prove-behavior-not-reachability.html">Green tests prove behavior, not reachability</a> is about whether production ever calls the code under test at all — these four tests were reachable and ran fine, it was the assertions inside them that had gone hollow.</li><li><a href="https://hexisteme.github.io/notes/patch-and-test-wrong-in-the-same-direction.html">The patch and the test were wrong in the same direction</a> is two artifacts written together, sharing one shallow reading of a requirement — these four tests were correct the day I wrote them, and only went vacuous later, when an unrelated deletion pulled the ground out from under them.</li><li><a href="https://hexisteme.github.io/notes/unit-tests-pass-feature-dead-in-production.html">Unit tests passed, the feature never ran in production</a> is a wiring gap between a tested component and its live call site — nothing here was ever unwired, the tests just kept exercising a code path that no longer had anything to do.</li></ul>
+
+<p>Twenty red tests were never the risk. The four quiet ones were — and the only reason to go looking for them is that nothing in the toolchain will ever ask you to.</p>
+
+<h2>FAQ</h2>
+<h3>What makes a green test &quot;vacuous&quot; after you delete the rule it depended on?</h3>
+<p>The test's fixture was chosen specifically because it triggered the rule you just removed. Once the rule is gone, that input triggers nothing, so an assertion like "conflicts == []" is still syntactically true — it just compares two empty results instead of proving an exemption or a conflict actually fired. The test keeps passing for a reason that has nothing to do with the behavior its name describes.</p>
+<h3>How do you find tests that went vacuous after a deletion, instead of trusting the test runner&#x27;s summary?</h3>
+<p>Grep every use of any fixture the deleted rule depended on, then open all of them — the ones that just went red included, not only the ones still passing. For each one, ask a single question: does this input still trigger anything? If the answer is no, the test is asserting a tautology and needs a fixture that exercises a rule that's still alive. The audit is mechanical and takes minutes; the effort is in deciding to run it on files the runner already called fine.</p>
+<h3>Why were the twenty red tests less dangerous than the four that stayed green?</h3>
+<p>A red test tells you, immediately and specifically, what it's coupled to — you cannot ship past it without looking at it. A test that goes quiet gives you no signal at all: it reports the same green it always has, so nothing in the toolchain distinguishes "still verifying the feature" from "comparing two empty lists." The failure mode isn't the assertion being wrong; it's the assertion becoming irrelevant while looking unchanged.</p>
+<h3>How is this different from a test being green because the feature was never wired into production?</h3>
+<p>A wiring gap means the tested code path is unreachable from production — the function works in isolation but nothing live ever calls it. A vacuous-green test is reachable and does run; the code under test executes every time. What's gone is the ability of its input to provoke the behavior being asserted, because a rule the input relied on was deleted out from under it. One is a reachability problem, the other is a semantic one.</p>
+<h3>Why check the domain spec before empirically testing a rule you suspect is wrong?</h3>
+<p>Empirical falsification works but can cost real effort — prototypes, sweeps across real data, a false-positive tally. In this case that whole process converged on exactly the answer a domain glossary had stated the entire time: the hard-failure rule only covers a core noun, and numerals were never part of the specification. Reading the spec first would have found the same defect for the cost of opening one file.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./green-tests-prove-behavior-not-reachability.html">Your Tests Were Green Because the Gate Was Never Wired In</a></li>
+<li><a href="./patch-and-test-wrong-in-the-same-direction.html">The patch and the test were wrong in the same direction</a></li>
+<li><a href="./unit-tests-pass-feature-dead-in-production.html">Unit Tests Passed. The Feature Never Ran. Three Times in One Session.</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
