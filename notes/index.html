@@ -25,6 +25,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A publish-blocking gate was implemented, unit-tested and green &mdash; and absent from the dispatch tuple the pipeline actually iterates, so it had never once run. Deleting it from the tuple leaves its own test file at 18 passed while a wiring test fails by name. Green proves behavior; reachability needs its own evidence.</p>
   <span class="tag">testing</span><span class="tag">python</span><span class="tag">architecture</span><span class="tag">debugging</span>
 </div>
+<div class="card">
+  <h3><a href="when-you-delete-a-rule-hunt-the-quiet-tests.html">When You Delete a Rule, Hunt the Tests That Went Quiet</a></h3>
+  <p>I deleted a validation rule that had never once been right, and twenty tests turned red — that part was bookkeeping. The four tests that stayed green were the ones that had quietly stopped testing anything at all.</p>
+  <span class="tag">testing</span><span class="tag">tdd</span><span class="tag">python</span><span class="tag">ai</span>
+</div>
+
 
 <div class="card">
   <h3><a href="patch-and-test-wrong-in-the-same-direction.html">The patch and the test were wrong in the same direction</a></h3>
@@ -80,6 +86,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A YouTube upload stage wrote its local &quot;already uploaded&quot; record only after verification succeeded, so a verification failure left the video live on the platform with nothing on disk to say so. Re-running the same command sailed past the duplicate guard and would have uploaded a second copy of a video that already existed.</p>
   <span class="tag">reliability</span><span class="tag">api</span><span class="tag">idempotency</span><span class="tag">devops</span>
 </div>
+<div class="card">
+  <h3><a href="the-checkpoint-remembered-the-result-not-the-request.html">The Checkpoint Remembered the Result, Not the Request</a></h3>
+  <p>A checkpoint-before-verify fix correctly recorded a video ID the moment it came back, but the resume path re-derived what counted as correct from today's CLI flags and config instead of the request the checkpoint had actually recorded — and a clean resume set off a false "downgrade detected" alarm.</p>
+  <span class="tag">ai</span><span class="tag">devops</span><span class="tag">debugging</span><span class="tag">testing</span>
+</div>
+
 
 <div class="card">
   <h3><a href="your-glossary-gate-passes-words-not-names.html">Your glossary gate passes words, not names</a></h3>
@@ -110,6 +122,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A Stop hook recorded only distinct blocks, leaving no denominator. Replaying its deterministic five-outcome logic over 5,537 retained transcripts recovered 116,022 candidate Stop points and a counterfactual trigger rate — without waiting for new instrumentation.</p>
   <span class="tag">AI agents</span><span class="tag">observability</span><span class="tag">hooks</span>
 </div>
+<div class="card">
+  <h3><a href="the-denominator-you-never-defined.html">Eight Frames Said Fail. Twenty-Four Said Pass.</a></h3>
+  <p>A pre-registered threshold fixed a pass line (motion median at least 50% of the original) but never fixed the frame count behind it, so the same clip scored 47.5% and 56.5% depending on how it was measured. The rule I wrote to fix that then exposed a second problem one layer down — a compliance rate is only as good as the denominator nobody had defined for it.</p>
+  <span class="tag">statistics</span><span class="tag">testing</span><span class="tag">datascience</span><span class="tag">ai</span>
+</div>
+
 
 <div class="card">
   <h3><a href="where-replaying-the-logic-stops-working.html">Two of Five Gates Replayed Clean. The Other Three Read a Ledger With No History.</a></h3>
@@ -268,12 +286,24 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A pre-registered gate used a holdout roughly 24 times noisier than the leaderboard it was protecting, so its threshold was cleared zero times in 125 days. A near-empty pass log is a symptom, not proof the gate works — and the fix is to move the gate to a different axis, not to enlarge the noisy instrument.</p>
   <span class="tag">measurement</span><span class="tag">pre-registration</span><span class="tag">experiment design</span>
 </div>
+<div class="card">
+  <h3><a href="two-gates-that-block-each-other.html">Two Gates, No Legal Move</a></h3>
+  <p>My publish-pass agent hit a beat that no source label could satisfy — every relabel that cleared one automated gate tripped another, provably, by arithmetic. The fix wasn't to relabel harder; it was a recorded, attributable waiver, reserved only for what was actually unfixable.</p>
+  <span class="tag">ai</span><span class="tag">testing</span><span class="tag">automation</span><span class="tag">devops</span>
+</div>
+
 
 <div class="card">
   <h3><a href="subagent-metrics-not-comparable-to-main-thread.html">Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics</a></h3>
   <p>Across a few thousand agent threads, the main-thread vs sub-agent split moved metrics by up to 135x, and the role mix ranged from 1.5% to 71.4% per model — so pooled per-model averages were weighted averages with different weights. One pair showed a 3.6x pooled gap that exists in neither stratum. Plus two traps that survive stratification: metrics that change meaning per stratum, and bootstrap intervals that collapse to [0, 0] on tied data.</p>
   <span class="tag">agent telemetry</span><span class="tag">stratification</span><span class="tag">statistics</span>
 </div>
+<div class="card">
+  <h3><a href="a-zero-width-confidence-interval-is-not-precision.html">The Confidence Interval Was [0, 0]. That Was Not Precision.</a></h3>
+  <p>A weekly stratified comparison report now carries a named footnote admitting that its own bootstrap confidence intervals can collapse to [0, 0] under heavy ties, and still prints thirty of them, unflagged, in the same snapshot. A documented limitation is not a fixed one.</p>
+  <span class="tag">ai</span><span class="tag">statistics</span><span class="tag">datascience</span><span class="tag">testing</span>
+</div>
+
 
 <div class="card">
   <h3><a href="same-bytes-20-percent-fewer-tokens.html">Same Bytes, 20% Fewer Tokens: Token Counts Are Model-Scoped</a></h3>
@@ -354,6 +384,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>The reversal condition passed review &mdash; a threshold, a remedy, a falsifier. Then I went to check it and found none of the pipeline&rsquo;s twelve subcommands read a single post-publish metric, so the condition could come true unobserved. The instrument was forty lines; what was missing was any record that those forty lines were required. The first version of it then cried wolf 1.6 hours after publication, because the word &ldquo;stays&rdquo; in my own criterion had implied a duration that evaporated on the way into code.</p>
   <span class="tag">devops</span><span class="tag">observability</span><span class="tag">ai</span><span class="tag">debugging</span>
 </div>
+<div class="card">
+  <h3><a href="instrument-and-falsifier-both-wrong-same-night.html">My Instrument and My Falsifier Were Both Wrong on the Same Night</a></h3>
+  <p>Chasing a nightly cron job that jumped from 40 seconds to 1,725 seconds, I built both a diagnostic instrument and a pre-registered falsifier for the last surviving hypothesis — and on the first real night, both looked healthy while both were quietly wrong.</p>
+  <span class="tag">devops</span><span class="tag">debugging</span><span class="tag">testing</span><span class="tag">ai</span>
+</div>
+
 
 <div class="card">
   <h3><a href="file-based-agent-work-bus.html">A File-Based Work-Bus for Orchestrating a Fleet of Agent CLIs</a></h3>
@@ -422,6 +458,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A crosspost pipeline with 19 green gate tests published nine articles whose titles were visibly broken on the live platform for nine days. Tests verify the payload you build, not what the other system renders — a pipeline isn't verified until you check the output surface itself.</p>
   <span class="tag">testing</span><span class="tag">postmortem</span><span class="tag">pipeline</span>
 </div>
+<div class="card">
+  <h3><a href="test-the-artifact-not-the-pipeline.html">The Renderer Dropped What the Script Ordered. Every Check Watched the Script.</a></h3>
+  <p>Two same-day bugs in a map-animation renderer silently discarded part of what the script ordered — a country vanished, a highlighted country never got painted — and every existing check passed, because every check watched the input, not the artifact.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">debugging</span><span class="tag">ai</span>
+</div>
+
 
 <h2>Shipping Solo Apps with AI</h2>
 
@@ -454,6 +496,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>My app mascot's arms rotated from the fingertips — invisible in code review, obvious in one render. Three structurally different variants instead of tint tweaks, the grep that saved a parameter used by 8 call sites, pre-registered design falsifiers checked at real sizes, and the render-first loop that fixes AI-drawn UI.</p>
   <span class="tag">swiftui</span><span class="tag">vibe coding</span><span class="tag">design</span>
 </div>
+<div class="card">
+  <h3><a href="your-tests-check-existence-not-visibility.html">The Assert Counted 100 Dots. The Screen Showed Two.</a></h3>
+  <p>A statistics short's scene code passed every automated check — count, constants, margins, exit code — and the render showed 2 of 100 dots. Closing the gap took two more rounds, including a pixel check that caught a real defect then passed a 10.5-second hole anyway.</p>
+  <span class="tag">python</span><span class="tag">testing</span><span class="tag">debugging</span><span class="tag">ai</span>
+</div>
+
 
 <div class="card">
   <h3><a href="app-store-connect-api-hard-limits.html">Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</a></h3>
@@ -472,6 +520,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>The predecessor note diagnosed three dead features. This one is about finding the rest: a fill-rate query run across seven projects, why the defect lives at the column rather than the feature, and a fourth kind of dead gate where the wiring was correct all along and the value still never arrived.</p>
   <span class="tag">testing</span><span class="tag">architecture</span><span class="tag">database</span>
 </div>
+<div class="card">
+  <h3><a href="a-check-that-never-ran-is-not-passing.html">A Check That Has Never Run Is Not Passing</a></h3>
+  <p>An enactment rule checked video shot contracts for self-contradiction and had never once fired — not because nobody called it, but because the field it read had no producer anywhere in the repository. A retroactive dry run then showed the rule's premise was wrong too, zero true positives across every contract it could evaluate.</p>
+  <span class="tag">testing</span><span class="tag">debugging</span><span class="tag">softwareengineering</span><span class="tag">ai</span>
+</div>
+
 
 <div class="card">
   <h3><a href="deprecation-does-not-reach-the-copies.html">Deprecation Doesn't Reach the Copies</a></h3>
@@ -496,6 +550,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A fifth shape, and the one that needed no breakage at all: the population was fully present and every check ran to completion, but each instrument's aperture was narrower than the thing it reported on. A lenient parser said 180/180 where a strict one said 174; a checker that only knew one heading wording, then the identical hole in its own frontmatter scan. The detector I threw away is the important one — it failed a positive control, and a false negative is the failure mode that never argues back.</p>
   <span class="tag">testing</span><span class="tag">verification</span><span class="tag">static analysis</span>
 </div>
+<div class="card">
+  <h3><a href="detector-that-never-fires.html">A Detector That Never Fires Scores Perfect on False Positives</a></h3>
+  <p>Three attempts at an overlap detector for rendered video frames failed the same hidden way, and the fourth split in two — one predicate got wired into the gate, one didn't. The split turned on whether each could be made to fire on a known-bad frame, not on false positives.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">debugging</span><span class="tag">ai</span>
+</div>
+
 
 <div class="card">
   <h3><a href="verification-tools-dont-report-their-blind-spots.html">Your Verification Tool Reports What It Saw, Never Where It Didn't Look</a></h3>
