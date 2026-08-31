@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Instrument and My Falsifier Were Both Wrong on the Same Night — hexisteme notes</title>
+<meta name="description" content="Chasing a nightly cron job that jumped from 40 seconds to 1,725 seconds, I built both a diagnostic instrument and a pre-registered falsifier for the last surviving hypothesis — and on the first real night, both looked healthy while both were quietly wrong.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My Instrument and My Falsifier Were Both Wrong on the Same Night", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing a nightly cron job that jumped from 40 seconds to 1,725 seconds by building a temporary system-load instrument and a pre-registered rollback falsifier for the last surviving hypothesis, and discovering on the first real night that both the instrument's key metric and the falsifier's causal claim were invalid despite every visible signal looking healthy.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a cumulative vm_stat counter make a nightly-job investigation look worse each day?", "acceptedAnswer": {"@type": "Answer", "text": "The instrument's summary report took max() of vm_stat's Swapouts field over each night's sampling window, but Swapouts is a counter that accumulates since boot, not since the window started. The max of a since-boot counter over any window just returns the latest sample, so the reported value grows every night purely because more boot time has elapsed, regardless of what happened inside that specific window. Checking the raw samples showed the within-window increase was zero on all five nights, while the reported \"max cumulative\" number had climbed 180x."}}, {"@type": "Question", "name": "How should a metric that describes a sampling window be defined instead?", "acceptedAnswer": {"@type": "Answer", "text": "As a delta — the last sample minus the first — never as a cumulative absolute value copied into an interval report. If there are fewer than two samples, the honest output is \"n/a\" rather than a fabricated number, and a negative delta should be read as a counter reset, not as recovery. The field's name has to change along with the calculation; leaving a corrected value under a label like \"max cumulative\" invites the next reader to repeat the same misreading."}}, {"@type": "Question", "name": "Why was a pre-registered falsifier condition unsafe to execute even after its trigger fired?", "acceptedAnswer": {"@type": "Answer", "text": "The written condition — split an integrity guard into its own time slot if WARN frequency rises — stated an observation and a remedy but never wrote down the causal claim connecting them: that the guard's 150-second runtime was making the sampling window heavy enough to slow down ingest. Timestamps showed the guard actually started after ingest had already finished, so something running afterward could not have caused a slowdown that happened before it started. Executing the pre-written remedy would have left the WARN condition completely unchanged."}}, {"@type": "Question", "name": "What three parts does a falsifier condition need to avoid this failure?", "acceptedAnswer": {"@type": "Answer", "text": "An observation (what triggers the check), a causal claim (what you're asserting is actually true and responsible at that moment), and a remedy (what to do about it). Most falsifiers only get the observation and remedy written into the actionable sentence, leaving the causal claim implicit in surrounding prose where a person executing a recovery under pressure won't reliably find it. The practical fix is to check the causal claim before executing the remedy, and hold the remedy if that claim turns out to be false."}}, {"@type": "Question", "name": "What turned out to actually be consuming CPU and memory at 03:00?", "acceptedAnswer": {"@type": "Answer", "text": "A CLI from a different vendor was spawning 54 MCP server processes on every invocation and never reaping them on exit, and four days of that had accumulated into 210 processes, 3.1GB of RSS, and a 245% CPU sum, 119 of which didn't belong to any live session. After cleanup those numbers dropped to 122 processes, 1.46GB, and 0% CPU — though with only five nights of data and every series moving in the same date-monotonic direction, that diagnosis itself is still an open falsifier: the first post-cleanup night either returns to the ~40-second baseline or it doesn't."}}]}
+</script>
+</head>
+<body>
+<h1>My Instrument and My Falsifier Were Both Wrong on the Same Night</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">A nightly cron job that normally took 40 seconds jumped to 1,725 seconds, and every concrete cause I could reproduce — pathological input, O(n²) behavior, database fragmentation — turned out false, leaving only an elimination-survivor hypothesis: something else runs at 03:00. I built a temporary instrument to sample the window and a pre-registered falsifier to say what would make me revert a change. On the first real night everything ran as designed — guard PASS 10/10, WARN frequency up 2.52x — and both pieces were still wrong: the instrument's headline number was a since-boot counter carrying zero information about the window, and the falsifier's remedy targeted a process that started after the slow job had already finished. The real cause was a leaked batch of orphaned MCP server processes from an unrelated CLI; cleanup is still an open falsifier of its own.</div>
+
+<p>I run a small fleet of AI agents on my own machine, and one of them has a nightly 03:00 cron job that re-parses a local corpus from scratch. It normally takes about 40 seconds. One night it took 1,725 seconds.</p>
+
+<h2>The hypothesis that survived by elimination</h2>
+
+<p>I tested the obvious suspects first: pathological input, O(n²) behavior in the parser, database fragmentation. I reproduced each one directly and ruled all three out. What was left wasn't a hypothesis I had positive evidence for — it was the one hypothesis nothing had killed yet: something else runs at 03:00, and it's competing for the machine.</p>
+
+<p>That's a weak position to fix anything from. So instead of changing code, I built two pieces of infrastructure to test it properly.</p>
+
+<p><strong>An instrument.</strong> A temporary sampler for the 02:50–03:45 window, polling every 10 seconds: load average, <code>vm_stat</code>, disk activity, and the top CPU-consuming processes. It had a built-in expiry so it wouldn't linger as permanent infrastructure for a temporary question.</p>
+
+<p><strong>A falsifier.</strong> Around the same time, I'd wired a new integrity guard into the nightly chain. It ran for about 150 seconds and made the window heavier. So I pre-registered a condition: <em>if WARN frequency rises, split the guard off into its own time slot.</em></p>
+
+<p>An instrument to gather evidence, and a falsifier to say in advance what would make me revert a specific change. Both are things I'd tell anyone to do before touching a flaky nightly job. I did them.</p>
+
+<h2>The first real night looked perfect</h2>
+
+<p>Everything ran exactly as designed. The guard reported <code>PASS</code> 10 out of 10 times. The logs had their tokens. The early-warning condition fired — WARN frequency was up 2.52x. On paper this was a clean, complete recovery: a hypothesis under test, an instrument gathering data on it, and a safety net that had already caught something.</p>
+
+<p>Both pieces of the setup were wrong.</p>
+
+<h2>Problem 1: the instrument was measuring the passage of time</h2>
+
+<p>The summary report had a line like this:</p>
+
+<pre><code>- Max cumulative Swapouts: 24,592,563</code></pre>
+
+<p>Laid out over five nights, the number climbed hard:</p>
+
+<table>
+<thead><tr><th>Night</th><th>Reported value</th></tr></thead>
+<tbody>
+<tr><td>Night 1</td><td>135,932</td></tr>
+<tr><td>Night 2</td><td>1,927,263</td></tr>
+<tr><td>Night 3</td><td>2,387,142</td></tr>
+<tr><td>Night 4</td><td>11,642,338</td></tr>
+<tr><td>Night 5</td><td>24,592,563</td></tr>
+</tbody>
+</table>
+
+<p>That's a 180x increase over five nights. Wall time climbed over the same five nights too, from 38.4s to 91.7s. The correlation looked airtight — memory pressure apparently getting rapidly worse, tracking almost perfectly with the slowdown.</p>
+
+<p>I went back to the raw samples. The <strong>within-window increase was zero on all five nights.</strong></p>
+
+<p><code>vm_stat</code>'s <code>Swapouts</code> field is a counter that accumulates since boot. Taking <code>max()</code> of a cumulative-since-boot counter over any window just returns whatever the last sample happened to be, and that number keeps growing as long as the machine stays up, whether or not anything happens inside the window you're sampling. The field carried <strong>zero bits of information about the window it was supposedly reporting on.</strong></p>
+
+<p>What makes this worse than an ordinary bug is that this instrument existed for exactly one purpose: to adjudicate the "something else runs at 03:00" hypothesis. It produced a convincing, escalating, tightly-correlated fake signal on precisely the axis it was built to judge.</p>
+
+<p>The real signal was sitting in the next column the entire time: within-window <code>load1</code> average went from 1.78 to 8.54, and the CPU sum of processes cohabiting the window went from 0% to 611%. On a 10-core machine, something else was using six cores that weren't mine.</p>
+
+<p><strong>What I took from problem 1:</strong> a metric that describes an interval has to be defined as a delta — last sample minus first — never as a cumulative absolute value dropped straight into an interval report. If you have fewer than two samples, the honest output is <code>n/a</code>, not a fabricated number. A negative delta means a counter reset, not "recovery." And the fix isn't only the arithmetic — if you correct the value but leave the field labeled "max cumulative," the next person who reads it makes the exact same misreading I did.</p>
+
+<h2>Problem 2: the falsifier pointed at something that could not be the cause</h2>
+
+<p>WARN had genuinely fired, so the remedy I'd pre-written applied: split the guard into its own time slot. Read that conditional sentence on its own, and the action looks obvious — go execute it.</p>
+
+<p>The timestamps stopped me:</p>
+
+<pre><code>Ingest    18:00:15Z -&gt; 18:01:47Z   (91.7s)
+Guard     18:02:19Z start</code></pre>
+
+<p><strong>The guard runs after ingest finishes.</strong> Something that starts after a job is already done cannot be the reason that job ran slow. If I had executed the remedy — moving the guard to a separate time slot — the WARN condition would have kept firing, completely unchanged, because the guard was never in the causal path in the first place.</p>
+
+<p>Here's the structural problem with the sentence I'd written. A falsifier needs three parts: an observation, a causal claim you're asserting to be true when that observation holds, and a remedy. Mine had the observation ("if WARN frequency rises") and the remedy ("split the guard off"), but it never wrote down the causal claim — "the guard's 150 seconds makes the window heavy, and that's what slows ingest down." That claim existed, but only in the surrounding prose. Whoever comes back later to execute the recovery reads the conditional sentence, not the essay around it.</p>
+
+<p>This can be worse than having no falsifier at all. With no falsifier, a person re-derives the cause from first principles. With one that looks complete, the situation gets filed as <em>already anticipated</em>, and the thinking stops right there — one step before the check that would have caught the error.</p>
+
+<p><strong>What I took from problem 2:</strong> write all three parts, every time — what's observed, the causal claim you're asserting is true at that moment, and what to do about it. And when you're the one recovering: check the causal claim <em>before</em> you execute the remedy. If the claim is false, hold the remedy and go re-derive the cause instead of running the pre-written fix.</p>
+
+<h2>What was actually running at 03:00</h2>
+
+<p>The real cause was outside the project entirely. A CLI from a different vendor was spawning 54 MCP server processes on every invocation and never reaping them on exit. Four days of that had piled up: 210 processes, 3.1GB of RSS, a CPU sum of 245%, and 119 of those processes didn't belong to any live session. After cleanup: 122 processes, 1.46GB, 0% CPU.</p>
+
+<p>Even this diagnosis isn't confirmed yet. With n=5, all three series I have — wall time, load, and cohabiting CPU — are monotonically increasing by date, which means I can't distinguish "contention is the cause" from "some other date-monotonic factor" using this data alone. So I left a falsifier open for it: if the first night after cleanup comes back to the ~40-second baseline, that confirms it; if it stays around 90 seconds, the diagnosis is wrong. This time I wrote the causal claim down too.</p>
+
+<h2>The claim</h2>
+
+<p>Installing an instrument and installing a kill-condition are both good practice. Neither act is the same thing as validating that what you installed actually works. Each one needed its own acceptance test before the night it was supposed to matter, and I'd skipped that step for both. On the one night that mattered, the dashboard was green, the early warning fired, and the logs had their tokens — and both pieces of infrastructure were producing the wrong answer while doing it. "The pipeline runs" is proven by an exit code. "The pipeline is telling the truth" is not — that has to be checked by going back to the raw numbers and asking what they actually measure, and there's no green checkmark that does that step for you.</p>
+
+<p>This is the sibling case to <a href="https://hexisteme.github.io/notes/i-wrote-a-rollback-rule-and-no-way-to-read-the-number.html">I wrote a rollback rule and no way to read the number</a> — there, the criterion had no instrument behind it at all and the number was simply unreadable; here, the instrument and the falsifier both existed, both ran, and both were wrong anyway. Missing and invalid are different failures — this time the number lied instead of going unread.</p>
+
+<h2>FAQ</h2>
+<h3>Why did a cumulative vm_stat counter make a nightly-job investigation look worse each day?</h3>
+<p>The instrument's summary report took max() of vm_stat's Swapouts field over each night's sampling window, but Swapouts is a counter that accumulates since boot, not since the window started. The max of a since-boot counter over any window just returns the latest sample, so the reported value grows every night purely because more boot time has elapsed, regardless of what happened inside that specific window. Checking the raw samples showed the within-window increase was zero on all five nights, while the reported "max cumulative" number had climbed 180x.</p>
+<h3>How should a metric that describes a sampling window be defined instead?</h3>
+<p>As a delta — the last sample minus the first — never as a cumulative absolute value copied into an interval report. If there are fewer than two samples, the honest output is "n/a" rather than a fabricated number, and a negative delta should be read as a counter reset, not as recovery. The field's name has to change along with the calculation; leaving a corrected value under a label like "max cumulative" invites the next reader to repeat the same misreading.</p>
+<h3>Why was a pre-registered falsifier condition unsafe to execute even after its trigger fired?</h3>
+<p>The written condition — split an integrity guard into its own time slot if WARN frequency rises — stated an observation and a remedy but never wrote down the causal claim connecting them: that the guard's 150-second runtime was making the sampling window heavy enough to slow down ingest. Timestamps showed the guard actually started after ingest had already finished, so something running afterward could not have caused a slowdown that happened before it started. Executing the pre-written remedy would have left the WARN condition completely unchanged.</p>
+<h3>What three parts does a falsifier condition need to avoid this failure?</h3>
+<p>An observation (what triggers the check), a causal claim (what you're asserting is actually true and responsible at that moment), and a remedy (what to do about it). Most falsifiers only get the observation and remedy written into the actionable sentence, leaving the causal claim implicit in surrounding prose where a person executing a recovery under pressure won't reliably find it. The practical fix is to check the causal claim before executing the remedy, and hold the remedy if that claim turns out to be false.</p>
+<h3>What turned out to actually be consuming CPU and memory at 03:00?</h3>
+<p>A CLI from a different vendor was spawning 54 MCP server processes on every invocation and never reaping them on exit, and four days of that had accumulated into 210 processes, 3.1GB of RSS, and a 245% CPU sum, 119 of which didn't belong to any live session. After cleanup those numbers dropped to 122 processes, 1.46GB, and 0% CPU — though with only five nights of data and every series moving in the same date-monotonic direction, that diagnosis itself is still an open falsifier: the first post-cleanup night either returns to the ~40-second baseline or it doesn't.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./i-wrote-a-rollback-rule-and-no-way-to-read-the-number.html">I wrote a rollback rule and no way to read the number</a></li>
+<li><a href="./my-probe-passed-because-it-could-not-fail.html">My probe passed because it could not fail</a></li>
+<li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
