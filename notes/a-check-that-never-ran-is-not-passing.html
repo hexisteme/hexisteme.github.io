@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A Check That Has Never Run Is Not Passing — hexisteme notes</title>
+<meta name="description" content="An enactment rule checked video shot contracts for self-contradiction and had never once fired — not because nobody called it, but because the field it read had no producer anywhere in the repository. A retroactive dry run then showed the rule&#x27;s premise was wrong too, zero true positives across every contract it could evaluate.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A Check That Has Never Run Is Not Passing", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Auditing whether a validation rule has ever actually evaluated real data, and why a rule's callers existing is not sufficient if the field it reads has no producer.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do you tell a check that's silently passing from one that's genuinely never failed?", "acceptedAnswer": {"@type": "Answer", "text": "Ask whether it has a demonstrated way to fail, and check what its inputs actually are at runtime. In this case, every contract on the supported authoring path had serves_line = None — the rule was structurally incapable of evaluating anything. A rule can have zero failures on record because it has zero real evaluations on record, and those look identical from a dashboard."}}, {"@type": "Question", "name": "Why not just fix the missing field and move on?", "acceptedAnswer": {"@type": "Answer", "text": "Because a rule nobody has ever watched fire is a rule whose behavior on real, non-null input has never been checked either. Deriving the field and wiring it in passed every test — then a retroactive dry run against every existing contract the rule could now evaluate returned 8 firings and 0 true positives. The plumbing was correct and the rule underneath it was wrong; only running it against real data surfaced that."}}, {"@type": "Question", "name": "What made the rule fire on contracts that were actually fine?", "acceptedAnswer": {"@type": "Answer", "text": "It compared two fields that describe different media. serves_line is narration — audio — and must_not_have governs what may appear on screen — pixels. A voiceover can say a number while the frame shows none; that's not a contradiction, it's ordinary craft. The rule was treating co-occurrence of a spoken quantity and a visual ban as a logical conflict."}}, {"@type": "Question", "name": "Did shipping the derivation actually break anything?", "acceptedAnswer": {"@type": "Answer", "text": "It would have. Six correct contracts would have hard-failed at author time had the wiring stayed in, and three of those six belonged to an episode that had already shipped. The retroactive dry run caught that before it reached production."}}, {"@type": "Question", "name": "What's the general lesson beyond this one pipeline?", "acceptedAnswer": {"@type": "Answer", "text": "For every rule, ask who produces each input it needs, not just who calls the rule. Callers existing is not enough — if one of the fields a rule reads has no writer anywhere in the codebase, the rule can run on every invocation and still evaluate nothing. And before wiring a missing producer, verify the rule's positive class first: getting that order backwards starts rejecting correct inputs the day the plumbing lands."}}]}
+</script>
+</head>
+<body>
+<h1>A Check That Has Never Run Is Not Passing</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">An enactment rule checked video shot contracts for self-contradiction — but the field it needed, serves_line, had no producer anywhere in the repository, so every contract on the supported path evaluated as null and the rule silently fired on nothing. Deriving the field looked like the obvious fix; a retroactive dry run against every contract the rule could now evaluate caught the real problem first — 8 firings, 0 true positives, because the rule was comparing narration against pixels, two channels that can't actually contradict each other.</div>
+
+<p>I run a video pipeline where every shot carries a contract: a <code>must_have</code> list, a <code>must_not_have</code> list, and a <code>serves_line</code> field — the narration line the shot exists to support. One rule in that pipeline, which I call the enactment rule, checks each contract for self-contradiction: if <code>must_not_have</code> forbids the very thing <code>serves_line</code> requires, the shot can't honor its own contract and support its sentence at the same time, so the rule fails it hard at author time.</p>
+
+<p>It's a good rule to want. It had never once run.</p>
+
+<h2>One layer deeper than the usual dead gate</h2>
+
+<p>This adds another entry to the same line of investigation: <a href="https://hexisteme.github.io/notes/grep-wont-find-your-dead-gates.html">Grep won't find your dead gates. A fill-rate query will.</a> found rules nobody was calling — the wiring itself was absent; <a href="https://hexisteme.github.io/notes/the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a> found a correctly-called rule whose target population was empty at runtime, so it passed on nothing left to check; and <a href="https://hexisteme.github.io/notes/checks-that-cannot-fire.html">The check that cannot fire</a> found a rule that ran against real data and silently disabled itself because its threshold was an absolute constant that didn't match the input's scale. This one sits a layer deeper than all three: the callers existed, the rule fired on every invocation, and what was actually missing was a producer for the one field the rule needed to read.</p>
+
+<h2>The field nothing writes</h2>
+
+<p><code>serves_line</code> is a derived field — by definition, it's the narration of the beat the shot is attached to. I checked that derivation against reality before touching anything else: every stored value that existed matched its beat's narration exactly, 6 of 6, zero drift. Wherever the field existed, it was right.</p>
+
+<p>But almost nowhere did it exist. A repo-wide search for anything that writes <code>serves_line</code> returned zero producers. The archetype templates that generate contracts don't set it. So every contract created through the supported authoring path had <code>serves_line = None</code>, and the rule — which needs that field as its input — silently evaluated nothing. A published episode had all five of its shots sitting in exactly that state.</p>
+
+<blockquote><p>The rule wasn't failing. It wasn't passing either. It was <em>unmeasured</em>, and unmeasured looks exactly like clean from the outside.</p></blockquote>
+
+<h2>Wiring it in looked like the fix</h2>
+
+<p>The obvious move is to derive the field at author time from the beat it's attached to. The derivation is provably right, the plumbing is small, and it turns a dormant rule live. I wired it. Tests passed.</p>
+
+<p>Then, before trusting that, I ran it retroactively against every existing contract the rule could now evaluate.</p>
+
+<table>
+<thead><tr><th>outcome</th><th>count</th></tr></thead>
+<tbody>
+<tr><td>hard failure</td><td>6</td></tr>
+<tr><td>exempted (declared metaphor)</td><td>2</td></tr>
+<tr><td><strong>true positive</strong></td><td><strong>0</strong></td></tr>
+</tbody>
+</table>
+
+<p>Eight firings. Zero of them were catching a real contradiction.</p>
+
+<h2>The rule was measuring the wrong thing</h2>
+
+<p><code>serves_line</code> is narration — audio. <code>must_not_have</code> governs pixels — what's allowed to appear on screen. Those are orthogonal channels. A voiceover saying "one million dollars" while the frame shows no digits at all is not a contradiction; it's the ordinary craft of the format. The rule was firing on the co-occurrence of a spoken quantity and a visual numeral ban, and calling that a conflict.</p>
+
+<p>The clearest proof is the best-authored contract in the repository. Its <code>must_have</code> reads, literally, "blank faces free of pips and numerals" — the dice are deliberately blank while the narration speaks the numbers aloud. The author had even declared that relationship as metaphorical, specifically so the tooling would know not to flag it. The rule flagged it anyway.</p>
+
+<p>Had I shipped the derivation as-is, six correct contracts would have hard-failed at author time. Three of those six belong to an episode that had already shipped.</p>
+
+<h2>What I actually did</h2>
+
+<p>I reverted the wiring. What stays is a comment at the rule itself, recording the measurement — eight firings, zero true positives — where the next person who goes to wire a producer for <code>serves_line</code> will read it before they do.</p>
+
+<p>I kept one separate piece in place: something that reports the unmeasured state by name. It doesn't enforce anything. It just refuses to let "no exemptions recorded" be confused with "never checked" — which is the exact confusion that let this rule sit dormant and clean-looking for as long as it did.</p>
+
+<h2>What transfers</h2>
+
+<ul><li><strong>Ask who produces each input, not just who calls the rule.</strong> A rule can have real callers and fire on every invocation and still evaluate nothing, if one of the fields it reads has no writer anywhere in the codebase. Wiring absence isn't only "nobody calls this" — it can be "nobody ever fills in the thing it reads."</li><li><strong>Silence from a check is not a verdict.</strong> Before trusting a clean record, ask whether the check has ever actually fired. A long spotless history can mean the input was never supplied.</li><li><strong>Verify the rule's positive class before wiring its producer.</strong> Getting that order backwards means correct inputs start getting rejected the day the plumbing lands. The derivation being provably right — 6 of 6 — said nothing about whether the rule built on top of it was right.</li><li><strong>A retroactive dry run against real data is part of the wiring, not a follow-up.</strong> The change was correct and the tests were green; only running it against everything the rule could evaluate showed the rule underneath was wrong.</li><li><strong>Two lists that describe different media can't contradict each other.</strong> Audio and pixels are orthogonal. A rule that compares across that boundary is measuring co-occurrence and calling it contradiction.</li><li><strong>The plausible true positive was never in the missing field.</strong> The contradiction this rule could actually have caught — <code>must_have</code> fighting <code>must_not_have</code> — sits in two lists that do govern the same medium. A rule aimed at the wrong pair produces false positives at exactly the rate the wrong pair happens to co-occur.</li></ul>
+
+<p>This rhymes with something I wrote up before: <a href="https://hexisteme.github.io/notes/the-known-good-sample-was-not-known-good.html">The Known-Good Sample Was Not Known-Good</a>. There, a threshold was derived from a control sample nobody had actually verified belonged to its class. Here, a rule's entire positive class had never been observed at all. Different mechanism, same artifact: a number or a rule that feels validated because something was measured, when the thing measured was never the thing being claimed.</p>
+
+<h2>FAQ</h2>
+<h3>How do you tell a check that&#x27;s silently passing from one that&#x27;s genuinely never failed?</h3>
+<p>Ask whether it has a demonstrated way to fail, and check what its inputs actually are at runtime. In this case, every contract on the supported authoring path had serves_line = None — the rule was structurally incapable of evaluating anything. A rule can have zero failures on record because it has zero real evaluations on record, and those look identical from a dashboard.</p>
+<h3>Why not just fix the missing field and move on?</h3>
+<p>Because a rule nobody has ever watched fire is a rule whose behavior on real, non-null input has never been checked either. Deriving the field and wiring it in passed every test — then a retroactive dry run against every existing contract the rule could now evaluate returned 8 firings and 0 true positives. The plumbing was correct and the rule underneath it was wrong; only running it against real data surfaced that.</p>
+<h3>What made the rule fire on contracts that were actually fine?</h3>
+<p>It compared two fields that describe different media. serves_line is narration — audio — and must_not_have governs what may appear on screen — pixels. A voiceover can say a number while the frame shows none; that's not a contradiction, it's ordinary craft. The rule was treating co-occurrence of a spoken quantity and a visual ban as a logical conflict.</p>
+<h3>Did shipping the derivation actually break anything?</h3>
+<p>It would have. Six correct contracts would have hard-failed at author time had the wiring stayed in, and three of those six belonged to an episode that had already shipped. The retroactive dry run caught that before it reached production.</p>
+<h3>What&#x27;s the general lesson beyond this one pipeline?</h3>
+<p>For every rule, ask who produces each input it needs, not just who calls the rule. Callers existing is not enough — if one of the fields a rule reads has no writer anywhere in the codebase, the rule can run on every invocation and still evaluate nothing. And before wiring a missing producer, verify the rule's positive class first: getting that order backwards starts rejecting correct inputs the day the plumbing lands.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./grep-wont-find-your-dead-gates.html">Grep won&#x27;t find your dead gates. A fill-rate query will.</a></li>
+<li><a href="./the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a></li>
+<li><a href="./checks-that-cannot-fire.html">The check that cannot fire</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
