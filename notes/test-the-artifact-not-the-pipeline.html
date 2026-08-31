@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Renderer Dropped What the Script Ordered. Every Check Watched the Script. — hexisteme notes</title>
+<meta name="description" content="Two same-day bugs in a map-animation renderer silently discarded part of what the script ordered — a country vanished, a highlighted country never got painted — and every existing check passed, because every check watched the input, not the artifact.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Renderer Dropped What the Script Ordered. Every Check Watched the Script.", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Two same-day bugs in a map-animation renderer that silently discarded ordered geometry, why three layers of green checks (schema validation, a compliance gate, 501 unit tests) missed both, and why an input-side assertion cannot structurally catch a discard bug.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why didn't schema validation or the 501 unit tests catch either bug?", "acceptedAnswer": {"@type": "Answer", "text": "Because both checked the input or the renderer's internal behavior, not what the rendered artifact was actually saying. Schema validation confirmed the country codes existed and the fields were populated — true both times. The unit tests confirmed the renderer's internal mechanics (patch counts, the color at specific coordinates, label-placement rules) matched expectations — also true both times, because the code executed exactly as written. The defect was in what the code was written to do, not in whether it did it."}}, {"@type": "Question", "name": "Why didn't just looking at the rendered frame catch this?", "acceptedAnswer": {"@type": "Answer", "text": "It didn't, and it actively misled. A black shape inside South Africa's outline looked like a hole, but back-projecting its pixel coordinates through the camera transform put it at Eswatini, not Lesotho — a country that borders Mozambique and was never enclosed to begin with. The eye confirmed something was there; it couldn't say what."}}, {"@type": "Question", "name": "Why did matplotlib's own geometry check give the wrong answer too?", "acceptedAnswer": {"@type": "Answer", "text": "Path.contains_point returns True for a point inside an interior ring, the same as for a point inside the fill — true as of matplotlib 3.11, and make_compound_path doesn't change that. What actually distinguished a hole was connectivity: flood-filling from the frame's outer border and counting the pixels that fill could never reach."}}, {"@type": "Question", "name": "What's the practical rule this produced?", "acceptedAnswer": {"@type": "Answer", "text": "For each sentence a claim makes, name one question that can only be answered by inspecting the artifact itself, in its own medium — pixels for an image, the waveform for audio. A discard bug, where the renderer runs exactly as coded but quietly ships less than it was told to, is invisible by construction to any check that asks the question of the input or an intermediate structure instead."}}, {"@type": "Question", "name": "Did the highlight-only bug reach episodes already published?", "acceptedAnswer": {"@type": "Answer", "text": "Its trigger condition can be written exactly as highlight ⊄ focus ∪ neighbors. Running that condition against the ten previously published episodes took about a minute and confirmed none of them triggered it, so nothing already shipped needed a fix."}}]}
+</script>
+</head>
+<body>
+<h1>The Renderer Dropped What the Script Ordered. Every Check Watched the Script.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">Two bugs shipped the same day in the same map-animation renderer, both the same shape: the renderer silently discarded part of what the script had ordered it to draw. One dropped a polygon's interior ring, so South Africa painted solid and Lesotho disappeared — in an episode literally titled “A COUNTRY INSIDE A COUNTRY.” The other never painted highlight-only countries at all, leaving just a red glow where a label claimed three countries side by side. Three layers of verification were green through both: schema validation, a compliance gate, and 501 unit tests — because every one of them asserted the input or the renderer's internal mechanics, and a discard bug is invisible to that kind of check by construction. What finally caught it wasn't looking at the frame either; it was flood-filling from the frame's border and counting the pixels no path from outside could reach.</div>
+
+<p>I run a renderer that turns geographic data into short map-animation episodes — country polygons filled in over a basemap, driven by a script that lists, per scene, which countries to focus on, which are neighbors, and which get highlighted. On a single day, it produced two defects, and both had the exact same shape: the renderer silently dropped part of what the script had ordered it to draw. Both had passed everything I had running at the time.</p>
+
+<h2>Two ways to drop what was ordered</h2>
+
+<h3>The interior ring that got dropped</h3>
+
+<p>The code that draws a country's polygon was only using the outer boundary:</p>
+
+<pre><code>exterior = polygon[0]  # simplification: ignore interior holes</code></pre>
+
+<p>South Africa's polygon carries a real interior ring at Lesotho's location — an actual hole, because Lesotho sits entirely inside South African territory. Drop that ring and South Africa paints as one solid shape. Countries draw in alphabetical order, so Lesotho — drawn first — got painted, and then South Africa, drawn afterward with no hole cut into it, covered it over. The episode this happened in is titled "A COUNTRY INSIDE A COUNTRY." The subject of the episode had disappeared from its own frame.</p>
+
+<h3>The countries that only glowed</h3>
+
+<p>The code that decides which countries get a filled polygon at all was built from two of the scene's three country lists:</p>
+
+<pre><code>target_codes = set([*scene.focus, *scene.neighbors])   # no highlight</code></pre>
+
+<p>The glow effect around a highlighted country is generated from the separate <code>highlight</code> field, so a country that's only in <code>highlight</code> — not in <code>focus</code> or <code>neighbors</code> — never enters <code>target_codes</code>. It gets the glow. It gets no polygon. One episode's label was "Three, side by side"; only one of the three countries actually had a filled shape, the other two were a blur of red light around nothing. In a different episode, the same gap meant all five highlighted countries came out that way.</p>
+
+<h2>Three checks were green. None of them looked at the picture.</h2>
+
+<p>At the time, this renderer had three separate verification passes, and all three were green on both episodes.</p>
+
+<table>
+<thead><tr><th>Check</th><th>What it actually asserts</th></tr></thead>
+<tbody>
+<tr><td>Schema validation</td><td>The <em>input</em> is well-formed — country codes exist, fields are populated</td></tr>
+<tr><td>Compliance gate</td><td><em>Policy</em> was followed — sourcing, AI disclosure, label conventions</td></tr>
+<tr><td>501 unit tests</td><td>The renderer's <em>internal</em> behavior matches expectations — patch counts, the color at a given coordinate, label-placement rules</td></tr>
+</tbody>
+</table>
+
+<p>Not one of the three asks what the rendered artifact is actually saying. All three either look at the input or at an intermediate structure the renderer builds on the way to a frame. So "the label claims three countries and the picture shows one" got produced, cleanly, underneath three green signals — because none of the three signals was ever pointed at the thing that was wrong.</p>
+
+<h2>The structural reason input checks can't see this</h2>
+
+<p>This is worth stating plainly, because it isn't a case of the checks being lazy or thin — it's structural. In both bugs, the input was exactly correct. The script ordered the right countries; <code>scene.focus</code>, <code>scene.neighbors</code>, and <code>scene.highlight</code> all had the right values; the country codes existed; the fields validated. What failed was delivery: code that ran precisely as written and, by design, dropped something on the way to the frame. <code>exterior = polygon[0]</code> is not a defect a schema can see, because the schema was never told a polygon might carry more than one ring. A discard bug like this is invisible to an input assertion by construction — there is no wrong input to catch, because the input was never wrong.</p>
+
+<p>I've written before that <a href="https://hexisteme.github.io/notes/verify-the-output-surface.html">you should verify the surface the consumer actually sees</a> instead of the payload you built — that's the general principle, and this is a sharp case of exactly why the substitution fails: the input check wasn't weaker evidence, it was evidence about a different fact. A <a href="https://hexisteme.github.io/notes/validate-what-you-ship-not-what-you-load.html">separate note</a> covers a renderer measured against the wrong <em>source</em> geometry entirely, upstream of rendering — a different failure from a mid-render discard, where the source was right and the render dropped part of it anyway. And <a href="https://hexisteme.github.io/notes/ai-cant-see-what-it-drew.html">another one</a> is about an agent's inability to perceive its own render at all; this isn't a perception problem, it's a check aimed at the wrong target from the start.</p>
+
+<h2>Looking at the frame doesn't fix it either</h2>
+
+<p>I opened the frame and saw a black shape sitting inside South Africa's outline — easy to look at and conclude "there's the hole" and move on.</p>
+
+<p>Back-projecting those pixels through the camera transform put them at longitude 30.8–32.2, latitude −27.4 to −25.6: Eswatini, not Lesotho. Eswatini borders Mozambique, so it was never an enclosed country to begin with — whatever put a dark shape there was unrelated to the ring-dropping bug. Looking at the frame produced a confident answer. It just wasn't the right one.</p>
+
+<p>The first attempt to check this programmatically was also wrong. matplotlib's <code>Path.contains_point</code> returns <code>True</code> for a point inside an interior ring, same as for a point inside the fill — true as of matplotlib 3.11, and <code>make_compound_path</code> doesn't change that. Ask the geometry object whether a point is "inside the polygon," and a hole doesn't register as an exception to that; it's still inside the outer boundary.</p>
+
+<p>What actually answered the question was connectivity, not color and not the eye: flood-fill from the frame's outer border, then count the pixels that fill can never reach.</p>
+
+<pre><code>Before the fix: 0 enclosed pixels
+After the fix: 3,900 px, x644-731 / y878-955 — matches the back-projected location of Lesotho</code></pre>
+
+<h2>The rule</h2>
+
+<p>"Look at the output" is not a verification method. "Ask the output the same question the claim is making" is.</p>
+
+<p>When an artifact is something a person has to interpret — an image, a PDF, a chart, a rendered document, an audio track — a test that inspects intermediate structure cannot, by construction, catch that the artifact stopped saying what it was supposed to say. Those tests are all answering "did the pipeline run the way I coded it." The question that actually matters is "does the artifact say what the claim says," and the two questions do not overlap. A pipeline can run exactly as coded and still discard part of the order, because "ran as coded" was never a promise that nothing gets dropped.</p>
+
+<p>Three rules came out of fixing this:</p>
+
+<p>1. <strong>Write one question per claim, and take the question from the claim, not the code.</strong> "Is Lesotho a hole?" becomes: flood-fill from the frame border, count the enclosed components. "Are three countries highlighted?" becomes: count the connected components in the highlight color. The question has to come from what the episode is claiming, because the code will happily tell you it's doing exactly what it's doing. 2. <strong>Answer the question in the same medium as the artifact.</strong> An image's claim gets asked of pixels. A sound's claim gets asked of the waveform. Ask a data structure instead and you get the data structure's answer — <code>contains_point</code> will tell you a hole is "inside," because that's a true fact about the geometry object and a false one about the picture. 3. <strong>Don't use what you saw with your eyes as evidence.</strong> A human eye is reliable up to "something is there." It is not reliable for "that is what it is" — mine confirmed a dark shape and had nothing to say about whether it was the hole the bug produced or something else entirely. It only becomes evidence once you can back-project it to coordinates or count it into a named, located component.</p>
+
+<h2>A side effect: the question is also a blast-radius scanner</h2>
+
+<p>Once a claim becomes a precise, mechanical question, it can be run against everything you've already shipped, not just the thing in front of you. The second defect's condition writes exactly as <code>highlight ⊄ focus ∪ neighbors</code> — a highlighted country the focus/neighbor set doesn't already cover. Running that condition against the ten episodes already published took about a minute and confirmed none of them triggered it — the condition happened not to be satisfied anywhere in what was already out the door, so nothing already published needed a fix. Turning a claim into a question about the artifact doesn't just catch the next instance of the bug. It tells you, mechanically, how far the last one reached.</p>
+
+<h2>FAQ</h2>
+<h3>Why didn&#x27;t schema validation or the 501 unit tests catch either bug?</h3>
+<p>Because both checked the input or the renderer's internal behavior, not what the rendered artifact was actually saying. Schema validation confirmed the country codes existed and the fields were populated — true both times. The unit tests confirmed the renderer's internal mechanics (patch counts, the color at specific coordinates, label-placement rules) matched expectations — also true both times, because the code executed exactly as written. The defect was in what the code was written to do, not in whether it did it.</p>
+<h3>Why didn&#x27;t just looking at the rendered frame catch this?</h3>
+<p>It didn't, and it actively misled. A black shape inside South Africa's outline looked like a hole, but back-projecting its pixel coordinates through the camera transform put it at Eswatini, not Lesotho — a country that borders Mozambique and was never enclosed to begin with. The eye confirmed something was there; it couldn't say what.</p>
+<h3>Why did matplotlib&#x27;s own geometry check give the wrong answer too?</h3>
+<p><code>Path.contains_point</code> returns <code>True</code> for a point inside an interior ring, the same as for a point inside the fill — true as of matplotlib 3.11, and <code>make_compound_path</code> doesn't change that. What actually distinguished a hole was connectivity: flood-filling from the frame's outer border and counting the pixels that fill could never reach.</p>
+<h3>What&#x27;s the practical rule this produced?</h3>
+<p>For each sentence a claim makes, name one question that can only be answered by inspecting the artifact itself, in its own medium — pixels for an image, the waveform for audio. A discard bug, where the renderer runs exactly as coded but quietly ships less than it was told to, is invisible by construction to any check that asks the question of the input or an intermediate structure instead.</p>
+<h3>Did the highlight-only bug reach episodes already published?</h3>
+<p>Its trigger condition can be written exactly as <code>highlight ⊄ focus ∪ neighbors</code>. Running that condition against the ten previously published episodes took about a minute and confirmed none of them triggered it, so nothing already shipped needed a fix.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./validate-what-you-ship-not-what-you-load.html">Your validator must measure what you ship, not what you loaded</a></li>
+<li><a href="./ai-cant-see-what-it-drew.html">The AI Can&#x27;t See What It Drew</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
