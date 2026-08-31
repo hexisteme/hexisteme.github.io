@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Two Gates, No Legal Move — hexisteme notes</title>
+<meta name="description" content="My publish-pass agent hit a beat that no source label could satisfy — every relabel that cleared one automated gate tripped another, provably, by arithmetic. The fix wasn&#x27;t to relabel harder; it was a recorded, attributable waiver, reserved only for what was actually unfixable.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Two Gates, No Legal Move", "datePublished": "2026-08-31", "dateModified": "2026-08-31", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Two automated pacing and duration gates in a video-publishing pipeline that are jointly unsatisfiable for one beat, and the waiver discipline used to handle it honestly instead of silently bypassing either check.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What are IR2 and IR4?", "acceptedAnswer": {"@type": "Answer", "text": "Two automated checks in a video-publishing rulebook. IR2 (duration_over_max) caps how long a single beat can run based on its source label, with nondeterministic labels capped lowest. IR4 (same_source_run_over_10s) caps how long beats sharing a label can run back to back, counting even a single beat as a run of one."}}, {"@type": "Question", "name": "Why couldn't relabeling the beat fix it?", "acceptedAnswer": {"@type": "Answer", "text": "The beat is 10.245 seconds. Escaping IR4 requires giving it a label the rulebook treats as nondeterministic, but every nondeterministic label available on this channel caps below 10.245 seconds — 6, 5, and 7 seconds respectively — so any label that clears IR4 immediately trips IR2 on the same beat."}}, {"@type": "Question", "name": "Was this a bug in the episode?", "acceptedAnswer": {"@type": "Answer", "text": "No. Even the most generous honest relabeling of the surrounding beats still leaves a four-beat block summing to 28.263 seconds in violation of the run-length rule. The mismatch is between the data-animation format's long, deterministically rendered blocks and a rulebook built assuming more frequent cutaways."}}, {"@type": "Question", "name": "What did handling it honestly look like?", "acceptedAnswer": {"@type": "Answer", "text": "A recorded waiver — interleave_waiver.json, with waived_by: \"claude\" and the arithmetic behind the decision — instead of silently disabling the check. It covered only the violations that were exhaustively proven unfixable; a separate, ordinary duration violation in the same batch was fixed in the script instead (16 words cut to 13, 6.404s down to 5.636s) rather than added to the waiver."}}, {"@type": "Question", "name": "How do you keep a waiver file from becoming a dumping ground?", "acceptedAnswer": {"@type": "Answer", "text": "Require proof, not preference, before anything goes in it, and fix what is fixable first. Here, only the violation that survived an exhaustive check across every available label was waived; a fixable violation in the same pass got fixed in the script instead."}}]}
+</script>
+</head>
+<body>
+<h1>Two Gates, No Legal Move</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-08-31</p>
+<div class="note">Two publish-time gates on a video pipeline turned out to be jointly unsatisfiable for one beat — proved by arithmetic, not guesswork — and the honest fix was a recorded, attributable waiver that only covers what is provably unfixable.</div>
+
+<p>I run a small fleet of AI agents. One of them assembles and publishes short data-animation videos — narrated bar-chart and counter animations — and before an episode ships, it runs a publish-pass gate that checks the episode against a rulebook of pacing and sourcing rules. It's the same shape of thing as a CI pipeline with content or compliance checks, just applied to video beats instead of code. On the pass for one episode, that gate logged six findings. This is about one of them: the one where the gate had no correct answer, and the arithmetic proves it.</p>
+
+<h2>The two gates</h2>
+
+<p>The episode is built from eight narrated segments, or "beats." Each beat carries a source label describing how it was produced — a deterministically rendered chart animation, stock B-roll, a mood-metaphor shot, a real-world anchor image, and so on. Two rules in the rulebook key off that label.</p>
+
+<p><strong>IR2</strong> (<code>duration_over_max</code>) caps how long a single beat can run, and the cap depends on the label. The "nondeterministic" labels are the tightest: a beat labeled <code>first_reveal</code> may run at most 6 seconds, <code>real_world_anchor</code> at most 5, <code>mood_metaphor</code> at most 7.</p>
+
+<p><strong>IR4</strong> (<code>same_source_run_over_10s</code>) caps how long beats sharing a label can run back to back before something else has to break it up. <code>_check_ir4</code> counts a run of length one as a run — a single beat, alone, can trip it if it's long enough.</p>
+
+<p>Both rules are reasonable in isolation. IR2 keeps a clip from overstaying a label that's supposed to be short-lived. IR4 keeps the video from sitting on one sourcing pipeline long enough to stop feeling assembled. Neither looks like a bug by itself.</p>
+
+<h2>The beat with no legal label</h2>
+
+<p>Here are the eight beats, measured:</p>
+
+<table>
+<thead><tr><th>Beat</th><th>Length</th></tr></thead>
+<tbody>
+<tr><td>B01</td><td>3.002s</td></tr>
+<tr><td>B02</td><td>6.981s</td></tr>
+<tr><td>B03</td><td>5.636s</td></tr>
+<tr><td>B04</td><td>7.428s</td></tr>
+<tr><td>B05</td><td>5.510s</td></tr>
+<tr><td>B06</td><td>10.245s</td></tr>
+<tr><td>B07</td><td>5.080s</td></tr>
+<tr><td>B08</td><td>4.523s</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>48.405s</strong></td></tr>
+</tbody>
+</table>
+
+<p>B06 is 10.245 seconds. As a single beat, it's already a run of length one over IR4's 10.0-second threshold — no neighbor required. To silence IR4, B06 needs a label the rulebook treats as nondeterministic, since only nondeterministic labels break up a same-source run.</p>
+
+<p>So the agent went looking for one. This channel's effective map has exactly three nondeterministic labels: <code>first_reveal</code>, <code>real_world_anchor</code>, <code>mood_metaphor</code>, capped at 6, 5, and 7 seconds respectively. B06 is 10.245 seconds. Every cap is smaller than the beat that would have to carry it — not close, not a rounding error, just smaller across all three. Relabel B06 to satisfy IR4, and IR2 fires on the same beat immediately, for the same reason: it's too long for any label except the one it already has.</p>
+
+<p>That's not a gap a fourth label would have closed — there are only three nondeterministic labels in this channel's map, and all three were checked. IR4 turns off exactly where IR2 turns on. A beat either carries a label capped under 10.245 seconds, and trips IR2, or it doesn't, and trips IR4.</p>
+
+<h2>It doesn't get better by relabeling around it</h2>
+
+<p>Maybe the fix wasn't B06 itself but the beats around it — spread the run out instead of moving the one beat causing trouble. The agent tried the most generous honest relabeling available: B03 to <code>stock_broll</code>, B08 to <code>flow_mood</code>. Applied together, that should break up more of the run.</p>
+
+<p>It doesn't. B04 through B07 — 7.428 + 5.510 + 10.245 + 5.080 — still sum to 28.263 seconds on a shared label, still well over IR4's 10-second ceiling. Relabeling the beats at the edges doesn't touch the block B06 sits inside.</p>
+
+<p>At that point there was no labeling left to try, because none exists. That's not a fact about this episode's specific footage choices; it's a fact about the numbers. Every nondeterministic label available caps below the beat that needs to escape IR4, and the deterministic block that beat sits in is long enough to fail IR4 on its own regardless of what happens at the edges. The defect isn't in the episode. It's a mismatch between a data-animation format — long, dense, deterministically rendered chart sequences with few natural cutaway points — and a hybrid rulebook built assuming footage breaks up more often than this format allows.</p>
+
+<h2>Prove it with arithmetic before you touch the work</h2>
+
+<p>The instinct when a gate fails is to fix whatever it's pointing at. That's usually right. But it's worth asking a cheaper question first: does <em>any</em> labeling of these beats pass both rules? That's not a judgment call — it's eight numbers, three caps, one threshold, checked exhaustively. Once the answer is no, editing the episode to chase compliance stops being useful work, because there's no target left to hit. The claim shifts from "this episode is wrong" to "these two rules can't both be satisfied by this format," and that's a claim you can actually check instead of just asserting.</p>
+
+<h2>A waiver you can point to</h2>
+
+<p>Once compliance is proven impossible, something still has to happen to the episode. Silently skipping the check, or quietly loosening a threshold to let it through, would erase the fact that anything unusual happened at all. Instead the agent wrote it to <code>interleave_waiver.json</code>: the two structural violations, the arithmetic behind them, and <code>waived_by: "claude"</code> — its own name, in the record, next to the reason. Anyone looking at this episode later — including me — can see exactly what was waived, why, and who signed it. That's the difference between a waiver and a bypass: a bypass hides that a rule didn't apply; a waiver says so, in a place someone will look.</p>
+
+<h2>Waivers rot when they absorb what's fixable</h2>
+
+<p>The part I'd trust least about a waiver file is if it became a place to dump anything inconvenient. So the same pass drew a hard line: fix what's fixable, waive only what genuinely isn't. The same episode had a separate, ordinary IR2 violation — B03 at 6.404 seconds against a 6-second cap — and there was nothing structural about it. The narration was just wordier than it needed to be. The agent cut it from 16 words to 13, re-timed the beat, and it came in at 5.636 seconds, under the cap. That fix never went into the waiver file. It didn't need to; it wasn't a structural conflict, it was a sentence that could be shorter.</p>
+
+<p>That distinction is the whole discipline. A waiver that quietly absorbs violations that were actually fixable stops meaning "the rulebook and the format disagree" and starts meaning "nobody felt like fixing this." The same exhaustive check that proved B06 has no legal label is what earns it a place in <code>interleave_waiver.json</code> instead of a rewrite. Anything that does have a legal move — a shorter sentence, a different word count — doesn't get in, no matter how convenient the waiver file would be.</p>
+
+<h2>Not the same failure as the others</h2>
+
+<p>This wasn't a gate whose own error rate was worse than what it was checking for (<a href="https://hexisteme.github.io/notes/quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a>), or a rule that fired on text the agent itself had just written (<a href="https://hexisteme.github.io/notes/the-rule-that-triggered-on-its-own-advice.html">The Rule That Triggered on Its Own Advice</a>), or a check that cleared because it matched a keyword instead of confirming the underlying fact (<a href="https://hexisteme.github.io/notes/verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a>). IR2 and IR4 both did exactly what they were built to do, correctly, on real numbers. The failure was that satisfying one guarantees failing the other, for this beat, in this format — and no amount of retrying makes that arithmetic come out differently.</p>
+
+<h2>FAQ</h2>
+<h3>What are IR2 and IR4?</h3>
+<p>Two automated checks in a video-publishing rulebook. IR2 (<code>duration_over_max</code>) caps how long a single beat can run based on its source label, with nondeterministic labels capped lowest. IR4 (<code>same_source_run_over_10s</code>) caps how long beats sharing a label can run back to back, counting even a single beat as a run of one.</p>
+<h3>Why couldn&#x27;t relabeling the beat fix it?</h3>
+<p>The beat is 10.245 seconds. Escaping IR4 requires giving it a label the rulebook treats as nondeterministic, but every nondeterministic label available on this channel caps below 10.245 seconds — 6, 5, and 7 seconds respectively — so any label that clears IR4 immediately trips IR2 on the same beat.</p>
+<h3>Was this a bug in the episode?</h3>
+<p>No. Even the most generous honest relabeling of the surrounding beats still leaves a four-beat block summing to 28.263 seconds in violation of the run-length rule. The mismatch is between the data-animation format's long, deterministically rendered blocks and a rulebook built assuming more frequent cutaways.</p>
+<h3>What did handling it honestly look like?</h3>
+<p>A recorded waiver — <code>interleave_waiver.json</code>, with <code>waived_by: "claude"</code> and the arithmetic behind the decision — instead of silently disabling the check. It covered only the violations that were exhaustively proven unfixable; a separate, ordinary duration violation in the same batch was fixed in the script instead (16 words cut to 13, 6.404s down to 5.636s) rather than added to the waiver.</p>
+<h3>How do you keep a waiver file from becoming a dumping ground?</h3>
+<p>Require proof, not preference, before anything goes in it, and fix what is fixable first. Here, only the violation that survived an exhaustive check across every available label was waived; a fixable violation in the same pass got fixed in the script instead.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./quality-gate-noisier-than-what-it-guards.html">Our Quality Gate Was 24x Noisier Than What It Guarded</a></li>
+<li><a href="./the-rule-that-triggered-on-its-own-advice.html">The Rule That Triggered on Its Own Advice</a></li>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
