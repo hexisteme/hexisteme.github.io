@@ -3,3 +3,4 @@ Allow: /
 Sitemap: https://hexisteme.github.io/sitemap.xml
 Sitemap: https://hexisteme.github.io/seoul-re-snapshot/sitemap.xml
 Sitemap: https://hexisteme.github.io/matple/sitemap.xml
+Sitemap: https://hexisteme.github.io/seo-hub/sitemap.xml
