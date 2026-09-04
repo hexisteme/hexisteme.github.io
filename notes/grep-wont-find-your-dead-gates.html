@@ -14,6 +14,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Grep won't find your dead gates. A fill-rate query will.", "datePublished": "2026-08-04", "dateModified": "2026-08-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A follow-up to a note on wiring gaps that unit tests cannot detect. This one covers how to search for the rest of those gaps at scale using a fill-rate query rather than grep, a sweep across seven projects that confirmed the pattern in five, the finding that the defect lives at the column level rather than the feature or file level, and a fourth kind of dead gate where the wiring is correct and the missing value is a human judgment that a session never returned to close.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
@@ -106,6 +107,8 @@ By a pre-declared falsifier: if the backlog stays visible and counted for weeks 
 <li><a href="./status-column-nobody-advances.html">Our Status Column Said 30 Waiting. Six Were.</a></li>
 <li><a href="./the-denominator-was-already-on-disk.html">The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.</a></li>
 </ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong> — no welcome sequence, no course, no upsell. Just the next note, when there is one.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>

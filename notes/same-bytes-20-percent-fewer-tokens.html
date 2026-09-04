@@ -14,6 +14,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Same Bytes, 20% Fewer Tokens: Token Counts Are Model-Scoped", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "While running a local capture proxy for a token audit, two sub-agent requests came out byte-for-byte nearly identical — 615,341 bytes versus 617,134 bytes, a 0.3% difference — but one was routed to a mid-tier model and one to a small model. The small model was billed 20.1% fewer input tokens (196,892 versus 246,525, a gap of 49,633 tokens) for essentially the same bytes. The essay argues that a token count is not a property of a request but of the (request, model) pair, that the most plausible mechanism is a tokenizer vocabulary difference though this specific experiment does not isolate the mechanism, and that cross-model dollar-per-token comparisons therefore don't compose unless normalized by bytes or task rather than by either model's own token count.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
@@ -75,6 +76,8 @@ Because the measurement ran behind a local capture proxy set up for an unrelated
 <li><a href="./subagent-metrics-not-comparable-to-main-thread.html">Subagent Metrics Are Not Comparable to Main-Thread Metrics</a></li>
 <li><a href="./measure-unit-price-before-you-ration.html">The Quota Said 100% Used. Actual Demand Was 13%.</a></li>
 </ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong> — no welcome sequence, no course, no upsell. Just the next note, when there is one.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>

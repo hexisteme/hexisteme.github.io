@@ -14,6 +14,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini", "datePublished": "2026-07-10", "dateModified": "2026-07-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A postmortem of a local LLM out-of-memory event that corrupted APFS and left a Mac Mini unbootable, and the code-level hard block and operational rules that prevent recurrence.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
@@ -151,6 +152,8 @@ One heavy job at a time, and never let two 14 GB-class workloads — or a heavy 
 <li><a href="./macos-mdnsresponder-zombie-dns.html">macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie</a></li>
 <li><a href="./claude-code-400-no-low-surrogate-jsonl-repair.html">Claude Code &quot;400: no low surrogate in string&quot; on every turn: repairing a permanently broken session transcript</a></li>
 </ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong> — no welcome sequence, no course, no upsell. Just the next note, when there is one.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>

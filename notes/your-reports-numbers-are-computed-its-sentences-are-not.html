@@ -14,6 +14,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Report's Numbers Are Computed. Its Sentences Are Not.", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A report-generation script split computed numbers from literal prose sentences, so six sentences drifted or were wrong independent of the data; the checker written to catch that defect initially passed the exact sentence shape it was built to catch, and fixing it surfaced a second blind spot one level up in a newly added check that could not fail.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
@@ -114,6 +115,8 @@ One level up, a newly added check on two previously uncovered table rows passed 
 <li><a href="./the-guardrail-pointed-at-a-file-that-never-existed.html">The Guardrail Pointed at a File That Never Existed</a> — the same audit habit of injecting a live defect to see if a guard actually catches it, applied to an enforcement mechanism that had been sitting at zero all along.</li>
 <li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a> — the sibling case: a gate whose escape condition was a keyword in the agent's own prose, the same family of defect as a checker that reads substrings instead of claims.</li>
 </ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong> — no welcome sequence, no course, no upsell. Just the next note, when there is one.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>

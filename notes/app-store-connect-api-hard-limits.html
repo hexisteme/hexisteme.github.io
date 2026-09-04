@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence — hexisteme notes</title>
-<meta name="description" content="Three hard limits in the App Store Connect API that only surface once you automate a fast release cadence — a 20-minute JWT cap whose error blames your credentials instead of your clock, a one-version-in-flight rule, and a 2-in-flight/5-total review-submission ceiling with an orphan the API itself won't let you delete. A two-call pre-flight catches all three before they cost a release.">
+<title>POST /v1/reviewSubmissions appStoreVersion — hexisteme notes</title>
+<meta name="description" content="POST /v1/reviewSubmissions hits a 2-in-flight/5-total ceiling; appStoreVersion is one of four bundleable item types. A two-call pre-flight catches it before a release.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
 a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
@@ -14,6 +14,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A solo builder's account of three hard limits in the App Store Connect API that only surface when automating a fast release cadence: a JWT expiry cap at exp minus iat under 1200 seconds whose 401 error blames credentials instead of the clock, a rule allowing only one app version in flight, and a review-submission ceiling with a 2-in-flight counter and a separate 5-total counter that includes READY_FOR_REVIEW orphans the API itself refuses to delete. Includes the two-call pre-flight used to check for both before a release script runs.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
@@ -129,6 +130,8 @@ Yes. A single reviewSubmission can include appStoreVersion, appCustomProductPage
 <li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
 <li><a href="./why-your-vibe-coded-app-looks-worse.html">Why Your Vibe-Coded App Looks Worse Than the Showcases: A Forensic Audit</a></li>
 </ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong> — no welcome sequence, no course, no upsell. Just the next note, when there is one.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>

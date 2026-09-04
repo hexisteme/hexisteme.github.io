@@ -14,6 +14,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Quota Said 100% Used. Actual Demand Was 13%.", "datePublished": "2026-08-01", "dateModified": "2026-08-01", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A weekly accelerator quota API read 100.47% used, which looked like several competitions fighting over one shared pool. Three direct measurements — submission rescoring not touching personal quota, a GPU-labeled kernel billing wall clock with zero GPU use, and a 1.94x wall-clock billing multiplier — showed real demand was about 13% of the pool. The essay generalizes the failure: naming a resource as the bottleneck without pricing the operations charged against it, a mistake the same project had already made twice before with a different resource each time, and that a delegated subagent then repeated one level up by citing its own correction without applying it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
@@ -153,6 +154,8 @@ Measure the unit price of the operations charged against a resource before you b
 <li><a href="./agent-fleet-audit-scary-metric-false-alarm.html">The Scary Metric Was Wrong, the Audit Still Paid: A 21-Agent Sweep of My Claude Code Fleet</a></li>
 <li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
 </ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong> — no welcome sequence, no course, no upsell. Just the next note, when there is one.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
 </body>
