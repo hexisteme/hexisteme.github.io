@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The gate couldn't read my JavaScript, so I removed the numbers from it — hexisteme notes</title>
+<meta name="description" content="A publishing gate that blocks any unsourced number on a page cannot read inside a script tag, which breaks the moment a page needs a JavaScript calculator. Instead of teaching the gate to parse JavaScript, or exempting scripts from the check, I restructured the calculator so its JavaScript never contains a domain number at all — rates arrive through the DOM already verified, and a numeric-literal whitelist makes the workaround structurally impossible. This piece walks through the invariants and tests that make that enforceable rather than aspirational.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The gate couldn't read my JavaScript, so I removed the numbers from it", "datePublished": "2026-09-04", "dateModified": "2026-09-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Restructuring a JavaScript fee calculator so a numeral-provenance publishing gate can verify its rates without ever parsing script content, using a DOM-based evidence chain and a numeric-literal whitelist gate.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+{"@type": "Question", "name": "Why not just teach the gate to parse the JavaScript?", "acceptedAnswer": {"@type": "Answer", "text": "Because the losing condition would belong to whoever edits the code next. A parser embedded in the gate becomes a second language runtime that the gate has to maintain — every bundler, minifier, and syntax change downstream becomes its maintenance debt, and twisting the JavaScript slightly is all it takes for the parser to lose."}},
+{"@type": "Question", "name": "Why not just exempt script tags from the numeral check?", "acceptedAnswer": {"@type": "Answer", "text": "Because a nearly identical exemption had just caused a real defect that same morning: numeral_gate had an exemption for alphanumeric identifiers like the CSS value 20px, and British pence notation 20p was matching that same exemption and skipping the numeral check entirely. A convenience exemption had become a laundering channel, and exempting script tags wholesale would have reopened the same defect as a much bigger hole."}},
+{"@type": "Question", "name": "What if the calculation genuinely needs a domain number that only exists client-side?", "acceptedAnswer": {"@type": "Answer", "text": "Then this inversion doesn't hold. If an opaque region has to hold a value only knowable at runtime, verification needs to move to runtime too, checking the output instead of trying to prove the source is clean."}},
+{"@type": "Question", "name": "Isn't a whitelist of {0, 1, 2, 100} too brittle for real code?", "acceptedAnswer": {"@type": "Answer", "text": "The narrowness is the point, not a flaw. 0, 1, and 2 cover indices and sign, 100 covers percentage division, and a domain number structurally cannot fit inside that set. If workarounds against it start piling up — three or more — that's the signal the cost of pushing constants out to the DOM has exceeded the benefit, and the design needs revisiting."}},
+{"@type": "Question", "name": "If a comment already warned about this exact failure, why didn't it get caught sooner?", "acceptedAnswer": {"@type": "Answer", "text": "Because a comment that names its own precondition is a tripwire that only fires if someone happens to walk over it. The docstring on extract_body_text had warned, months earlier, that script and style content would need handling the day this package put either into a page body, and it did nothing until I happened to read that function, because no code was watching for the precondition to actually break."}}
+]}
+</script>
+</head>
+<body>
+
+<h1>The gate couldn't read my JavaScript, so I removed the numbers from it</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-04</p>
+
+<div class="note">A publishing gate proves that every number on a page traces to declared evidence by reading the page's HTML as plain text — which means it cannot see anything inside a <code>&lt;script&gt;</code> tag. Rather than teach the gate to parse JavaScript, or exempt scripts from the check (an exemption of exactly that shape had let British pence notation slip past the same gate that same morning), I restructured a fee calculator so its JavaScript never holds a domain number at all. Rates travel from a declared evidence entry into the DOM as already-verified HTML, JavaScript reads only the DOM, and a new gate whitelists every numeric literal a script is allowed to contain to <code>{0, 1, 2, 100}</code> — a whitelist instead of a parser, so the constraint holds no matter how the JavaScript is written.</div>
+
+<p>I run a publishing gate that won't let a page go live unless every number on it traces back to a declared piece of evidence. A draft carries an <code>editorial.json</code> file listing evidence entries, each tagged <code>evidence:&lt;i&gt;</code>, and one of five machine gates, <code>numeral_gate</code>, strips a page's HTML down to plain text, pulls every number out of that text, and blocks the draft if even one number has no matching entry. All five gates have to pass before a human ever sees the draft to sign off on it, and the verdict is permanent per draft — edit the body, and you start over from a clean dossier.</p>
+
+<h2>A calculator that needs numbers the gate can't see</h2>
+
+<p>I hit the edge of that design building a payment-fee calculator page with a separate site-builder tool I run: type in a revenue figure, get back the fee and the amount you actually take home. A calculator like that needs JavaScript, and the JavaScript needs to know the fee rates. The gate, though, cannot read inside a <code>&lt;script&gt;</code> tag. Whatever turns a page's HTML into checkable text either drags the script body along as text — a false positive, flagging numbers that were never really claims — or drops it entirely, a false negative on exactly the thing the gate exists to catch.</p>
+
+<h2>Two ways to lose</h2>
+
+<p>Two fixes come to mind immediately, and both are bad.</p>
+
+<p>The first is to teach the gate to parse JavaScript. That means putting a JS parser inside the gate, which means the gate now owns a second language runtime — every bundler, minifier, and syntax change downstream becomes its maintenance debt from then on. Worse, it's a fight where the losing condition belongs to whoever edits the code next: twist the JavaScript slightly and the parser loses.</p>
+
+<p>The second is to exempt <code>&lt;script&gt;</code> tags from the check entirely. That one is more dangerous than it looks, and I know because I'd closed a version of exactly this mistake earlier the same morning. <code>numeral_gate</code> carries an exemption for alphanumeric identifiers — CSS values like <code>20px</code>, say — so they don't get flagged as unsourced numbers. British pence notation, <code>20p</code>, was matching that same exemption and riding straight through the check, untouched. A convenience exemption had quietly become a laundering channel. Exempting <code>&lt;script&gt;</code> wholesale would have reopened that same defect as a much bigger hole.</p>
+
+<h2>Making the JavaScript have nothing to read</h2>
+
+<p>So I took a third path: instead of teaching the gate to read the JavaScript, I made sure there was nothing in the JavaScript worth reading. The fee rate travels like this:</p>
+
+<pre><code>evidence:&lt;i&gt; in editorial.json
+  -&gt; &lt;tr data-calc-key="checkout" data-percent="3.49" data-fixed="0.49"&gt;
+    -&gt; JavaScript reads only the DOM's data-* attributes</code></pre>
+
+<p>The rate rides into the page as a <code>data-*</code> attribute on a table row. That row is HTML, which the gate can read, and its cell value is already rendered from a cited evidence entry. The JavaScript itself never sees a fee rate — it reads a value that's already sitting on screen, already proven, and does arithmetic on it. The gate ends up able to verify where this calculator's rates come from without interpreting a single line of JavaScript.</p>
+
+<h2>Five invariants, five enforcement points</h2>
+
+<p>A direction like that isn't a guarantee by itself. It only becomes a rule once every part of it has an enforcement point attached, and this one has five.</p>
+
+<ul>
+<li><strong>Rates enter only through an evidence reference.</strong> <code>validate_calculator_evidence</code> checks that every rate in a calculator row points at a declared entry; write a literal number directly into the row and the build fails.</li>
+<li><strong>Every numeric literal inside any <code>&lt;script&gt;</code> has to belong to the set <code>{0, 1, 2, 100}</code>.</strong> This is a new gate, <code>SCRIPT_NUMERIC_LITERAL</code>, and it's the one actually carrying the weight of the design. It isn't a parser — it's a whitelist. 0, 1, and 2 cover indices and sign; 100 covers percentage division. A domain number structurally cannot fit inside that set. Adding it meant bumping the gate's schema from v4 to v5.</li>
+<li><strong>Calculator output has to equal the declared derived value.</strong> A small test harness runs eight scenarios and checks for an exact string match against what the gate computed as the derived value — rounding, currency symbol, and digit count all have to agree.</li>
+<li><strong>Script and style content never becomes body text in the first place.</strong> <code>extract_body_text</code>, the function that pulls a page's body text for checking, removes both elements wholesale before it ever strips a tag, so there's nothing left for the gate — or anything downstream of it — to accidentally read out of a script block.</li>
+<li><strong>The fact-check sheet a human signs shows the evidence the calculator cites.</strong> Whoever signs off sees the rate's provenance on the same screen as the number it produced.</li>
+</ul>
+
+<h2>A comment that predicted its own failure</h2>
+
+<p>There's a coda to that fourth invariant worth telling on its own. <code>extract_body_text</code> already had a docstring warning about exactly this situation, before the calculator page existed. It said, in effect: content inside <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> isn't visible on screen, but this function drags it along as text anyway; since nothing in this package puts either one into a page body yet, that's fine for now, but the day it does, fix this function first.</p>
+
+<p>That day arrived. The calculator was the first page this package had ever put a <code>&lt;script&gt;</code> into.</p>
+
+<p>The lesson isn't that the comment was well written. A comment that names its own precondition is a tripwire — but a tripwire only works if someone actually walks over it. That docstring sat there doing nothing for months, and it would have done nothing this time either if I hadn't happened to read that function. Without code that detects the precondition breaking, a comment like that isn't an alarm. It's a note left behind, read only after the fact.</p>
+
+<h2>Skip is not a check</h2>
+
+<p>The third invariant's harness needs a JavaScript runtime to execute its eight scenarios. As first written, if that runtime wasn't on the machine, the test called <code>pytest.skip</code>.</p>
+
+<p>That's not a check. On any machine that's missing the runtime — including CI — the check just quietly disappears, and the color stays green. There's no way, from the outside, to tell "this passed" apart from "this never ran."</p>
+
+<p>I changed it to <code>pytest.fail</code>. No runtime now means a red light, and someone has to either install it or make a conscious decision to turn the check off — silence stops being an option. One older test in the same file kept its <code>skip</code>, with a docstring explaining why that one is different. To confirm the fix actually worked, I pointed the process's <code>PATH</code> at an empty directory to genuinely hide the runtime, and watched the test report <code>FAILED</code>.</p>
+
+<h2>The gate made me delete something I thought was finished</h2>
+
+<p>The gate also did something I hadn't asked it to do. I decided to cut a numeric claim from the body text — a line about a $14.99 item — and just deleted the sentence. <code>warrant_gate</code> blocked the draft anyway: evidence was still attached to that claim, and now nothing referenced it. An evidence item had gone orphaned.</p>
+
+<p>The tempting fix was to keep the evidence alive by hanging a footnote off some other sentence in the prose. Instead I checked the code first. <code>editorial.sections[].html</code> gets rendered exactly as written, and the only path that attaches an evidence marker runs through structured calculator and table cells — never through prose. There was no way to fake having one. So I deleted the claim and its evidence together, and the evidence count dropped from 13 to 12. The gate pushed me toward the honest fix instead of the convenient one.</p>
+
+<h2>Proving the gate isn't decoration</h2>
+
+<p>None of this tells you whether the new gate actually catches anything. Passing it proves nothing on its own — you have to break it on purpose.</p>
+
+<p>So I did, twice. I injected the literal rate <code>3.49</code> straight into the JavaScript, and <code>SCRIPT_NUMERIC_LITERAL</code> blocked it. Then I deleted the script-removal logic from <code>extract_body_text</code>, and the corresponding test went red. Both times I reproduced the failure myself rather than trusting a worker's self-report that it worked.</p>
+
+<h2>What generalizes</h2>
+
+<blockquote><p>When there's a region a verifier can't look inside — a JS bundle, a binary, generated code, a third-party embed — the fix isn't to extend the verifier's reach into that region. It's to restructure things so that region never holds a claim that needs verifying in the first place. Move the claims onto a surface you can verify, and let the opaque region be nothing more than a pure function of that surface.</p></blockquote>
+
+<p>There's one question that tells you whether this is worth doing: can this opaque region hold a wrong value at all? If the answer is yes, a better parser isn't the end of the road — check first whether you can make a wrong value structurally impossible instead.</p>
+
+<p>The same shape shows up elsewhere: deriving a config from code instead of parsing the config file to check it, emitting structured events instead of running logs through a regular expression, linting the input that feeds a generator instead of linting what the generator produces.</p>
+
+<h2>What it cost</h2>
+
+<p>On the value side: the test tier the deploy gate runs went from 407 to 438. Fifteen pieces are live under this regime. The local build and the live page are byte-identical, and the calculator's eight scenarios match string-for-string.</p>
+
+<p>The costs are worth stating just as plainly. The calculator cannot do anything outside its declared derived values — supporting one more scenario means adding evidence and a derived-value declaration first, not just editing JavaScript. I traded flexibility for provability, on purpose. Accessibility debt is still sitting there, too: the calculator form doesn't have its label/for and aria wiring yet. I deferred that deliberately this round and wrote it down as the first item of the next one — what this gate proves is where a number came from, not whether the page is a good page. And on the project's own internal naturalness scale, the style gate scored the calculator draft a 2 out of 5 and blocked it, which took three rounds to clear before it finished at 4 out of 5. Discipline has a time cost: my budget for this unit of work was 12 turns, and I actually spent 26. Most of that overrun is fair to book as quality, since it was the gate doing its job — but some of it was plainly a coefficient error in my own verification script, not the gate's doing.</p>
+
+<h2>Where this stops being true</h2>
+
+<p>If the opaque region genuinely has to hold a domain number — a calculation that depends on a value only knowable client-side, say — this inversion doesn't apply, and verification needs to move to runtime instead, checking the output rather than trying to prove the source is clean.</p>
+
+<p>If the <code>{0, 1, 2, 100}</code> whitelist turns out to be too narrow in practice and people keep finding workarounds around it, that's the point where pushing every constant out to the DOM costs more than it's worth. Three or more accumulated workaround attempts is the trigger to reconsider the design.</p>
+
+<p>And if <code>SCRIPT_NUMERIC_LITERAL</code> goes six months without catching a single real defect, that's worth noticing too — a gate that's only ever been shown alive by a mutation test might just be a gate that costs upkeep and catches nothing.</p>
+
+<h2>Three sentences worth keeping</h2>
+
+<ol>
+<li>When a verifier can't read a region, don't extend its reach into that region — change the region until there's nothing left in it worth reading.</li>
+<li>A convenience exemption written into a check has a way of turning into a laundering channel later — the <code>20px</code> exemption is exactly what let <code>20p</code> through.</li>
+<li><code>skip</code> is not a check. If "never ran" and "passed" show up as the same color, that check doesn't exist.</li>
+</ol>
+
+<h2>FAQ</h2>
+
+<p><strong>Q. Why not just teach the gate to parse the JavaScript?</strong><br>
+A. Because the losing condition would belong to whoever edits the code next. A parser embedded in the gate becomes a second language runtime that the gate has to maintain — every bundler, minifier, and syntax change downstream becomes its maintenance debt, and twisting the JavaScript slightly is all it takes for the parser to lose.</p>
+
+<p><strong>Q. Why not just exempt script tags from the numeral check?</strong><br>
+A. Because a nearly identical exemption had just caused a real defect that same morning: <code>numeral_gate</code> had an exemption for alphanumeric identifiers like the CSS value <code>20px</code>, and British pence notation <code>20p</code> was matching that same exemption and skipping the numeral check entirely. A convenience exemption had become a laundering channel, and exempting script tags wholesale would have reopened the same defect as a much bigger hole.</p>
+
+<p><strong>Q. What if the calculation genuinely needs a domain number that only exists client-side?</strong><br>
+A. Then this inversion doesn't hold. If an opaque region has to hold a value only knowable at runtime, verification needs to move to runtime too, checking the output instead of trying to prove the source is clean.</p>
+
+<p><strong>Q. Isn't a whitelist of <code>{0, 1, 2, 100}</code> too brittle for real code?</strong><br>
+A. The narrowness is the point, not a flaw. 0, 1, and 2 cover indices and sign, 100 covers percentage division, and a domain number structurally cannot fit inside that set. If workarounds against it start piling up — three or more — that's the signal the cost of pushing constants out to the DOM has exceeded the benefit, and the design needs revisiting.</p>
+
+<p><strong>Q. If a comment already warned about this exact failure, why didn't it get caught sooner?</strong><br>
+A. Because a comment that names its own precondition is a tripwire that only fires if someone happens to walk over it. The docstring on <code>extract_body_text</code> had warned, months earlier, that script and style content would need handling the day this package put either into a page body, and it did nothing until I happened to read that function, because no code was watching for the precondition to actually break.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./a-check-that-never-ran-is-not-passing.html">A Check That Has Never Run Is Not Passing</a></li>
+<li><a href="./deterministic-score-llm-provenance-laundering.html">If an LLM Extracts the Inputs, Is Your Deterministic Score Really Deterministic? Stopping Provenance Laundering</a></li>
+<li><a href="./green-tests-prove-behavior-not-reachability.html">Your Tests Were Green Because the Gate Was Never Wired In</a></li>
+</ul>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
