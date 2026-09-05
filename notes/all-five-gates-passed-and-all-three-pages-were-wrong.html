@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>All five gates passed. A reader rejected all three pages. — hexisteme notes</title>
+<meta name="description" content="Three AI-written pages passed five separate automated fact-checking gates and a 7-item self-check on the first try. One human read-through rejected all three anyway — for a wrong-vendor attribution, a claim a sibling page disproved, and a downstream cross-page check that never ran for pages built one at a time.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "All five gates passed. A reader rejected all three pages.", "datePublished": "2026-09-05", "dateModified": "2026-09-05", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why five separately correct automated fact-checking gates over three AI-written pages did not add up to three correct pages, and what changed in the writing brief instead of the gate pipeline.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why would three AI-written pages all pass every automated fact-checking gate and still turn out to be wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Because each of the five gates checks one narrow, correctly implemented property of a single document by itself — that a cited number appears in the prose, that every digit traces to a source, that the prose doesn't copy the sources it cites too closely. None of those properties is “this number's trigger condition belongs to the company it's attributed to,” or “no sibling page contradicts what this page denies.” What got through was a wrong attribution riding on a correct citation, a negative claim only a sibling page could disprove, and a separate, downstream check — built to compare pages against each other, and living in a different tool from the five gates — that never ran because each page was built alone."}}, {"@type": "Question", "name": "What is “mechanism drift” and why do source-citation checks miss it?", "acceptedAnswer": {"@type": "Answer", "text": "It's when a correctly sourced number gets attached to the wrong trigger condition — in this case, a cross-border fee described using the “card issued outside the country” language that actually belonged to two other providers' rate pages. The number is real and cited; only the rule describing when it applies was borrowed from a different source. A check that verifies “this digit has a citation” has nothing to say about the predicate wrapped around that digit, because the predicate isn't a number and doesn't need its own citation to pass."}}, {"@type": "Question", "name": "Why is a negative claim like “this source doesn't publish X” hard for an automated fact-checking pipeline to catch?", "acceptedAnswer": {"@type": "Answer", "text": "A positive claim carries a value that a gate can trace to an evidence entry. A negative claim carries no value — there's nothing to anchor a check to except the entire, un-indexed text of a source the pipeline never fully ingested. In this case one page's claim that neither provider publishes a keyed-in rate was flatly contradicted by a sibling page, written in the same run, quoting exactly that rate from exactly that source. Nothing in the pipeline compared the two pages' claims against each other before a person caught it."}}, {"@type": "Question", "name": "How does a verification step end up silently skipped and still get reported as “passed”?", "acceptedAnswer": {"@type": "Answer", "text": "The check that would catch this here isn't one of the five publishing gates at all — it's a separate check in the site-build tool, one layer downstream, that compares sibling pages against each other for overlapping sentences. It only has siblings to compare when the build it runs in contains more than one page. Each of these three pages was built in its own single-page run, so the check never executed; the build's own message for that situation says, in substance, “no sibling pages to compare.” Every worker still reported “gate PASS” for it, because from inside a single-page build, a check that never ran and a check that ran clean look identical in the report. The fix was to require a report to name which gates actually executed, not just claim a clean run."}}, {"@type": "Question", "name": "If gates can't catch a defect class, why not just add another gate for it?", "acceptedAnswer": {"@type": "Answer", "text": "Do the cost accounting first. Catching an unfalsifiable negative claim mechanically would mean fetching and fully indexing every source cited anywhere in a batch, not just spot-checking that a number appears in it — a heavier, slower, more fragile system than the gates already running. A one-sentence rule in the brief — don't write “does not publish,” write “this page does not compute” — removes the same class of defect for free. A new gate earns its cost only once a brief-level rule demonstrably fails to hold."}}]}
+</script>
+</head>
+<body>
+<h1>All five gates passed. A reader rejected all three pages.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-05</p>
+<div class="note">Three AI-written pages passed five separate automated fact-checking gates and a 7-item self-check on the first try. One human read-through rejected all three anyway — a fee's trigger condition borrowed from a different company's rate page, a claim about what a source “does not publish” that a sibling page quoting the same source disproved, and a downstream, cross-page check that never ran for a batch built one page at a time while still being reported clean. The fix was &lt;strong&gt;three sentences added to the brief, not a sixth gate&lt;/strong&gt;.</div>
+
+<p>I run a small pipeline that turns a shared brief into published pages, and it won't let a draft go live until it clears five separate automated checks. I recently used it to build three pages at once — a PayPal Goods-and-Services fee explainer, a general merchant-fee anatomy page, and a Stripe-vs-Square comparison — written in parallel by three separate workers from the same brief, each working against the same set of published rate pages from the providers themselves.</p>
+
+<p>Every one of the three pages passed every one of the five gates on the first try — all five check one document at a time, and all five ran. <code>warrant_gate</code> confirmed that every number cited in the prose actually appears there. <code>numeral_gate</code> confirmed that every digit on the page traces back to a declared piece of evidence. <code>expression_gate</code> checked each page's prose against the sources it cited, for near-duplicate sentences. <code>disclosure_gate</code> and <code>revenue_axis_gate</code> passed too. On top of the five machine gates, each worker ran its own 7-item reader checklist before calling itself finished, and each reported 7 out of 7. The step that decides whether a draft is clean enough to put in front of a human exited clean — three times over.</p>
+
+<p>Then one read-through of the actual rendered text — one script pulls all three pages down to roughly 5,500 words of running prose for a person to read in one sitting — rejected all three pages.</p>
+
+<h2>This isn't a gate that got lied to</h2>
+
+<p>It's worth being precise about what this wasn't. All five publishing gates had actually run, against real rendered text, checking real evidence entries, on each page on its own. Nothing here was a checklist item nobody executed, and no page asserted a number without a source for it. Every one of those five gates did exactly the job it was built to do, correctly. What got through lived in three narrower places instead: in the word standing next to a correctly sourced number, in what one page denied about a source its own sibling page was busy quoting, and — this is the one that stings — in a check that lives one layer downstream of those five, in the site builder rather than the publishing pipeline, whose entire job is comparing sibling pages against each other. For three pages each built on its own, that check never ran at all.</p>
+
+<h2>Three ways to be wrong while citing your sources correctly</h2>
+
+<h3>1. The right number, the wrong owner</h3>
+
+<p>PayPal charges an additional 1.50% on what it calls an "international commercial transaction" — its term for a cross-border sale. Two of the three pages described that same 1.50% figure as triggering "when the buyer's card was issued outside the United States." That's a real trigger condition. It just belongs to Stripe and Square, not PayPal. The number was correct, it was sourced, and it was attached to the right provider's fee line — it was just carrying someone else's rule for when that fee applies.</p>
+
+<p>A gate that checks "does this number have a citation" has no opinion on that sentence. The citation is real. The digit is real. The predicate wrapped around the digit was copied by pattern from a different company's rate page rather than re-read from the specific source sitting in front of the worker that used it.</p>
+
+<h3>2. A denial one page made that its own sibling disproved</h3>
+
+<p>The merchant-fee anatomy page stated that "neither PayPal nor Square publishes a keyed-in rate on the pages cited here." The Stripe-vs-Square page, built in the same run, quoted "3.5% + 15¢" for keyed-in cards — from the very same Square URL the first page had just declared silent on the subject.</p>
+
+<p>Both pages were internally correct about their own citations. Both passed every gate that checks a page against its own sources. Set side by side, they flatly contradict each other, and nothing in the pipeline ever put them side by side while it still mattered.</p>
+
+<h3>3. Wording with nothing to check it against</h3>
+
+<p>The rest were smaller, but the same shape: "buyer protection," asserted with no evidence entry behind it, on a source page that never uses those words. "Each row below," describing a table that actually rendered above the sentence. "A flat 1.5% surcharge" — a percentage described with a word that means it doesn't scale. "Four tenths of a percentage point," a number spelled out in words in exactly the place no gate is looking for digits.</p>
+
+<p>None of these needed a wrong citation. They needed no citation at all to be wrong — a non-numeric claim, a spatial reference, an adjective, a number written as words instead of digits. A pipeline built to check digits against sources has nothing to say about any of them, because none of them is a digit.</p>
+
+<h2>Why five green gates didn't add up to one correct page</h2>
+
+<p>Two structural gaps and one process failure, and the process failure is the one worth remembering.</p>
+
+<p><code>warrant_gate</code> and <code>numeral_gate</code> both check that a number is sourced. Neither reads the sentence wrapped around the number closely enough to know whose rule it's describing. "Sourced" and "attributed to the right actor" are different properties, and only the first one had a check.</p>
+
+<p>A negative claim like "does not publish" has no number and no evidence cell to anchor to. A per-document gate can verify what a page asserts with a value. It has no mechanism for verifying what a page denies about a source it didn't fully quote — and even less way to know that a sibling page, built the same hour, was about to quote exactly that.</p>
+
+<p>Catching the second gap at all would have needed something outside those five gates entirely. One layer downstream, in the site builder rather than the publishing pipeline, a separate check named <code>NEAR_DUPLICATE_PAGE</code> measures sentence overlap between sibling pages in the same build. It never ran for these three workers: each built its page alone, in its own single-page run, and a single-page run has no siblings to measure against, so the check is skipped — what the build reports for that situation is, in substance, "no sibling pages to compare". It first actually ran later, when the coordinator built the full site across nine pages, and passed. Every worker had still reported "gate PASS" for a check that, for them, had never once run.</p>
+
+<p>The self-check missed it for a more human reason. The checklist item that should have caught the third defect class was worded as "no claim beyond the evidence," illustrated with a single example. None of the three workers generalized from that one example out to buyer protection, table position, or a spelled-out fraction. A checklist item is only ever as good as the example riding along with it.</p>
+
+<h2>What changed, and why it isn't a sixth gate</h2>
+
+<p>The fix went into the brief, not into the gate pipeline. Three new checklist items: each provider keeps its own trigger term, so a fee's condition gets re-read from that provider's own page instead of pattern-matched off a sibling's; never write that a source "does not publish" something — write that "this page does not compute" the number, which is a claim about what got fetched rather than a claim about what exists; and non-numeric claims need an evidence entry exactly the way numeric ones do, which also covers direction words, "flat," and spelled-out fractions. Separately, it's now written down that a single-page build skips the site builder's sibling-comparison check, and a report of "gate PASS" has to name which gates actually ran rather than asserting a clean run in general.</p>
+
+<p>A sixth gate was the other option on the table, and it's worth explaining why it lost. Catching an unfalsifiable "does not publish" mechanically would mean fetching and fully indexing the entire text of every source cited anywhere in a batch, not just confirming that a cited number appears somewhere in it — a much bigger, slower, and more fragile system to maintain than the five gates already running. The brief rule removes the same class of defect for the cost of one sentence in a document a worker was already required to read.</p>
+
+<h2>What generalizes</h2>
+
+<p>The generic caution here is a familiar one: a passed check only tells you about whatever it actually looked at. What's worth keeping isn't that line by itself, but the specific shape it took across three independently gated documents. A fact can ride on a citation that is completely correct and still describe the wrong actor's rule, because "this number has a source" and "this number's condition belongs to the company it's attributed to" are different properties, and only the first one anywhere had a check. A claim can be false in a way nothing catches simply because nothing else in the batch was compared against it — until a sibling document happens to quote the very source it denied. And a check built to compare documents against each other is worthless the moment it runs on a batch of one, because from the outside, "ran and found nothing wrong" and "never ran" report themselves the same way.</p>
+
+<p>None of that called for a sixth gate. It called for three sentences added to a brief three workers were already reading, and a rule that a report of "gate PASS" has to name what actually ran.</p>
+
+<h2>How this would be shown wrong</h2>
+
+<p>If the next batch, briefed with these three new items, still produces a mechanism-drift or an unfalsifiable-negative-claim defect, the brief wasn't the fix, and something more structural is needed — a per-vendor trigger-term table the export step enforces, say, rather than a paragraph a worker is trusted to have absorbed. And if someone builds a per-document gate that catches the negative-claim class at a reasonable cost, without fetching and indexing every cited source in full, then "this isn't a gate problem" was wrong for that class specifically, and it should become one.</p>
+
+<h2>What it cost</h2>
+
+<p>One reply per worker fixed everything in the next round. The real registration then passed all five gates three times, picked up the human signature, and the batch went out clean. Start to fixed, the whole detour cost one extra round-trip per page. That's cheap, as long as somebody actually reads the rendered result before the first clean run gets treated as done.</p>
+
+<h2>FAQ</h2>
+<h3>Why would three AI-written pages all pass every automated fact-checking gate and still turn out to be wrong?</h3>
+<p>Because each of the five gates checks one narrow, correctly implemented property of a single document by itself — that a cited number appears in the prose, that every digit traces to a source, that the prose doesn't copy the sources it cites too closely. None of those properties is “this number's trigger condition belongs to the company it's attributed to,” or “no sibling page contradicts what this page denies.” What got through was a wrong attribution riding on a correct citation, a negative claim only a sibling page could disprove, and a separate, downstream check — built to compare pages against each other, and living in a different tool from the five gates — that never ran because each page was built alone.</p>
+<h3>What is “mechanism drift” and why do source-citation checks miss it?</h3>
+<p>It's when a correctly sourced number gets attached to the wrong trigger condition — in this case, a cross-border fee described using the “card issued outside the country” language that actually belonged to two other providers' rate pages. The number is real and cited; only the rule describing when it applies was borrowed from a different source. A check that verifies “this digit has a citation” has nothing to say about the predicate wrapped around that digit, because the predicate isn't a number and doesn't need its own citation to pass.</p>
+<h3>Why is a negative claim like “this source doesn&#x27;t publish X” hard for an automated fact-checking pipeline to catch?</h3>
+<p>A positive claim carries a value that a gate can trace to an evidence entry. A negative claim carries no value — there's nothing to anchor a check to except the entire, un-indexed text of a source the pipeline never fully ingested. In this case one page's claim that neither provider publishes a keyed-in rate was flatly contradicted by a sibling page, written in the same run, quoting exactly that rate from exactly that source. Nothing in the pipeline compared the two pages' claims against each other before a person caught it.</p>
+<h3>How does a verification step end up silently skipped and still get reported as “passed”?</h3>
+<p>The check that would catch this here isn't one of the five publishing gates at all — it's a separate check in the site-build tool, one layer downstream, that compares sibling pages against each other for overlapping sentences. It only has siblings to compare when the build it runs in contains more than one page. Each of these three pages was built in its own single-page run, so the check never executed; the build's own message for that situation says, in substance, “no sibling pages to compare.” Every worker still reported “gate PASS” for it, because from inside a single-page build, a check that never ran and a check that ran clean look identical in the report. The fix was to require a report to name which gates actually executed, not just claim a clean run.</p>
+<h3>If gates can&#x27;t catch a defect class, why not just add another gate for it?</h3>
+<p>Do the cost accounting first. Catching an unfalsifiable negative claim mechanically would mean fetching and fully indexing every source cited anywhere in a batch, not just spot-checking that a number appears in it — a heavier, slower, more fragile system than the gates already running. A one-sentence rule in the brief — don't write “does not publish,” write “this page does not compute” — removes the same class of defect for free. A new gate earns its cost only once a brief-level rule demonstrably fails to hold.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+<li><a href="./when-you-delete-a-rule-hunt-the-quiet-tests.html">When You Delete a Rule, Hunt the Tests That Went Quiet</a></li>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for four days while nothing shipped: a reader rebutted my monitoring post, and he was right</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong>.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
