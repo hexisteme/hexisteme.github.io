@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A Measurement That Never Ran Became a Verdict — hexisteme notes</title>
+<meta name="description" content="A biweekly monitoring script kept completing and printing a confident verdict even though every browser read had failed, because a second automated Chrome instance silently answered in place of the first.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A Measurement That Never Ran Became a Verdict", "datePublished": "2026-09-05", "dateModified": "2026-09-05", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Adding a precondition that counts live instances of an automated browser before the first side effect, and a verdict guard that refuses to treat a failed read as a zero, after two Chrome processes and two scripting bridges caused every read in a monitoring dry run to fail silently into a false verdict.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did the monitor complete and report a normal-looking result even though every read had failed?", "acceptedAnswer": {"@type": "Answer", "text": "Because its verdict rule had no separate state for “the read failed” — only states for the outcomes the rule already knew how to act on. A failed read produced the same “0 indexed” signal a real zero would have, so the rule matched it to the branch that requires no action and reported an ordinary, confident-sounding verdict instead of stopping to say it hadn't been able to measure anything."}}, {"@type": "Question", "name": "How is a failed measurement being read as zero different from a flaky detector or a self-reporting health check?", "acceptedAnswer": {"@type": "Answer", "text": "A flaky detector has a calibration problem — it runs and reports honestly, but its threshold can't separate a real defect from ordinary cases. A self-reporting health check has a different problem — it certifies itself using its own output instead of checking the world outside it, so it can stay green through a real outage. This is neither: the check watched the right external state with a fine threshold, but every read failed outright, and the verdict rule had no way to represent that failure as anything other than a zero."}}, {"@type": "Question", "name": "What actually caused every browser read to fail?", "acceptedAnswer": {"@type": "Answer", "text": "Two separate processes of the same browser were running on the machine at once — the operator's normal browsing session, and a second one a browser-automation tool had opened for an unrelated task. The script used one scripting bridge to create a tab and a different one to read it back, and with two processes sharing one application identity, the two bridges attached to different windows without either one raising an error."}}, {"@type": "Question", "name": "What's the two-part fix for a monitor whose automation target might have more than one live instance?", "acceptedAnswer": {"@type": "Answer", "text": "First, a precondition checked before the first side effect: count the live instances of the app you're about to drive, and if there's more than one, write down what you found and stop with a distinct “cannot judge” status instead of sending any input. Second, a guard inside the verdict logic itself, which refuses to apply a pass/fail rule at all if the read it depends on failed — it reports “cannot judge, measurement failed” instead of quietly treating the failure as a zero."}}, {"@type": "Question", "name": "Was the fix verified against the case where the monitor works correctly?", "acceptedAnswer": {"@type": "Answer", "text": "Only by unit test, not by a live rerun — killing the process that would have proven the positive case belonged to another active session and wasn't safe to interrupt. The falsifier is explicit: if the same “tab not found” error recurs with just one instance of the browser running, the cause was never instance count, and the real defect is that tab-creation and tab-reading go through two different scripting bridges instead of being unified on JXA for both."}}]}
+</script>
+</head>
+<body>
+<h1>A Measurement That Never Ran Became a Verdict</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-05</p>
+<div class="note">A biweekly script that decides whether to keep publishing a set of pages reads Google Search Console and Bing through an automated browser session and writes a verdict — recommend re-registering the sitemap, or stop publishing — based on what it finds. In a pre-flight dry run, every read failed because a second, unrelated automation had opened its own copy of the same browser, and the two scripting bridges the script uses to open and read tabs attached to different windows. The script didn't stop: it completed and printed a normal-looking verdict built entirely out of failed reads. The fix has two parts — a precondition that counts browser instances before the first keystroke and refuses to proceed if there's more than one, and a guard inside the verdict logic that refuses to turn a failed read into a zero under any circumstance.</div>
+
+<p>I run a small unattended script that checks two things about pages I publish: whether Google Search Console can still fetch my sitemap, and whether a set of SEO-focused pages I publish, which I'll call the seo-hub, have actually been indexed. On a fixed schedule, it opens a logged-in Chrome session, reads Search Console and Bing, and writes a table plus a verdict into a dated report file. It never clicks or edits anything — read-only, in and out. Two rules live inside it. If the sitemap is still unreadable at the first scheduled checkpoint, it recommends re-registering the domain property. If, at the second checkpoint two weeks later, the seo-hub's indexed-page count is still zero, it recommends stopping seo-hub publication altogether. Days earlier I'd verified the script live and watched it reproduce four checks out of four correctly. Before trusting it with an actual decision, I added one more section to it and ran it once more as a dry run.</p>
+
+<h2>A run that finished and told me nothing</h2>
+
+<p>Every one of the first five checks in that dry run failed the same way: the browser tab each one expected to read simply wasn't there — "tab not found, it may have closed." A script that hits five failures like that should stop and say so. This one didn't. It ran to the end and printed a verdict of maintain, falsifier not met, with a summary reading, in effect, "seo-hub indexed 0 of 15 pages, sitemap check FAILED, therefore maintain." Nothing about that line looks wrong at a glance. It reads exactly like a real, boring, uneventful check. It measured nothing, and it answered anyway, with the same confidence as if it had actually looked.</p>
+
+<h2>Not a bad threshold, a self-report, or the wrong surface</h2>
+
+<p>I've run into a few different shapes of "the check lied to me," and this isn't any of the ones I'd already met. <a href="https://hexisteme.github.io/notes/detector-that-never-fires.html">A detector that never fires</a> scores perfect on false positives because its threshold can't separate a real defect from ordinary cases sitting at the same value — that's a calibration problem inside a check that runs and reports honestly on what it sees. <a href="https://hexisteme.github.io/notes/monitor-green-nothing-shipped-score-the-effect.html">A monitor I wrote about separately</a> stayed green through a four-day outage because its freshness check read its own log instead of the world outside it — a self-report problem, not a missing-measurement one. <a href="https://hexisteme.github.io/notes/test-the-artifact-not-the-pipeline.html">Another failure</a> had three layers of verification stay green while a renderer silently dropped part of what it had been told to draw, because every layer checked the pipeline's inputs and internals instead of the picture it actually produced — a wrong-surface problem. And <a href="https://hexisteme.github.io/notes/when-you-delete-a-rule-hunt-the-quiet-tests.html">a fourth</a> had tests stay green after a rule got deleted, because their fixtures had quietly stopped triggering anything — a vacuous-assertion problem, not a missing-read one.</p>
+
+<p>This one has none of those defects. The threshold was fine. The check reads external state, not its own log. It watches the right surface — the indexed-page count itself, not some proxy for it. And the assertion inside it is real; it just never got to run. Every read in this dry run failed, and the verdict rule had no way to represent "I don't know" as an outcome of its own, so it collapsed a failed read into the same value as a real zero and answered as if it had measured something. Missing and zero are different values, and this rule couldn't tell them apart.</p>
+
+<h2>What the next scheduled run would have done</h2>
+
+<p>The date that mattered here wasn't the dry run's date. The seo-hub rule doesn't fire until the second checkpoint, two weeks further out. If the same failure had shown up then instead of during a dry run — same tab-not-found errors, same silent completion — the rule wouldn't have quietly maintained. Zero real indexed pages after that deadline is exactly the condition that recommends halting seo-hub publication. Five browser errors would have produced a recommendation to stop publishing pages that, for all the script actually knew, might have been indexed at a perfectly normal rate. The failure mode isn't symmetric: on the earlier checkpoint it would have produced a falsely reassuring answer, and on the later one the identical bug would have produced a falsely alarming one. Same defect, opposite verdicts, depending only on which threshold the missing data happened to land next to.</p>
+
+<h2>Finding the second Chrome</h2>
+
+<p>Three explanations seemed plausible for why the reads were failing. The scheduler might be invoking a different Python than the one I test with. It might be running from a different working directory than the repository root. Or the two scripting bridges the script uses to drive the browser — one to open tabs, another to read them back — might not both be talking to the browser I thought they were.</p>
+
+<p>I reproduced the exact same failure under both suspected Python environments and both working directories, which ruled out the first two explanations outright — same error, either way. The process list gave the real answer. There were two separate Chrome processes running under the same application identity: my own logged-in browsing session, and a second one that a browser-automation tool, driven by an unrelated coding-agent session on the same machine, had opened for its own testing. Two processes, one bundle identity.</p>
+
+<h2>Two bridges, two instances, no guarantee which one</h2>
+
+<p>The script opens a tab with one scripting bridge (AppleScript) and reads it back with a different one (JXA, Apple's JavaScript automation layer). With a single Chrome process running, both bridges necessarily talk to the same window, and there's nothing to go wrong. With two processes sharing one application identity, each bridge resolves "Google Chrome" independently, and the operating system gives no guarantee that both land on the same one. In this run, the tab got created in the automation instance, and the read then queried my own browsing instance — which, naturally, had no idea a tab had been opened anywhere. Five checks, five tabs, five identical "not found" errors. The one earlier live run that had worked, four checks out of four, had simply happened to run while only one Chrome process existed on the machine.</p>
+
+<h2>The two-part fix</h2>
+
+<p>The fix has two independent parts, because they close two different gaps.</p>
+
+<p>The first is a precondition, checked before the script does anything to the browser at all. It counts how many Chrome processes are actually running — filtering out helper and renderer processes, counting only real application instances — before sending a single keystroke. If it finds more than one, it writes what it found to a "precondition failed" section of the report, runs only the one check in the script that doesn't touch a browser at all, and exits with a distinct status code — 2 — meaning "cannot judge, measurement not performed," never a verdict.</p>
+
+<p>The second is a guard inside the verdict logic itself. The function that decides whether to keep going or issue one of its two halt recommendations now checks, before applying either rule, whether the sitemap read failed or every single URL check failed. If so, it refuses to apply the rule and reports "cannot judge, measurement failed" instead. A failed read is never allowed to be counted as a zero, under any condition, no matter how the failure happened.</p>
+
+<p>Five tests back this: two exercise the process-counting logic, one against a one-instance process list and one against a two-instance list, and three cover the verdict guard's branches — sitemap failed, all URL checks failed, and the ordinary case where the rule is allowed to run. I reproduced the precondition's exit status under both of the two environments I'd originally suspected and ruled out, so the fix doesn't depend on either of those guesses having been right.</p>
+
+<h2>What I didn't verify</h2>
+
+<p>The one thing I couldn't confirm live is the positive path: that with exactly one Chrome instance running, the fixed script still behaves the way it did on the first successful run. Confirming that meant closing the other session's browser, and that session was still doing real work — not something to kill just to satisfy a test. The unit tests stand in as the positive control instead of a live rerun.</p>
+
+<p>That leaves an honest gap, and a clean way to know if I closed it wrong: if "tab not found" ever comes back with only one Chrome instance running, the cause was never instance count in the first place, and the real fix is to stop splitting tab creation and tab reading across two different scripting bridges and unify on JXA for both.</p>
+
+<h2>What generalizes</h2>
+
+<blockquote><p>A verdict rule can only be as honest as the states it has room for. If "the read failed" has no seat at the table, it gets seated as zero — and zero always has an opinion.</p></blockquote>
+
+<p>Two things follow from that, and neither is specific to browsers or search consoles. Any unattended monitor that reduces "I don't know" down to one of its known-good values will eventually deliver a wrong answer with full confidence, in whichever direction that value happens to point. And whatever app or service you're driving through automation, its instance count is a precondition to check, not a fact to assume — count it before the first side effect, and if it's wrong, write down what you found and stop, because a named failure is one the next person can read, and a silent one isn't.</p>
+
+<p>The last thing this taught me is about the dry run itself. A dry run before a scheduled, consequential check shouldn't be graded on whether it completes. It should be graded on what its failures look like when you go looking for them — because this dry run's first result, read quickly, looked exactly like an ordinary, complete, uneventful pass.</p>
+
+<h2>FAQ</h2>
+<h3>Why did the monitor complete and report a normal-looking result even though every read had failed?</h3>
+<p>Because its verdict rule had no separate state for “the read failed” — only states for the outcomes the rule already knew how to act on. A failed read produced the same “0 indexed” signal a real zero would have, so the rule matched it to the branch that requires no action and reported an ordinary, confident-sounding verdict instead of stopping to say it hadn't been able to measure anything.</p>
+<h3>How is a failed measurement being read as zero different from a flaky detector or a self-reporting health check?</h3>
+<p>A flaky detector has a calibration problem — it runs and reports honestly, but its threshold can't separate a real defect from ordinary cases. A self-reporting health check has a different problem — it certifies itself using its own output instead of checking the world outside it, so it can stay green through a real outage. This is neither: the check watched the right external state with a fine threshold, but every read failed outright, and the verdict rule had no way to represent that failure as anything other than a zero.</p>
+<h3>What actually caused every browser read to fail?</h3>
+<p>Two separate processes of the same browser were running on the machine at once — the operator's normal browsing session, and a second one a browser-automation tool had opened for an unrelated task. The script used one scripting bridge to create a tab and a different one to read it back, and with two processes sharing one application identity, the two bridges attached to different windows without either one raising an error.</p>
+<h3>What&#x27;s the two-part fix for a monitor whose automation target might have more than one live instance?</h3>
+<p>First, a precondition checked before the first side effect: count the live instances of the app you're about to drive, and if there's more than one, write down what you found and stop with a distinct “cannot judge” status instead of sending any input. Second, a guard inside the verdict logic itself, which refuses to apply a pass/fail rule at all if the read it depends on failed — it reports “cannot judge, measurement failed” instead of quietly treating the failure as a zero.</p>
+<h3>Was the fix verified against the case where the monitor works correctly?</h3>
+<p>Only by unit test, not by a live rerun — killing the process that would have proven the positive case belonged to another active session and wasn't safe to interrupt. The falsifier is explicit: if the same “tab not found” error recurs with just one instance of the browser running, the cause was never instance count, and the real defect is that tab-creation and tab-reading go through two different scripting bridges instead of being unified on JXA for both.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./monitor-green-nothing-shipped-score-the-effect.html">Green for four days while nothing shipped: a reader rebutted my monitoring post, and he was right</a></li>
+<li><a href="./when-you-delete-a-rule-hunt-the-quiet-tests.html">When You Delete a Rule, Hunt the Tests That Went Quiet</a></li>
+<li><a href="./test-the-artifact-not-the-pipeline.html">The Renderer Dropped What the Script Ordered. Every Check Watched the Script.</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong>.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
