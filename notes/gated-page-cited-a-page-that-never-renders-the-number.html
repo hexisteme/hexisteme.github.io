@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Page Passed Five Gates and a Signature. It Cited a Page That Never Renders the Number. — hexisteme notes</title>
+<meta name="description" content="A page that had already passed five machine gates and a human&#x27;s signature turned out to cite a source URL that never renders the number it was cited for, because every check compared the fact-check sheet against itself instead of against the source&#x27;s actual rendered text.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Page Passed Five Gates and a Signature. It Cited a Page That Never Renders the Number.", "datePublished": "2026-09-05", "dateModified": "2026-09-05", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Citation verification in an automated publishing pipeline: a signed, gate-passed page cited a source URL that never renders the number it was cited for.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "If the number in a citation is actually true, how can the citation still be wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Because a citation makes two separate claims at once: that the fact is true, and that a specific page currently shows it. Verifying the first doesn't verify the second, especially when the target page renders its numbers through client-side JavaScript hydration that never paints them into the visible document at all."}}, {"@type": "Question", "name": "Why didn't automated gates that check every number has a source catch this?", "acceptedAnswer": {"@type": "Answer", "text": "Because those gates compared the drafted page's body against the fact-check sheet, or the sheet's own entries against each other — pure internal consistency. None of them re-fetched the cited URL and checked whether it currently rendered the claimed text, so a citation with a correct number and a non-rendering URL passed every one of them untouched."}}, {"@type": "Question", "name": "What's the fix for a citation that points at a page rendering its numbers with client-side JavaScript?", "acceptedAnswer": {"@type": "Answer", "text": "Don't add a bypass flag for JavaScript-rendered pages. Supply the already-rendered text for that URL explicitly and record what stood in for the live fetch — the text, its length, its hash — so the decision is reproducible later. Where possible, repoint the citation to a page that already renders the same number as static text."}}, {"@type": "Question", "name": "Why did joining two quote fragments with an ellipsis break verification, and what fixed it?", "acceptedAnswer": {"@type": "Answer", "text": "Verbatim matching checks whether the exact quote string exists in the fetched text, and a quote spliced from two non-adjacent sentences never exists as one continuous string in the source. The fix requires each fragment on either side of an ellipsis to be at least fifteen characters long, appear verbatim, and preserve the source's original order."}}, {"@type": "Question", "name": "How do you know whether a passing verification check is actually trustworthy?", "acceptedAnswer": {"@type": "Answer", "text": "Check what path produced the pass. The same day, a separate pipeline check had reported a clean exit that came from a fixture cluster with a stand-in fetcher; re-run against the real cluster with real fetching, it failed immediately because fields the fixture always supplied were genuinely missing. A pass only tells you about whatever the check actually examined."}}]}
+</script>
+</head>
+<body>
+<h1>The Page Passed Five Gates and a Signature. It Cited a Page That Never Renders the Number.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-05</p>
+<div class="note">A comparison page had already passed five machine gates and my own signature when the first real, non-fixture run of the export pipeline rejected one of its citations: a footnote correctly claiming Square charges an extra 1.5% on foreign-issued cards pointed at a page that never renders that number — it exists only in the page's client-side hydration payload, invisible to any browser. The number was true; the pointer was wrong, and no gate or human check had ever compared the citation against the source's actual rendered text. The fix replaced value-matching with verbatim quote-matching against freshly fetched text, added an explicit recorded substitute for JavaScript-rendered targets instead of a bypass flag, and closed a second gap the same day where a fixture-based test had reported success that the real data path immediately contradicted.</div>
+
+<p>I run a small pipeline that drafts comparison pages and won't publish one until it clears five machine gates and I sign a fact-check sheet by hand. One page already live under that pipeline — a comparison of online card-payment fees across Stripe, PayPal, and Square — had cleared all five gates and already carried my signature. Then I ran the pipeline's dossier-export step against a real cluster and real fetching for the first time, and it rejected a citation on that already-signed, already-live page. The number in the citation was true. The page it pointed to had never rendered that number at all.</p>
+
+<p>That distinction is worth holding onto, because it's tempting to read this as "the fact-check missed something" and stop there. The fact-check hadn't missed the fact — the underlying claim was correct, and the sheet recorded it correctly. What was wrong was the identity between the URL in the footnote and the text a browser actually shows when it opens that URL. Confirming that a claim is true and confirming that a specific page currently displays that claim feel like the same act once you've done the first one. They are not the same act, and nothing downstream of my signature had ever been built to do the second.</p>
+
+<h2>What a real fetch found that a fixture never would</h2>
+
+<p>The dossier-export step rejected three of the page's evidence entries outright the first time it ran against real data: their recorded quotes could not be found anywhere in the text the exporter actually fetched. One of the three was Square's entry for its international-card surcharge — an extra 1.5% on cards issued outside the United States — and the rejection reason was blunt: the quote itself was not on the page.</p>
+
+<p>I opened the cited URL myself to see why. Square's fee table on that page renders client-side; a plain fetch of the page pulled back roughly ten thousand characters of navigation and FAQ text and nothing resembling a rate table. The number wasn't missing from the response, exactly — it was sitting inside the page's client-side hydration payload, the data blob a framework ships down so it can take over already-served HTML without a second round trip. The page's actual visible text ran about 3,300 characters. No shadow DOM held the number. No <code>&lt;template&gt;</code> element held it either, which would at least have been a recognized route to eventual rendering. It was present in what the server sent and absent from what a browser ever paints.</p>
+
+<p>A second page on the very same site — a plain pricing page, not the one the footnote named — rendered the identical claim as ordinary static text: "An additional fee applies to payments made on credit or debit cards issued outside of the United States. 1.5%." Same fact, same number, sitting in the open. It just wasn't the page the citation pointed to.</p>
+
+<h2>Why five gates and a signature both said yes</h2>
+
+<p>None of this was a gap left open on purpose; it was a gap in what "checked" had ever meant here. The five machine gates I run check whether numbers in the body match the fact-check sheet, whether every claim in the sheet is grounded in an evidence entry, whether phrasing overlaps across pages, and whether revenue and disclosure wording follow the site's rules. Every one of those compares the drafted page against the sheet, or compares the sheet's own entries to each other. Not one of them re-opens the cited URL and asks whether the page, right now, contains what the sheet says it contains. Nothing in the five had a job that pointed outward.</p>
+
+<p>I hadn't caught it by hand either, for the same underlying reason. Signing that fact-check sheet meant verifying the claim — does Square really charge more on foreign-issued cards. It does. It didn't mean following the footnote's URL and checking that the number was actually sitting there, visibly, on the page it named. Once a claim checks out as true, there's very little pull toward reopening its citation. Verifying that a source is real and verifying that the specific page you pointed to currently shows what you say it shows read, in the moment, like one task. They only turn out to be two the moment a framework's client-side rendering quietly pulls them apart, which is exactly what had happened here without anyone deciding it should.</p>
+
+<h2>Changing what gets compared</h2>
+
+<p>The fix changed the unit of comparison. Evidence used to carry a <code>value</code> — the number itself — checked against the drafted page's body text. Now every piece of evidence has to carry a <code>quote</code>, a verbatim excerpt a human can actually read, and that quote has to exist word-for-word inside whatever text got fetched from the citation's URL; the <code>value</code> then has to be a token drawn from inside its own <code>quote</code>, not a separately typed number that merely resembles it. A citation no longer passes because its number looks right. It passes because its quote is provably sitting in the page it names.</p>
+
+<p>For a citation target that only renders its numbers through JavaScript, I didn't add a bypass flag. A flag that says "trust me, this one renders client-side" is a lock with no key on the other side — six months later, nobody can tell a legitimate exception from a stale one. Instead there's now an explicit option to supply the already-rendered text for a given URL directly, with the sheet recording what stood in for the live fetch: which text, its length, its hash. Whatever let a citation through stays reproducible after the fact instead of becoming someone's unverifiable say-so. For Square specifically I didn't even need that path — I repointed the footnote at the plain pricing page that already renders the number as static text. The corrected entry now reads plainly: source squareup.com/us/en/pricing, quote verification found in fetched text.</p>
+
+<h2>The second crack the first fix exposed</h2>
+
+<p>Requiring a verbatim quote-in-fetched-text match immediately broke a second citation on the same page that had been getting a free pass. PayPal's international fee, quoted at 1.50%, turned out to be two non-adjacent fragments of the source page joined with an ellipsis — someone had spliced together two separate sentences into what read like one continuous quote. Verbatim matching doesn't forgive that. The joined string, ellipsis included, exists nowhere in the fetched text.</p>
+
+<p>The fix was narrower than banning ellipses outright, since a real quote sometimes does skip filler mid-sentence honestly. Each fragment on either side of an ellipsis now has to be at least fifteen characters long, has to appear verbatim in the fetched text, and the fragments have to appear in the source in the same order they appear in the quote. A splice stitching together two sentences from opposite ends of a page no longer has an ellipsis to hide behind.</p>
+
+<h2>Not overwriting a signed dossier</h2>
+
+<p>The number on the live page never changed — Square still charges exactly what the page always correctly said. What changed was which URL backs that number up, and this pipeline treats a citation swap as no smaller an edit than a change to the claim itself. I didn't patch the existing, signed dossier in place. I built a new one and ran it through export, registration, and judgment again, and the judge answered exactly the way it does for any new page: awaiting a human signature, mine, again, before it can replace what's live. There's no tier of edit small enough to skip that step.</p>
+
+<h2>The same day, a different corner, the same shape</h2>
+
+<p>A second failure surfaced that same day, in a different part of this pipeline, with nothing to do with citations — except that it was the identical failure wearing different clothes. A worker process had reported the export pipeline's exit clean, but that green result had come from a fixture cluster and a stand-in fetcher, not the real ones. Pointed at the path the tool is actually meant to run on — a real cluster, real fetching turned on — the same pipeline failed immediately, rejecting on its very first check: the real cluster had none of the revenue-axis data, source licenses, or evidence values that the fixture had always quietly supplied.</p>
+
+<p>That worker's green light had been real. It just hadn't been a green light about the thing anyone actually needed it to be true of. A passed check only tells you about whatever it actually looked at, and if what it looked at was a stand-in, the pass is a statement about the stand-in. Structurally, that's the same defect as a citation whose quote had only ever been checked against the sheet that wrote it, never against the page it names — a comparison dressed up as verification that never touched the thing it claimed to verify.</p>
+
+<h2>What generalizes</h2>
+
+<p>If a check exists to verify a citation, it's worth naming, explicitly, which question it actually answers: is it comparing the source string against itself, or against what the target currently, actually renders? A check that only does the former will wave through a citation whose number is completely true and whose pointer is completely wrong, and it will do it every time, because truth and pointer accuracy are independent facts that happen to usually travel together.</p>
+
+<p>Second, a green result is only as trustworthy as the path that produced it. Before treating a pass as reassurance, it's worth confirming it came from the real path — real data, a real fetch — rather than a fixture standing in for one.</p>
+
+<p>Third, when a citation target only renders through client-side code, the fix isn't a flag that waives the check. It's an explicit, recorded substitute for the fetch, detailed enough to reproduce the decision later, so that whatever let a citation through stays checkable instead of becoming a permanent, silent exception.</p>
+
+<h2>Where this would be overkill</h2>
+
+<p>I wouldn't defend this at every scale. If a set of citation targets is served as plain static pages that change rarely, the URL and its rendered text are going to agree almost all the time, and forcing a fresh quote-in-fetched-text comparison on every citation could easily cost more in fetches and friction than the defects it would ever catch. This case produced a real defect specifically because the target mixed client-side hydration and static rendering across pages on the same site — a common pattern, and an inconsistent one, which is exactly the combination that lets a citation be true and its pointer be wrong at the same time without anything about the page looking obviously broken.</p>
+
+<h2>FAQ</h2>
+<h3>If the number in a citation is actually true, how can the citation still be wrong?</h3>
+<p>Because a citation makes two separate claims at once: that the fact is true, and that a specific page currently shows it. Verifying the first doesn't verify the second, especially when the target page renders its numbers through client-side JavaScript hydration that never paints them into the visible document at all.</p>
+<h3>Why didn&#x27;t automated gates that check every number has a source catch this?</h3>
+<p>Because those gates compared the drafted page's body against the fact-check sheet, or the sheet's own entries against each other — pure internal consistency. None of them re-fetched the cited URL and checked whether it currently rendered the claimed text, so a citation with a correct number and a non-rendering URL passed every one of them untouched.</p>
+<h3>What&#x27;s the fix for a citation that points at a page rendering its numbers with client-side JavaScript?</h3>
+<p>Don't add a bypass flag for JavaScript-rendered pages. Supply the already-rendered text for that URL explicitly and record what stood in for the live fetch — the text, its length, its hash — so the decision is reproducible later. Where possible, repoint the citation to a page that already renders the same number as static text.</p>
+<h3>Why did joining two quote fragments with an ellipsis break verification, and what fixed it?</h3>
+<p>Verbatim matching checks whether the exact quote string exists in the fetched text, and a quote spliced from two non-adjacent sentences never exists as one continuous string in the source. The fix requires each fragment on either side of an ellipsis to be at least fifteen characters long, appear verbatim, and preserve the source's original order.</p>
+<h3>How do you know whether a passing verification check is actually trustworthy?</h3>
+<p>Check what path produced the pass. The same day, a separate pipeline check had reported a clean exit that came from a fixture cluster with a stand-in fetcher; re-run against the real cluster with real fetching, it failed immediately because fields the fixture always supplied were genuinely missing. A pass only tells you about whatever the check actually examined.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verification-gate-cleared-on-a-keyword.html">My Verification Gate Cleared on a Keyword, Not Evidence</a></li>
+<li><a href="./the-gate-couldnt-read-my-javascript.html">The gate couldn&#x27;t read my JavaScript, so I removed the numbers from it</a></li>
+<li><a href="./test-the-artifact-not-the-pipeline.html">The Renderer Dropped What the Script Ordered. Every Check Watched the Script.</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong>.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
