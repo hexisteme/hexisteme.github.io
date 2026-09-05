@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exclusion Lists Managed by Name Always Rot. Mark the Population Instead. — hexisteme notes</title>
+<meta name="description" content="A denylist of page slugs broke the same day I wrote it, and the fix was to stop naming what to exclude and start reading a structural marker the pages already carry.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Exclusion Lists Managed by Name Always Rot. Mark the Population Instead.", "datePublished": "2026-09-05", "dateModified": "2026-09-05", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a name-based exclusion list (a denylist of page slugs) rots the moment the population changes, and how defining the excluded population by a structural marker the pages produce themselves avoids that rot entirely.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does a denylist of excluded names break even when the new item obviously belongs in the excluded category?", "acceptedAnswer": {"@type": "Answer", "text": "Because a name list only recognizes strings it was already given. In this case privacy and privacy-policy are different strings under an exact match, so a new page describing itself with the second name sails straight through a list built for the first. The list isn't wrong about the three names it holds — it's wrong about every name it doesn't, including ones that are one word longer than a name it already has."}}, {"@type": "Question", "name": "What is a structural marker, and how is it different from just adding more names to the list?", "acceptedAnswer": {"@type": "Answer", "text": "A structural marker is a signal the object itself produces — in this case a JSON-LD block the site's renderer only writes onto real articles — rather than a label a maintainer has to remember to add. Extending a list still requires someone to notice a new page exists and update the list the same day; reading a marker requires the page to answer a yes/no question about itself, so a page that didn't exist when the check was written still gets classified correctly."}}, {"@type": "Question", "name": "Why is over-exclusion (a false negative) considered worse than under-exclusion (a false positive) here?", "acceptedAnswer": {"@type": "Answer", "text": "A false positive is loud: a legitimate page gets flagged, and eventually someone notices the check is wrong, though by then it may already be ignored as noise. A false negative is silent: something that should have been checked simply stops being checked, and nothing in the output changes to signal that a page dropped out of coverage. The loud failure is annoying; the quiet one is the one that lets a real defect through unnoticed."}}, {"@type": "Question", "name": "When does a name-based exclusion list still make more sense than a structural marker?", "acceptedAnswer": {"@type": "Answer", "text": "Two cases: when no marker attaches reliably to every real member of the population, which would just swap a visible false-positive problem for an invisible false-negative one; and when the excluded population is small and provably fixed — five or fewer items that structurally cannot grow — where a short list is more readable than a marker nobody else knows to check."}}, {"@type": "Question", "name": "How do you catch a stale exclusion list before it causes a silent failure?", "acceptedAnswer": {"@type": "Answer", "text": "Print the count of excluded items on every run, next to the total population size. Say a list used to exclude 3 items out of a population of 10 and now excludes 3 out of 14 — that kind of shift is a visible signal that something changed underneath the check, even before you know whether that something was a false positive or a false negative. The same logging discipline applies after switching to a structural marker, since its own failure mode — an item whose marker silently fails to render — is exactly as invisible as an over-broad list."}}]}
+</script>
+</head>
+<body>
+<h1>Exclusion Lists Managed by Name Always Rot. Mark the Population Instead.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-05</p>
+<div class="note">A denylist of excluded page slugs (privacy, terms, disclosure) broke the same day a fourth static page, privacy-policy, was published — an exact-match miss let it slip through as a false-positive article, and the identical defect was already sitting independently in a shell deploy script. The fix replaced both name lists with one structural marker the renderer already left on every real article: a JSON-LD block present on 13/13 articles and absent from 9/9 non-articles.</div>
+
+<p>I've written before about checks that pass for reasons that have nothing to do with what they claim to verify: <a href="https://hexisteme.github.io/notes/your-dead-code-detector-found-a-missing-rule.html">a dead-code detector that flagged six constants that turned out to be unenforced specifications, not dead code</a>, <a href="https://hexisteme.github.io/notes/detector-that-never-fires.html">a detector whose zero false positives were indistinguishable from a stub's until a positive control showed it could actually fire, which it did eight times</a>, <a href="https://hexisteme.github.io/notes/a-check-that-never-ran-is-not-passing.html">a rule that evaluated cleanly because the field it read had no producer anywhere in the codebase and was always null</a>. This one is a different shape from all three. The check itself was correct on the day I wrote it — it told articles apart from non-articles without any ambiguity. What broke wasn't the logic. It was the definition of the population the logic ran over, and it broke the same day.</p>
+
+<h2>The list that broke the same day it was written</h2>
+
+<p>I was building a check for a publishing pipeline: does every article on a hub site actually carry a conversion surface, or did one slip through empty? The check needed to walk every page and decide which ones counted as "articles" versus which ones were something else — an index page, a lead magnet, a policy page — that shouldn't be held to the same rule. My first pass did what most first passes do: a denylist of the slugs I already knew weren't articles.</p>
+
+<pre><code>_EXCLUDED_PAGE_SLUGS = frozenset({&quot;privacy&quot;, &quot;terms&quot;, &quot;disclosure&quot;})
+...
+return not (_EXCLUDED_PAGE_SLUGS &amp; set(relative.parts))   # exact match</code></pre>
+
+<p>Three reasonable-looking strings. It was also already wrong, and the reason has nothing to do with which three strings they were — it would have been just as wrong with thirty.</p>
+
+<h2>The same day, a fourth static page</h2>
+
+<p>Later that same day I published one more static page: <code>privacy-policy</code>. The set comparison is an exact match, and <code>privacy-policy</code> is not <code>privacy</code>. The page sailed straight through the denylist, got counted as an article, and the check reported <code>[PARTIAL] 13/14</code> — a false positive claiming a real article was missing a conversion surface it never needed, because it wasn't an article in the first place.</p>
+
+<p>That's the more forgiving of the two directions a stale exclusion list can fail in. Under-exclusion produces false positives: a legitimate page gets permanently flagged, the check turns into background noise, and the next time it fires about something real, nobody's watching anymore because it already cried wolf. The other direction is worse. Over-exclusion produces false negatives — something that should have been checked quietly stops being checked, and nothing in the output says so. A list that's too narrow announces itself with noise. A list that's too broad doesn't announce anything at all.</p>
+
+<h2>The same bug, independently, in a different language</h2>
+
+<p>The part that made me stop treating this as a one-off typo: the identical defect already existed, independently, in a deploy script written in a different language against a different file:</p>
+
+<pre><code>case &quot;$slug&quot; in lead-magnets|privacy) continue ;; esac   # counts privacy-policy as an article, deploy halts</code></pre>
+
+<p>Nobody copied this bug from the Python check into the shell script, or the other way around. Two separate implementations of "which pages don't count as articles" reached for the same shape of answer: write down the names you currently know about. Both were correct on the day they were written. Both were wrong within that same day, for the same reason — a name list has no way to know that a name it hasn't seen yet belongs to the same category as the names it does know.</p>
+
+<h2>Asking what to include, instead of what to exclude</h2>
+
+<p>The fix wasn't a longer list, or a fuzzy match that would eventually hit the same wall with a different string. It was to stop defining the population by name at all. The site's renderer already leaves a mark on every real article and on nothing else: an <code>application/ld+json</code> structured-data block. I checked this empirically before trusting it — every one of the 13 real articles carried the block, and every one of the 9 non-articles (the index page, the lead magnets, both policy pages) didn't. Thirteen for thirteen, nine for nine. That split is the population definition. It doesn't need to know that <code>privacy-policy</code> exists as a string; it only needs to know whether a given page rendered the block, which is a fact about the page rather than a fact about whoever last updated the list.</p>
+
+<p>Once the check reads the marker instead of the name, adding a tenth non-article page the next morning requires touching neither the Python file nor the shell script. The page either renders the block or it doesn't, and the check answers correctly either way — for a page that didn't exist when the check was written.</p>
+
+<h2>What this generalizes to</h2>
+
+<p>The move is to flip the question. "What should this check skip?" invites a list, and every list has a day it stops matching the world. "What does a real member of this population look like, from the object's own output?" invites a marker, and a marker doesn't go stale just because the set of instances grows.</p>
+
+<p>Four things make that move stick instead of just sounding nicer:</p>
+
+<ul><li>Define inclusion first, not exclusion. If there's any signal the object produces on its own — a class, a meta tag, a header line, a schema block — that a real member of the population always has and a non-member never has, that signal can replace the entire list.</li><li>If no such signal exists yet, add one. A one-line marker the generator emits is cheaper to maintain forever than a name list is to keep updated even once.</li><li>If a list is genuinely unavoidable, print how many items it excluded in every run's output. A silently stale list is invisible; a run that reports "excluded: 3" next to a population size that changed since last time is not. This applies to the marker approach too — its own failure mode is an item whose marker didn't render, dropping silently out of the population — so the excluded count needs to stay visible even after a marker has "solved" the problem.</li><li>If the same rule is implemented in more than one place — a detector and a deploy check, in this case, in two different languages — use the identical marker in both, and leave a comment in each pointing at the other. Fixing one side without the other just lets the pair drift apart again, which is exactly what had already happened once.</li></ul>
+
+<h2>Where this doesn't apply</h2>
+
+<p>This isn't a blanket argument against ever writing a list. It fails as advice in a domain where a marker can't attach reliably to every instance — where some real members of the population simply don't carry any distinguishing signal. There, switching to inclusion-by-marker just trades a visible false-positive problem for an invisible false-negative one, which is the worse trade. In that situation the right move is to keep the list and still hold onto the third rule above: expose the excluded count, so staleness is at least visible as a number instead of a silent gap.</p>
+
+<p>It's also not worth the trouble when the excluded population is small and provably fixed — five or fewer items that can't grow because of something structural about the domain, not just "I don't expect more right now." A short, closed list is more readable than a marker nobody else on the team knows to look for. The argument here is about lists that grow by nature — page types, file categories, route names — not about enumerations of a genuinely finite, closed set.</p>
+
+<h2>A second shape, same day</h2>
+
+<p>The same day produced a second version of this failure in a completely different outfit. A regression test pinned only the sha256 hash of a build artifact — no copy of the artifact itself, just its checksum. The artifact it was supposed to compare against had quietly stopped existing, through three unrelated paths at once: the build directory was gitignored, the deployment process used an orphan commit plus a force push, and the live copy got overwritten on every redeploy. Each of those is individually a reasonable choice. Together they meant that the one time I actually needed to ask "is this difference the one I intended, or a regression," there was nothing left to diff against — only a hash with no file behind it.</p>
+
+<p>It isn't the same mechanism as the exclusion list — nothing here is a name versus a marker — but it's the same family of mistake: a check that quietly stopped verifying anything, because the thing it depended on could disappear without the check noticing. The fix was to keep the actual golden file in the repository, so a failure produces a real, readable diff, and to keep the hash only as a secondary anchor for noticing if the golden file itself gets silently edited.</p>
+
+<h2>How you'd know this is wrong</h2>
+
+<p>The claim is specific enough to falsify. If a codebase's candidate markers turn out not to attach stably to every instance of the intended population — if genuine members sometimes render without the marker for legitimate reasons — then converting a name list into a marker check trades a visible failure mode for an invisible one, and that's a worse trade, not a better one. And if the excluded population genuinely can't grow past a handful of fixed names, the marker is solving a problem that was never going to occur. The 13/13 and 9/9 split is what made the marker trustworthy in this case; without a split that clean, the right fix is a list with its excluded count printed on every run, not a marker adopted on faith.</p>
+
+<h2>FAQ</h2>
+<h3>Why does a denylist of excluded names break even when the new item obviously belongs in the excluded category?</h3>
+<p>Because a name list only recognizes strings it was already given. In this case privacy and privacy-policy are different strings under an exact match, so a new page describing itself with the second name sails straight through a list built for the first. The list isn't wrong about the three names it holds — it's wrong about every name it doesn't, including ones that are one word longer than a name it already has.</p>
+<h3>What is a structural marker, and how is it different from just adding more names to the list?</h3>
+<p>A structural marker is a signal the object itself produces — in this case a JSON-LD block the site's renderer only writes onto real articles — rather than a label a maintainer has to remember to add. Extending a list still requires someone to notice a new page exists and update the list the same day; reading a marker requires the page to answer a yes/no question about itself, so a page that didn't exist when the check was written still gets classified correctly.</p>
+<h3>Why is over-exclusion (a false negative) considered worse than under-exclusion (a false positive) here?</h3>
+<p>A false positive is loud: a legitimate page gets flagged, and eventually someone notices the check is wrong, though by then it may already be ignored as noise. A false negative is silent: something that should have been checked simply stops being checked, and nothing in the output changes to signal that a page dropped out of coverage. The loud failure is annoying; the quiet one is the one that lets a real defect through unnoticed.</p>
+<h3>When does a name-based exclusion list still make more sense than a structural marker?</h3>
+<p>Two cases: when no marker attaches reliably to every real member of the population, which would just swap a visible false-positive problem for an invisible false-negative one; and when the excluded population is small and provably fixed — five or fewer items that structurally cannot grow — where a short list is more readable than a marker nobody else knows to check.</p>
+<h3>How do you catch a stale exclusion list before it causes a silent failure?</h3>
+<p>Print the count of excluded items on every run, next to the total population size. Say a list used to exclude 3 items out of a population of 10 and now excludes 3 out of 14 — that kind of shift is a visible signal that something changed underneath the check, even before you know whether that something was a false positive or a false negative. The same logging discipline applies after switching to a structural marker, since its own failure mode — an item whose marker silently fails to render — is exactly as invisible as an over-broad list.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./your-dead-code-detector-found-a-missing-rule.html">Your Dead-Code Detector Found Six Orphan Constants. None of Them Were Dead.</a></li>
+<li><a href="./detector-that-never-fires.html">A Detector That Never Fires Scores Perfect on False Positives</a></li>
+<li><a href="./a-check-that-never-ran-is-not-passing.html">A Check That Has Never Run Is Not Passing</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong>.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
