@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One API Key Turned the Gateway&#x27;s Cooldown Into a 60-Second Blackout, and I Blamed the Vendor for Months — hexisteme notes</title>
+<meta name="description" content="A single API key meant a routine upstream 5xx put the whole provider into a 60-second local blackout inside my own gateway, and for months I read the retries that always failed inside that window as proof the vendor itself was unreliable.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/one-key-cooldown-is-a-blackout-not-a-rotation.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="One API Key Turned the Gateway&#x27;s Cooldown Into a 60-Second Blackout, and I Blamed the Vendor for Months">
+<meta property="og:description" content="A single API key meant a routine upstream 5xx put the whole provider into a 60-second local blackout inside my own gateway, and for months I read the retries that always failed inside that window as proof the vendor itself was unreliable.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/one-key-cooldown-is-a-blackout-not-a-rotation.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/one-key-cooldown-is-a-blackout-not-a-rotation.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-05">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="One API Key Turned the Gateway&#x27;s Cooldown Into a 60-Second Blackout, and I Blamed the Vendor for Months">
+<meta name="twitter:description" content="A single API key meant a routine upstream 5xx put the whole provider into a 60-second local blackout inside my own gateway, and for months I read the retries that always failed inside that window as proof the vendor itself was unreliable.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/one-key-cooldown-is-a-blackout-not-a-rotation.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "One API Key Turned the Gateway's Cooldown Into a 60-Second Blackout, and I Blamed the Vendor for Months", "datePublished": "2026-09-05", "dateModified": "2026-09-05", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "How a single-key API gateway's cooldown, a safeguard built for multi-key rotation, turns one upstream failure into a fixed 60-second local outage that every fast client retry is guaranteed to hit, and how the access log's latency column tells the two apart.", "image": "https://hexisteme.github.io/notes/og/one-key-cooldown-is-a-blackout-not-a-rotation.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does my API gateway keep returning 503 errors that clear up on their own after about a minute?", "acceptedAnswer": {"@type": "Answer", "text": "The gateway's cooldown logic treats any 408, 500, 502, 503, or 504 from a provider as a reason to rest that key for one minute before trying it again. If the provider only has one API key configured, that minute leaves the provider with zero available auth, so the gateway answers every request itself with a 503 auth_unavailable error instead of contacting the vendor. Once the minute passes, the key is available again and requests go through normally."}}, {"@type": "Question", "name": "How do I tell whether a 503 came from the actual vendor or from my own gateway?", "acceptedAnswer": {"@type": "Answer", "text": "Check the latency recorded in the gateway's access log for that request. A 503 that took hundreds of milliseconds to a few seconds actually made a round trip to the vendor and got a real failure back. A 503 that came back in only a few milliseconds never left the gateway; it was rejected locally before any network call was made. A direct probe to the vendor at the same moment can confirm this: if it returns 200, the vendor was fine."}}, {"@type": "Question", "name": "Should I just turn off my API gateway's cooldown feature entirely?", "acceptedAnswer": {"@type": "Answer", "text": "Only for a provider that has exactly one API key, where a cooldown can't behave like a rotation because there's no second key to switch to. For a provider that holds two or more keys, the cooldown is doing its intended job, moving traffic off a key that just failed, so turning it off there removes a legitimate protection instead of a false one. The setting should be applied per provider, based on how many keys that provider actually has."}}, {"@type": "Question", "name": "Why do my client-side retries always fail during one of these gateway blackouts?", "acceptedAnswer": {"@type": "Answer", "text": "The gateway's cooldown window is a fixed 60 seconds, and a typical client retry backoff is measured in single-digit seconds, so every retry lands inside that window by construction. The retries aren't failing because the vendor is unstable; they're failing because the client gave up and tried again long before the local cooldown timer had any chance to expire."}}, {"@type": "Question", "name": "What's the difference between a 503, a 429, and a 410 from the same API provider?", "acceptedAnswer": {"@type": "Answer", "text": "In this setup a 503 from the gateway can mean either a real upstream failure or the gateway's own cooldown rejecting the request locally, and the access log's latency column is what tells them apart. A 429 runs through a separate quota-limit code path and isn't related to the cooldown at all. A 410 means the specific model has permanently reached end of life; it isn't a transient failure and won't recover with a retry, it needs its alias redirected to a different model."}}]}
+</script>
+</head>
+<body>
+<h1>One API Key Turned the Gateway&#x27;s Cooldown Into a 60-Second Blackout, and I Blamed the Vendor for Months</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-05</p>
+<div class="note">A gateway that holds only one API key for a provider still runs the cooldown logic built for multi-key rotation, so a single upstream 5xx puts that one key to sleep for a full minute and the gateway answers every request itself with <code>503 auth_unavailable</code>, never reaching the vendor. The tell is in the access log's latency column: the first <code>503</code> in an episode takes hundreds of milliseconds because it actually reached the vendor, and every <code>503</code> after it comes back in a few milliseconds because the gateway rejected it locally. The fix is <code>disable-cooling: true</code> on that one provider when it holds a single key, or adding a second key so the cooldown goes back to being a real rotation.</div>
+
+<p>For about three months, I had a working theory about one leg of my model roster: the free tier was flaky. Every so often, a request routed through an NVIDIA NIM model would come back <code>503</code>. My client would retry on a one-second backoff, then a three-second backoff — <code>retry_transient: [502, 503, 504]</code> — and both would also fail. Then, roughly a minute later, with no intervention from me, the same request would go through fine. I filed it under "free tier, what do you expect," because a failure that heals itself on its own timetable is what a rate-limited endpoint is supposed to look like.</p>
+
+<p>The theory survived because the evidence fit it every time. What broke it wasn't a new outage — it was a probe result and one column in an access log I'd been reading past for months. The vendor wasn't the unreliable part. A gateway I run myself was — and, as it turned out, just one of four separate causes behind the unstable leg I was chasing that same day, the only one that actually lived inside the gateway.</p>
+
+<h2>The column I wasn't reading</h2>
+
+<p>The gateway is CLIProxyAPI 7.1.58, a multi-credential proxy — the kind of thing grouped with LiteLLM-class routers. It runs locally; everything downstream of it, including an MCP tool server's custom provider and a council persona whose <code>OPENAI_BASE_URL</code> points at it, reaches it on a local port. Its access log writes one line per request, with a latency column I'd been skimming past:</p>
+
+<pre><code>[gin_logger.go:97] 503 |   6ms | 127.0.0.1 | POST /v1/chat/completions</code></pre>
+
+<p>Once I actually read that number across a run of failures, the pattern was obvious. The first <code>503</code> in an episode carried a latency of 316 ms — a real round trip, long enough to actually reach NVIDIA and come back with a failure. Every <code>503</code> that followed in the same episode came back in 6 ms, and in older episodes as fast as 1–2 ms — the gateway answering from memory before the request ever left the building. A direct probe to the vendor, at the same moment one of these episodes was running, came back <code>200</code>. A status code alone doesn't say which layer failed — the same discipline applies in reverse, where an error envelope inside an HTTP 200 still reads as success if the only check is <code>response.ok</code> (<a href="https://hexisteme.github.io/notes/error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache</a>). Here, a <code>503</code> looked exactly like a vendor failure and wasn't one; the only way to tell them apart was to time it.</p>
+
+<h2>What a cooldown is for, and what it becomes at one key</h2>
+
+<p>A gateway holding more than one credential for a provider uses a cooldown to protect itself: if key A errors, set it aside and route the next request through key B. In CLIProxyAPI's code, that logic lives in <code>sdk/cliproxy/auth/conductor.go</code> — <code>case 408, 500, 502, 503, 504:</code> sets <code>NextRetryAfter = now.Add(1 * time.Minute)</code> unless <code>disable-cooling</code> is set on that provider block (<code>429</code> runs through a separate quota path). The per-provider switch lives at <code>internal/config/config.go:658</code>.</p>
+
+<p>That logic assumes a key B. My NVIDIA NIM provider block had exactly one API key configured — one <code>api-key-entries</code> entry. So the same cooldown that's a sensible rotation with two keys instead put the entire provider to sleep for that minute: zero available auth, for the only credential it had. For the rest of that window the gateway answered every request itself, immediately, with <code>503 auth_unavailable</code> / "no auth available," without ever contacting NVIDIA. That's the 6 ms.</p>
+
+<p>The arithmetic downstream was already decided before the cooldown even started. My retry policy backs off at 1 s and then 3 s, both well inside the 60-second window the cooldown holds open — not because the vendor failed again, but because a minute-long timer doesn't care how fast a client retries. The seed for a given episode was ordinary on its own — NVIDIA NIM's free tier returning "Service temporarily overloaded," or once a 302-second hang ending in a <code>504</code> — but the blackout that followed had nothing more to do with how bad that seed event was.</p>
+
+<h2>Every fix I almost made</h2>
+
+<ul><li>Raise the consumer's retry count or timeout — the blackout is fixed at 60 seconds regardless of cause; three retries or five, all land inside the same window.</li><li>Blame the free tier again — the direct probe answered <code>200</code> at the same moment the gateway refused the request. The outage never left my machine.</li><li>Restart the gateway to clear the cooldown — it works, because the cooldown is in-memory state, which is the problem: the restart clears the symptom and leaves the cause in place, and cuts every other consumer on the gateway for a fix only one leg needed.</li><li>Turn <code>disable-cooling</code> on globally — wrong for any provider that actually holds two or more keys, where the cooldown is doing its real job. The setting belongs per provider, sized to how many keys that provider has.</li><li>Treat every non-2xx the same way. A <code>410</code> means a model has genuinely reached end of life — permanent, needs its alias redirected, not retried. A <code>429</code> runs through the gateway's own quota path. Folding either into "the leg is flaky" erases what tells you what to do next.</li></ul>
+
+<h2>The fix</h2>
+
+<p>For a provider with one key — the default case — the fix is <code>disable-cooling: true</code> on that provider's block only:</p>
+
+<pre><code>openai-compatibility:
+  - name: &quot;nvidia-nim&quot;
+    base-url: &quot;https://integrate.api.nvidia.com/v1&quot;
+    disable-cooling: true
+    api-key-entries:
+      - api-key: &quot;&lt;redacted — injected from env&gt;&quot;</code></pre>
+
+<p>CLIProxyAPI hot-reloads its config file via a watcher — the log records "config successfully reloaded" — no restart, no gap for other consumers. I applied this at 2026-09-05 20:41:58 and reran the probe: PASS 3/3 — nano in 3972 ms, super in 558 ms, and the 49b model correctly back with <code>410</code>, its expected end-of-life answer, not a new failure.</p>
+
+<p>For a provider where I can hold two or more keys, the fix runs the other way: add another API key, let the cooldown become a real rotation, and leave it on. Custody matters here for the same reason it mattered when a metered API key, exported globally in a shell profile, turned out to be inherited by unrelated tools that had nothing to do with the one originally suspected (<a href="https://hexisteme.github.io/notes/the-key-owner-was-not-the-spender.html">The Key's Owner Wasn't the Spender</a>) — each key gets injected per consumer from the environment, never printed in the clear.</p>
+
+<p>Either way, retries get exactly one owner. Mine live in the consumer's roster — <code>retry_transient</code> plus its backoff — and nowhere else. Stack a retry loop on top of a gateway-side cooldown and you have two layers with two different budgets deciding the same failure — and here the smaller budget was always going to lose.</p>
+
+<p>The diagnostic itself is just the latency column, grepped and tailed:</p>
+
+<pre><code>grep -E &quot;gin_logger.go:[0-9]+\] 503 &quot; ~/path/to/gateway/launchd.out | awk -F&#x27;|&#x27; &#x27;{print $1 &quot;|&quot; $2}&#x27; | tail -20</code></pre>
+
+<p>Run against the history, the same signature — one slow <code>503</code>, then a run of 1–2 ms <code>503</code>s — showed up on 2026-06-25, 2026-07-01, and 2026-08-26, and again on 2026-08-27 and 2026-09-02, the two episodes I'd gone looking for. The access log held 37 lines like that; most of them carried the signature. It had been there the whole time I was blaming the free tier.</p>
+
+<h2>A different layer, same misattribution</h2>
+
+<p>This sits in the same family as a <code>tail -20</code> that couldn't emit until EOF, with the pipe's write-end held open by an inherited descriptor — the tool was fine there too, and an observation pipeline manufactured the failure (<a href="https://hexisteme.github.io/notes/the-pipe-was-the-bug-not-the-vendor.html">For Weeks I Logged a CLI as Flaky</a>). The roles are flipped here: the vendor was fine, and my own gateway layer manufactured the outage. Same instinct to blame the far end of the wire first; the defect was one layer closer to home both times.</p>
+
+<h2>What generalizes</h2>
+
+<ul><li>A protective mechanism built for N ≥ 2 of something — keys, replicas, nodes — can become the failure it exists to prevent once N = 1. The safety property was never in the code path; it was an assumption about the environment around it that nothing enforces.</li><li>A status code from a proxy isn't automatically the vendor's status code. Time the request before deciding where it failed: milliseconds mean the network was never touched; hundreds of milliseconds to seconds mean somebody upstream answered.</li><li>Retries and cooldowns are both timers with an opinion about failure. When a client's retry budget is smaller than a server-side cooldown window, every retry is a foregone conclusion — the fix is one layer owning retries, not a bigger timer.</li><li>When several things break on the same day, check whether they even share a layer before treating them as one root cause. Symptoms carrying the same "unstable" label can still have separate homes.</li></ul>
+
+<h2>Where this stops being true</h2>
+
+<ul><li>With two or more keys behind a provider, the cooldown is doing its actual job. Disabling it there removes a legitimate rotation, not a false one.</li><li>If the <code>503</code>'s latency in the log reads in the hundreds of milliseconds or seconds, that request went upstream and came back with a real failure — a vendor problem again, not a local blackout.</li><li>If a gateway ever starts skipping cooldown by default when a provider has exactly one credential, or shrinks the cooldown window below a consumer's retry budget — a few seconds instead of a minute — this fix stops being necessary.</li></ul>
+
+<p>None of the individual facts here were hidden. The code was right there to read, the log line carried a latency column the whole time, and the vendor answered honestly when I asked it directly. The signature sat in that log for about three months before I read it as a local blackout instead of vendor instability — not for lack of evidence, but because I hadn't yet thought to distrust the layer I'd installed to make the fleet steadier in the first place.</p>
+
+<h2>FAQ</h2>
+<h3>Why does my API gateway keep returning 503 errors that clear up on their own after about a minute?</h3>
+<p>The gateway's cooldown logic treats any 408, 500, 502, 503, or 504 from a provider as a reason to rest that key for one minute before trying it again. If the provider only has one API key configured, that minute leaves the provider with zero available auth, so the gateway answers every request itself with a <code>503 auth_unavailable</code> error instead of contacting the vendor. Once the minute passes, the key is available again and requests go through normally.</p>
+<h3>How do I tell whether a 503 came from the actual vendor or from my own gateway?</h3>
+<p>Check the latency recorded in the gateway's access log for that request. A <code>503</code> that took hundreds of milliseconds to a few seconds actually made a round trip to the vendor and got a real failure back. A <code>503</code> that came back in only a few milliseconds never left the gateway; it was rejected locally before any network call was made. A direct probe to the vendor at the same moment can confirm this: if it returns 200, the vendor was fine.</p>
+<h3>Should I just turn off my API gateway&#x27;s cooldown feature entirely?</h3>
+<p>Only for a provider that has exactly one API key, where a cooldown can't behave like a rotation because there's no second key to switch to. For a provider that holds two or more keys, the cooldown is doing its intended job, moving traffic off a key that just failed, so turning it off there removes a legitimate protection instead of a false one. The setting should be applied per provider, based on how many keys that provider actually has.</p>
+<h3>Why do my client-side retries always fail during one of these gateway blackouts?</h3>
+<p>The gateway's cooldown window is a fixed 60 seconds, and a typical client retry backoff is measured in single-digit seconds, so every retry lands inside that window by construction. The retries aren't failing because the vendor is unstable; they're failing because the client gave up and tried again long before the local cooldown timer had any chance to expire.</p>
+<h3>What&#x27;s the difference between a 503, a 429, and a 410 from the same API provider?</h3>
+<p>In this setup a <code>503</code> from the gateway can mean either a real upstream failure or the gateway's own cooldown rejecting the request locally, and the access log's latency column is what tells them apart. A <code>429</code> runs through a separate quota-limit code path and isn't related to the cooldown at all. A <code>410</code> means the specific model has permanently reached end of life; it isn't a transient failure and won't recover with a retry, it needs its alias redirected to a different model.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-pipe-was-the-bug-not-the-vendor.html">For Weeks I Logged a CLI as Flaky. The Bug Was `| tail -20`.</a></li>
+<li><a href="./the-key-owner-was-not-the-spender.html">The Key&#x27;s Owner Wasn&#x27;t the Spender</a></li>
+<li><a href="./error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong>.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
