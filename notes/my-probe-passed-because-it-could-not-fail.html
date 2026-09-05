@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My probe passed because it could not fail", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A pre-registered waveform check on a DaVinci Resolve FCPXML export/import round trip passed a crossfade that had actually been lost, because the check's prep procedure made both the surviving and the lost outcome render identically.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/my-probe-passed-because-it-could-not-fail.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="My probe passed because it could not fail">
+<meta property="og:description" content="A pre-registered waveform check said a hand-made crossfade survived a DaVinci Resolve export round trip. It hadn&#x27;t — the check&#x27;s own prep procedure made a pass the only possible outcome, and the proof was already sitting in the same results file.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/my-probe-passed-because-it-could-not-fail.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/my-probe-passed-because-it-could-not-fail.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-08">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="My probe passed because it could not fail">
+<meta name="twitter:description" content="A pre-registered waveform check said a hand-made crossfade survived a DaVinci Resolve export round trip. It hadn&#x27;t — the check&#x27;s own prep procedure made a pass the only possible outcome, and the proof was already sitting in the same results file.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/my-probe-passed-because-it-could-not-fail.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My probe passed because it could not fail", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A pre-registered waveform check on a DaVinci Resolve FCPXML export/import round trip passed a crossfade that had actually been lost, because the check's prep procedure made both the surviving and the lost outcome render identically.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/my-probe-passed-because-it-could-not-fail.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can a passing test be meaningless?", "acceptedAnswer": {"@type": "Answer", "text": "When the test's input can't produce the failure signature no matter what the real state of the system is. Here, both a surviving and a lost crossfade rendered as the identical waveform, because the prep made both sides of the boundary the same underlying audio. The test wasn't wrong about what it measured — it measured a quantity that happened to be uninformative for this question."}}, {"@type": "Question", "name": "Wasn't the fix just \"read everything manually\"?", "acceptedAnswer": {"@type": "Answer", "text": "No — the fix is structural, not manual: for artifacts you can parse (an XML export, frame geometry from an API), prefer that over a signal heuristic when both are available. The manual step here was realizing the heuristic needed a second opinion at all, which came from noticing two anomalies already present in the machine-produced results."}}, {"@type": "Question", "name": "Does this mean the vendor documentation was flat wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Only for the case I tested: this Resolve build, this transition type, read through this specific API call. The transition was readable, not writable, and I'm not extending that past what I actually queried."}}]}
 </script>

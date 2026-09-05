@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "There Was No Valid Config. The API Had No Word for the Subject.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Distinguishing an API expressiveness gap from a misconfiguration", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/the-api-had-no-word-for-the-subject.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="There Was No Valid Config. The API Had No Word for the Subject.">
+<meta property="og:description" content="A scene framed the wrong country and two sessions went into fixing the config. No config could have worked — the parameter took country codes and the subject was not a country.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/the-api-had-no-word-for-the-subject.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/the-api-had-no-word-for-the-subject.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-27">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="There Was No Valid Config. The API Had No Word for the Subject.">
+<meta name="twitter:description" content="A scene framed the wrong country and two sessions went into fixing the config. No config could have worked — the parameter took country codes and the subject was not a country.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/the-api-had-no-word-for-the-subject.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "There Was No Valid Config. The API Had No Word for the Subject.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Distinguishing an API expressiveness gap from a misconfiguration", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/the-api-had-no-word-for-the-subject.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I tell an expressiveness gap from a misconfiguration?", "acceptedAnswer": {"@type": "Answer", "text": "Ask whether the parameter's domain covers the set of things a user needs to name, rather than asking what value the parameter should hold. If the target cannot be named by any legal value, no amount of reconfiguration will fix it and the grammar itself has to widen. Any API that identifies targets by code or enum inherits this the moment reality subdivides more finely than the taxonomy did."}}, {"@type": "Question", "name": "Why did a downstream stage silently undo the upstream setting?", "acceptedAnswer": {"@type": "Answer", "text": "The downstream composition step recomputed the frame from one field of the upstream declaration instead of all of it, so a wide-framing request collapsed into a narrow one. A normalization stage that re-reads a subset of its input voids the rest of it, and because the output still looks plausible nothing fails — twelve of nineteen scenes lost their neighbours entirely with no test failure."}}, {"@type": "Question", "name": "Should I retune a shared constant or add an escape hatch?", "acceptedAnswer": {"@type": "Answer", "text": "Prefer the escape hatch. Changing a shared constant breaks previously-passing cases that depend on it, and for visual output those breakages appear only on screen where the test suite cannot see them. A per-item override defaulting to None has zero regression surface."}}]}
 </script>

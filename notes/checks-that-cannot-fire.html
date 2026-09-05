@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The check that cannot fire: absolute thresholds silently disable your QC", "datePublished": "2026-08-09", "dateModified": "2026-08-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Quality-control harness design, detection floors, and thresholds derived from in-run signal-to-noise", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/checks-that-cannot-fire.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The check that cannot fire">
+<meta property="og:description" content="A QC harness passed all 13 synthetic fixtures and broke on 5 of its first real inputs. Every root cause was the same shape — a threshold expressed as an absolute constant unrelated to the scale of the content — and the fix that made it 50x more sensitive kept every existing fixture green.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/checks-that-cannot-fire.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/checks-that-cannot-fire.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-09">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The check that cannot fire">
+<meta name="twitter:description" content="A QC harness passed all 13 synthetic fixtures and broke on 5 of its first real inputs. Every root cause was the same shape — a threshold expressed as an absolute constant unrelated to the scale of the content — and the fix that made it 50x more sensitive kept every existing fixture green.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/checks-that-cannot-fire.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The check that cannot fire: absolute thresholds silently disable your QC", "datePublished": "2026-08-09", "dateModified": "2026-08-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Quality-control harness design, detection floors, and thresholds derived from in-run signal-to-noise", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/checks-that-cannot-fire.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a QC harness pass every synthetic fixture and fail on real input?", "acceptedAnswer": {"@type": "Answer", "text": "Its thresholds were absolute constants that implicitly assumed the scale of the fixtures. On real content at a different scale the checks did not fail, they stopped firing — and a check that stops firing reports a pass, so it survives indefinitely in the suite."}}, {"@type": "Question", "name": "How do you prove a threshold change tightened a check instead of loosening it?", "acceptedAnswer": {"@type": "Answer", "text": "Measure a detection floor: inside the same run and on the same content, inject a synthetic defect at a sweep of amplitudes and record the smallest amplitude that still fires the check. In this case the floor improved from 0.05 to 0.001 — 50x more sensitive — while all 13 prior positive controls stayed green."}}, {"@type": "Question", "name": "What should a check report when it cannot discriminate on the given input?", "acceptedAnswer": {"@type": "Answer", "text": "Not a pass. Report an explicit 'discrimination absent' state. A pass and a could-not-measure are different facts, and merging them means the next reader takes the second for the first."}}]}
 </script>

@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your validator must measure what you ship, not what you loaded", "datePublished": "2026-08-11", "dateModified": "2026-08-11", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A residual-based honesty gate for a map-comparison renderer measured raw, unfiltered GeoJSON country geometry instead of the exact geometry the renderer draws, causing it to reject an already-published, honest video. Four hand-computed golden vectors, built on the same wrong geometry, reproduced the error instead of catching it, and fixing the measurement source reversed the pipeline's own prior conclusion about how often the device is honest.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/validate-what-you-ship-not-what-you-load.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Your validator must measure what you ship, not what you loaded">
+<meta property="og:description" content="A residual-based honesty gate for a map-comparison renderer rejected an already-published, honest video because it measured raw GeoJSON geometry instead of the exact geometry the renderer draws. Four hand-computed golden vectors could not catch the error, because they encoded the same misunderstanding the gate did.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/validate-what-you-ship-not-what-you-load.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/validate-what-you-ship-not-what-you-load.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-11">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your validator must measure what you ship, not what you loaded">
+<meta name="twitter:description" content="A residual-based honesty gate for a map-comparison renderer rejected an already-published, honest video because it measured raw GeoJSON geometry instead of the exact geometry the renderer draws. Four hand-computed golden vectors could not catch the error, because they encoded the same misunderstanding the gate did.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/validate-what-you-ship-not-what-you-load.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your validator must measure what you ship, not what you loaded", "datePublished": "2026-08-11", "dateModified": "2026-08-11", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A residual-based honesty gate for a map-comparison renderer measured raw, unfiltered GeoJSON country geometry instead of the exact geometry the renderer draws, causing it to reject an already-published, honest video. Four hand-computed golden vectors, built on the same wrong geometry, reproduced the error instead of catching it, and fixing the measurement source reversed the pipeline's own prior conclusion about how often the device is honest.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/validate-what-you-ship-not-what-you-load.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
 {"@type": "Question", "name": "My validator passes every golden vector but rejects data I know is good — what does that mean?", "acceptedAnswer": {"@type": "Answer", "text": "It means your golden vectors and your validator's logic were built on the same assumption, so matching them proves internal consistency, not correctness. Golden vectors show an implementation matches its spec; they cannot show the spec itself is right. Run the validator against an artifact you already know is correct — that cross-check is what a self-consistent vector suite can never provide, and it is what actually surfaces the bug."}},

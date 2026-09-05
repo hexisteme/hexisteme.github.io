@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Choosing between a dedicated OCR engine and a general vision model, and when cheap-first escalation is unsound", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/the-dedicated-ocr-engine-lost-to-the-general-model.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower">
+<meta property="og:description" content="Apple Vision read the image 300x faster with four times the character errors — but what decided it was that Vision shredded the table into columns, and a shredded table is syntactically perfect.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/the-dedicated-ocr-engine-lost-to-the-general-model.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/the-dedicated-ocr-engine-lost-to-the-general-model.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-27">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower">
+<meta name="twitter:description" content="Apple Vision read the image 300x faster with four times the character errors — but what decided it was that Vision shredded the table into columns, and a shredded table is syntactically perfect.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/the-dedicated-ocr-engine-lost-to-the-general-model.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Dedicated OCR Engine Lost to the General-Purpose Model — 300x Slower", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Choosing between a dedicated OCR engine and a general vision model, and when cheap-first escalation is unsound", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/the-dedicated-ocr-engine-lost-to-the-general-model.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is a dedicated OCR engine more accurate than a general vision model?", "acceptedAnswer": {"@type": "Answer", "text": "On raw character accuracy in this measurement the general 27B model was ahead, 2 errors to 8, but that was not the decisive difference. The dedicated engine returned the table decomposed by column, so which speed belonged to which model was unrecoverable from the output. A specialist beats a generalist only within the cut of the task it actually specializes in."}}, {"@type": "Question", "name": "When is a cheap-first escalation ladder unsound?", "acceptedAnswer": {"@type": "Answer", "text": "When the cheap tier can fail by silently dropping a relation rather than producing a wrong value. Column-shredded OCR output is syntactically perfect and indistinguishable downstream from a correct read, so there is nothing for the escalation trigger to detect. Cheap-first is only an optimization when failure is observable at the boundary."}}, {"@type": "Question", "name": "Can OCR be trusted on IDs, hashes, or license keys?", "acceptedAnswer": {"@type": "Answer", "text": "No engine in this class can. Both the dedicated engine and the vision model misread capital O as digit zero even at 4x magnification with an explicit instruction to distinguish them, on a font that draws the two glyphs visibly differently. That is a property of the tool class, so the remedy is a checksum or human confirmation rather than a better engine."}}]}
 </script>

@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Upload Succeeded, the Record Did Not", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A YouTube upload stage wrote its local completion record only after a post-upload verification step succeeded. When verification threw, the record was never written even though the video already existed on the platform, so re-running the command bypassed the duplicate guard and uploaded a second copy. The fix moved the checkpoint to the moment the video ID is received, before verification, and split reruns into resume-verification versus block-as-duplicate branches.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/the-upload-succeeded-the-record-did-not.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Upload Succeeded, the Record Did Not">
+<meta property="og:description" content="A YouTube upload stage wrote its local &quot;already uploaded&quot; record only after verification succeeded, so a verification failure left the video live on the platform with nothing on disk to say so. Re-running the same command sailed past the duplicate guard and would have uploaded a second copy of a video that already existed.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/the-upload-succeeded-the-record-did-not.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/the-upload-succeeded-the-record-did-not.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-09">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Upload Succeeded, the Record Did Not">
+<meta name="twitter:description" content="A YouTube upload stage wrote its local &quot;already uploaded&quot; record only after verification succeeded, so a verification failure left the video live on the platform with nothing on disk to say so. Re-running the same command sailed past the duplicate guard and would have uploaded a second copy of a video that already existed.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/the-upload-succeeded-the-record-did-not.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Upload Succeeded, the Record Did Not", "datePublished": "2026-08-09", "dateModified": "2026-08-09", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A YouTube upload stage wrote its local completion record only after a post-upload verification step succeeded. When verification threw, the record was never written even though the video already existed on the platform, so re-running the command bypassed the duplicate guard and uploaded a second copy. The fix moved the checkpoint to the moment the video ID is received, before verification, and split reruns into resume-verification versus block-as-duplicate branches.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/the-upload-succeeded-the-record-did-not.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
 {"@type": "Question", "name": "Why did a failed verification step lead to a duplicate video upload?", "acceptedAnswer": {"@type": "Answer", "text": "Because the local record marking an episode as uploaded was only written after verification succeeded. When verification raised an exception, the record was never written, even though the video already existed on YouTube. Re-running the same command found no record, so the duplicate guard passed and a second, independent copy was uploaded."}},

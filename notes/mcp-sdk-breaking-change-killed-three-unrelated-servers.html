@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Four Tools Died the Same Day. It Was Two Bugs, and One of Them Killed Three. — hexisteme notes</title>
+<title>Four MCP Tools Died the Same Day. One Unpinned SDK Dependency Killed Three. — hexisteme notes</title>
 <meta name="description" content="Three servers in different repos died the same morning. Independent failures do not synchronize — a shared unpinned dependency does.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
@@ -16,15 +16,29 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Four Tools Died the Same Day. It Was Two Bugs, and One of Them Killed Three.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing synchronized failures from a shared unpinned dependency, and why selective pinning beats pinning everything", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/mcp-sdk-breaking-change-killed-three-unrelated-servers.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Four MCP Tools Died the Same Day. One Unpinned SDK Dependency Killed Three.">
+<meta property="og:description" content="Three servers in different repos died the same morning. Independent failures do not synchronize — a shared unpinned dependency does.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/mcp-sdk-breaking-change-killed-three-unrelated-servers.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/mcp-sdk-breaking-change-killed-three-unrelated-servers.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-27">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Four MCP Tools Died the Same Day. One Unpinned SDK Dependency Killed Three.">
+<meta name="twitter:description" content="Three servers in different repos died the same morning. Independent failures do not synchronize — a shared unpinned dependency does.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/mcp-sdk-breaking-change-killed-three-unrelated-servers.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Four MCP Tools Died the Same Day. One Unpinned SDK Dependency Killed Three.", "datePublished": "2026-08-27", "dateModified": "2026-08-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Diagnosing synchronized failures from a shared unpinned dependency, and why selective pinning beats pinning everything", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/mcp-sdk-breaking-change-killed-three-unrelated-servers.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Several unrelated services broke at once. Where do I start?", "acceptedAnswer": {"@type": "Answer", "text": "Stop looking at the services and diff their shared dependency graph. Three independent failures landing in the same hour is possible; one shared thing moving is overwhelmingly more likely. Going service by service reads the same stack trace several times and reports it as several bugs — the moment the first trace names a shared library, the next question is which other services pull it."}}, {"@type": "Question", "name": "Should I pin every dependency after a breaking change?", "acceptedAnswer": {"@type": "Answer", "text": "No. An upper bound freezes security patches along with breaking changes, so pinning everything trades a handful of outages for permanent staleness debt across the whole fleet. Pin only what actually broke, record the pin date in a ledger, and re-check each bound on a schedule. A pin is a response to an incident; the prevention is detection."}}, {"@type": "Question", "name": "How do I stop a delegated agent from leaking credentials?", "acceptedAnswer": {"@type": "Answer", "text": "Name forbidden operators rather than forbidden intentions. An instruction like do not print secrets is a rule about goals, and careless disclosure is not goal-directed — an agent that never intends to print a key will still serialize a container that holds one. Ban the bulk-serialization operations themselves: tojson, to_entries, dump, repr, and logging whole config objects."}}]}
 </script>
 </head>
 <body>
-<h1>Four Tools Died the Same Day. It Was Two Bugs, and One of Them Killed Three.</h1>
+<h1>Four MCP Tools Died the Same Day. One Unpinned SDK Dependency Killed Three.</h1>
 <div class="note">Several components failing at the same time is evidence of one upstream event, not several local ones. A dependency with no upper bound is a different program every time it runs, so a single major release turns every deterministic import that shares it into an undefined one, simultaneously.</div>
 
 <p>Four of my MCP servers were dead. All four reported the same useless thing: <code>Connection closed</code>.</p>

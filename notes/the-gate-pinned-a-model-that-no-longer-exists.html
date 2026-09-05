@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Gate Pinned a Model That No Longer Exists", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An adversarial-review gate that hard-pinned its reviewer model by version string, and what it took for an audit to find both pinned models already dead.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/the-gate-pinned-a-model-that-no-longer-exists.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Gate Pinned a Model That No Longer Exists">
+<meta property="og:description" content="An adversarial-review gate that forced every trading thesis through an outside model turned out to hard-pin that model by version string. The audit found both the pinned primary and its emergency backup already dead.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/the-gate-pinned-a-model-that-no-longer-exists.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/the-gate-pinned-a-model-that-no-longer-exists.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-08">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Gate Pinned a Model That No Longer Exists">
+<meta name="twitter:description" content="An adversarial-review gate that forced every trading thesis through an outside model turned out to hard-pin that model by version string. The audit found both the pinned primary and its emergency backup already dead.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/the-gate-pinned-a-model-that-no-longer-exists.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Gate Pinned a Model That No Longer Exists", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An adversarial-review gate that hard-pinned its reviewer model by version string, and what it took for an audit to find both pinned models already dead.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/the-gate-pinned-a-model-that-no-longer-exists.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
 {"@type": "Question", "name": "Why pin a model at all if pins rot?", "acceptedAnswer": {"@type": "Answer", "text": "The original reason was reasonable: someone has to write the actual API call, so a name has to go somewhere. But what the gate actually needs isn't a specific model, it's a requirement — the reviewer has to be a different model family than the one that wrote the thesis under review. That requirement can be satisfied by whichever model is currently registered and strongest, so it gets resolved with a live call at the moment the gate runs instead of hardcoded once and left to rot."}},

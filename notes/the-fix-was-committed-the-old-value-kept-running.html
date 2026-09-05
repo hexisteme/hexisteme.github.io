@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Fix Was Committed. The Old Value Kept Running.", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An ambient API key was deleted from a shell profile and confirmed removed with a clean-environment test, yet a reconnected tool kept authenticating with it because a long-lived parent process had frozen the old environment at its own startup and kept reinjecting it into every child it spawned.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/the-fix-was-committed-the-old-value-kept-running.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Fix Was Committed. The Old Value Kept Running.">
+<meta property="og:description" content="I deleted three ambient API keys from my shell profile and confirmed they were gone with a clean-environment test. A tool reconnected minutes later and registered eight providers with one of the keys I had just removed.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/the-fix-was-committed-the-old-value-kept-running.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/the-fix-was-committed-the-old-value-kept-running.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-08">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Fix Was Committed. The Old Value Kept Running.">
+<meta name="twitter:description" content="I deleted three ambient API keys from my shell profile and confirmed they were gone with a clean-environment test. A tool reconnected minutes later and registered eight providers with one of the keys I had just removed.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/the-fix-was-committed-the-old-value-kept-running.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Fix Was Committed. The Old Value Kept Running.", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An ambient API key was deleted from a shell profile and confirmed removed with a clean-environment test, yet a reconnected tool kept authenticating with it because a long-lived parent process had frozen the old environment at its own startup and kept reinjecting it into every child it spawned.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/the-fix-was-committed-the-old-value-kept-running.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
 {"@type": "Question", "name": "Why doesn't env -i prove a removed environment variable is really gone?", "acceptedAnswer": {"@type": "Answer", "text": "env -i spawns a brand-new process with no inherited environment, so it can only read what your current shell profile puts there. That proves the profile on disk is clean. It says nothing about processes that were already running before you edited the profile, because those processes already have their own frozen copy of the environment and never re-read the file."}},

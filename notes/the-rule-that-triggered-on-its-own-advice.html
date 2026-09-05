@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Rule That Triggered on Its Own Advice", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A keyword-based anti-delegation rule for an AI coding agent whose own prescribed correct output contained the exact words it flagged as violations, and how replacing the word list with a grammatical-subject axis fixed it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/the-rule-that-triggered-on-its-own-advice.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Rule That Triggered on Its Own Advice">
+<meta property="og:description" content="I wrote a rule to stop my AI agent from delegating tasks it could do itself. The rule matched on words, and its own prescribed fix contained the exact words it was matching on — so following the rule correctly re-triggered the rule.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/the-rule-that-triggered-on-its-own-advice.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/the-rule-that-triggered-on-its-own-advice.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-08">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Rule That Triggered on Its Own Advice">
+<meta name="twitter:description" content="I wrote a rule to stop my AI agent from delegating tasks it could do itself. The rule matched on words, and its own prescribed fix contained the exact words it was matching on — so following the rule correctly re-triggered the rule.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/the-rule-that-triggered-on-its-own-advice.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Rule That Triggered on Its Own Advice", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A keyword-based anti-delegation rule for an AI coding agent whose own prescribed correct output contained the exact words it flagged as violations, and how replacing the word list with a grammatical-subject axis fixed it.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/the-rule-that-triggered-on-its-own-advice.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
 {"@type": "Question", "name": "What does it mean for a rule to trigger on its own advice?", "acceptedAnswer": {"@type": "Answer", "text": "The rule listed literal words — \"directly,\" \"find,\" \"confirm\" — as signals that an AI agent was wrongly delegating a task back to the user. But the rule's own prescribed correct output, for when the agent should do the task itself, used the same words: \"I'll handle this myself, directly\" and \"I'll go find it myself.\" The compliant, correct output contained the exact strings the rule was scanning for, so following the rule correctly could re-trigger the rule's own check."}},

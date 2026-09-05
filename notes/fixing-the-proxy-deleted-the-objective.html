@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fixing the Proxy Deleted the Objective — hexisteme notes</title>
+<title>Fixing the Proxy Deleted the Objective: The Style Review Removed a CTA and Every Accuracy Gate Passed — hexisteme notes</title>
 <meta name="description" content="A style review&#x27;s fix for an &quot;unrelated CTA&quot; finding was a full removal that passed every accuracy gate while silently deleting the conversion funnel the CTA carried, and the resulting silence got reported as &quot;not enough data yet&quot; instead of &quot;no path for data to arrive.&quot;">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
@@ -16,15 +16,29 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Fixing the Proxy Deleted the Objective", "datePublished": "2026-09-04", "dateModified": "2026-09-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why closing a review finding by deleting the flagged element can pass every correctness gate while silently deleting the business objective the element carried, and how to add a purpose-check instead of relying on accuracy gates alone.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/fixing-the-proxy-deleted-the-objective.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Fixing the Proxy Deleted the Objective: The Style Review Removed a CTA and Every Accuracy Gate Passed">
+<meta property="og:description" content="A style review&#x27;s fix for an &quot;unrelated CTA&quot; finding was a full removal that passed every accuracy gate while silently deleting the conversion funnel the CTA carried, and the resulting silence got reported as &quot;not enough data yet&quot; instead of &quot;no path for data to arrive.&quot;">
+<meta property="og:url" content="https://hexisteme.github.io/notes/fixing-the-proxy-deleted-the-objective.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/fixing-the-proxy-deleted-the-objective.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-04">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fixing the Proxy Deleted the Objective: The Style Review Removed a CTA and Every Accuracy Gate Passed">
+<meta name="twitter:description" content="A style review&#x27;s fix for an &quot;unrelated CTA&quot; finding was a full removal that passed every accuracy gate while silently deleting the conversion funnel the CTA carried, and the resulting silence got reported as &quot;not enough data yet&quot; instead of &quot;no path for data to arrive.&quot;">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/fixing-the-proxy-deleted-the-objective.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Fixing the Proxy Deleted the Objective: The Style Review Removed a CTA and Every Accuracy Gate Passed", "datePublished": "2026-09-04", "dateModified": "2026-09-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why closing a review finding by deleting the flagged element can pass every correctness gate while silently deleting the business objective the element carried, and how to add a purpose-check instead of relying on accuracy gates alone.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/fixing-the-proxy-deleted-the-objective.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did removing the CTA pass every one of my quality gates if it broke my conversion funnel?", "acceptedAnswer": {"@type": "Answer", "text": "Because every gate in the stack — four deploy safety checks, an SEO evidence-policy gate, and a judge-dossier review pass — only asks whether what remains on the page is correct: sourced, valid, well-formed, natural-sounding. None of them ask whether the page still moves a reader toward the funnel. Deleting the CTA satisfied all of them at once, because there was no gate watching that dimension in the first place."}}, {"@type": "Question", "name": "Isn't deleting the flagged element always the safest way to close a review finding?", "acceptedAnswer": {"@type": "Answer", "text": "It's the cheapest, not the safest. It only counts as safe with respect to whatever the existing gates check. If the finding was conditional — 'only show this when X' — implementing the condition is the actual fix; deletion just makes the specific complaint disappear by removing the whole category of thing it was about, which overshoots whenever the objection wasn't 'this should never exist.'"}}, {"@type": "Question", "name": "How do I tell the difference between 'not enough data yet' and 'the pipeline is structurally broken'?", "acceptedAnswer": {"@type": "Answer", "text": "You can't, if your instrumentation collapses both into the same reported value. A ledger that reports 'insufficient data' for a funnel that's merely young and for one whose entry point no longer exists is giving you the same signal for two situations that call for opposite responses. The fix is to make a severed path report as a distinct state from an early one, not to get better at guessing which one you're looking at."}}, {"@type": "Question", "name": "When is it actually correct to just delete the element a reviewer flagged?", "acceptedAnswer": {"@type": "Answer", "text": "When there's a real measurement showing the element wasn't contributing to its objective, or when a gate that already watches that objective stays green after the removal. Both are evidence. An assumption that it probably wasn't doing much is not — that's exactly the gap this failure mode lives in."}}, {"@type": "Question", "name": "How do I stop a review fix from silently deleting the thing it was supposed to protect?", "acceptedAnswer": {"@type": "Answer", "text": "Before closing a finding by removing the flagged element, name the job that element does that isn't 'pass this specific check,' and check whether any gate actually watches that job. If none does, add one aimed at the shipped artifact, not just the source — and until it exists, treat the removal as unverified rather than safe."}}]}
 </script>
 </head>
 <body>
-<h1>Fixing the Proxy Deleted the Objective</h1>
+<h1>Fixing the Proxy Deleted the Objective: The Style Review Removed a CTA and Every Accuracy Gate Passed</h1>
 <p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-04</p>
 <div class="note">A style pass scored a page 2/5 for naturalness and flagged its CTA as an abrupt, unrelated promotion. The prescribed fix was conditional — show the CTA only when it's specific to the article. What shipped was <code>suppress_lead_magnet_cta=True</code>, a flag that removed the CTA everywhere. Every downstream gate passed, because every downstream gate checks whether what's left is correct, not whether the page still does its job — so thirteen live pages lost their entire conversion path in the same commit that made every quality score go up, and the silence that followed got read as "not enough traffic yet" instead of "no path for traffic to travel."</div>
 

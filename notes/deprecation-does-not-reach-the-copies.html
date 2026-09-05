@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Deprecation Doesn't Reach the Copies", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why superseding a rule doesn't retire an inline copy of it pasted into a different document, and why a reference-graph audit alone can't catch that.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/deprecation-does-not-reach-the-copies.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Deprecation Doesn&#x27;t Reach the Copies">
+<meta property="og:description" content="A threshold got overturned by its own counterexample, then quietly re-derived and pasted into a different rule a week later. About three months passed before an audit noticed the copy had never died.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/deprecation-does-not-reach-the-copies.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/deprecation-does-not-reach-the-copies.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-08-08">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Deprecation Doesn&#x27;t Reach the Copies">
+<meta name="twitter:description" content="A threshold got overturned by its own counterexample, then quietly re-derived and pasted into a different rule a week later. About three months passed before an audit noticed the copy had never died.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/deprecation-does-not-reach-the-copies.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Deprecation Doesn't Reach the Copies", "datePublished": "2026-08-08", "dateModified": "2026-08-08", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why superseding a rule doesn't retire an inline copy of it pasted into a different document, and why a reference-graph audit alone can't catch that.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/deprecation-does-not-reach-the-copies.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
 {"@type": "Question", "name": "What's the actual bug here — a broken link or something else?", "acceptedAnswer": {"@type": "Answer", "text": "Neither, exactly. A broken link (a reference pointing at something that's been deleted) fails loudly — something tries to resolve it and can't. This was the opposite: a rule copied a fact by value instead of by reference, so when the original fact was overturned, there was no link to break. The copy kept working, correctly, on outdated information."}},

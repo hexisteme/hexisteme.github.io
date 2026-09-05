@@ -16,9 +16,23 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 .meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
 .cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
 </style>
-<script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The AI Can't See What It Drew", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Rendering UI variants before reviewing AI-written SwiftUI code", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
-</script>
+<link rel="canonical" href="https://hexisteme.github.io/notes/ai-cant-see-what-it-drew.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The AI Can&#x27;t See What It Drew">
+<meta property="og:description" content="In a mascot redesign for my trip expense-splitting app, the arms rendered as legs while the code read perfectly. An AI cannot see what it drew, so render structural variants first and look before you argue.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/ai-cant-see-what-it-drew.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/ai-cant-see-what-it-drew.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-07-17">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The AI Can&#x27;t See What It Drew">
+<meta name="twitter:description" content="In a mascot redesign for my trip expense-splitting app, the arms rendered as legs while the code read perfectly. An AI cannot see what it drew, so render structural variants first and look before you argue.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/ai-cant-see-what-it-drew.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The AI Can't See What It Drew", "datePublished": "2026-07-17", "dateModified": "2026-07-17", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Rendering UI variants before reviewing AI-written SwiftUI code", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/ai-cant-see-what-it-drew.png"}</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does AI-generated UI code look wrong even when the code reviews clean?", "acceptedAnswer": {"@type": "Answer", "text": "Because an AI writing UI code cannot see the picture that code produces, and neither can a human scanning the diff. Rendering happens at runtime while a review only sees source, so syntactically fine, type-checked SwiftUI can still draw the wrong thing. The only reliable check is to render the interface and look at it, not to read the code more carefully."}}, {"@type": "Question", "name": "How many design variants should I prototype, and how different should they be?", "acceptedAnswer": {"@type": "Answer", "text": "Three, and structurally different rather than palette swaps. Variants that differ only in color teach you almost nothing, while variants with different silhouettes, anatomy, and identity devices force a real decision. Render them side by side and choose by looking, not by arguing."}}, {"@type": "Question", "name": "How do I stop an AI refactor from breaking a parameter that is used elsewhere?", "acceptedAnswer": {"@type": "Answer", "text": "Grep every call site before you change or remove a parameter. A parameter's name is only a guess about its meaning, but its call sites are its real contract. I nearly deleted a parameter I assumed was a facial expression, and the call sites showed it was actually a screen-context badge used in eight places."}}, {"@type": "Question", "name": "What is a falsifier for a design decision?", "acceptedAnswer": {"@type": "Answer", "text": "It is a concrete, observable outcome you write down in advance that would prove the choice wrong. Instead of saying you like a design, you pre-register something like 'if the mascot is unreadable below 32pt, this was the wrong pick,' and then check it at real sizes. Liking a render is not evidence, but a falsifier that survives or fires is."}}, {"@type": "Question", "name": "Why did a SwiftUI rotation anchor make the arms look like legs?", "acceptedAnswer": {"@type": "Answer", "text": "The arm's rotation anchor was set to the fingertip end with anchor: .bottom instead of the shoulder, so the arm swung around the hand and read as a leg. The value looks perfectly ordinary in source and is invisible in a review, and it only becomes obvious when you render the animation and watch it move."}}]}
 </script>
