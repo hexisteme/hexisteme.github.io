@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Claude Code 400: &quot;surrogates not allowed&quot; — hexisteme notes</title>
-<meta name="description" content="A Claude Code session throwing 400 &quot;no low surrogate in string&quot; or &quot;surrogates not allowed&quot; is poisoned by the same lone UTF-16 surrogate. Here's the fix.">
+<title>Claude Code 400 &quot;str is not valid utf-8: surrogates not allowed&quot;: the fix — hexisteme notes</title>
+<meta name="description" content="Every turn fails with API Error: 400 &quot;the request body is not valid json: str is not valid utf-8: surrogates not allowed&quot;? One lone UTF-16 surrogate in the session JSONL poisons the whole transcript. Find and repair that line in five minutes — script included. Also fixes &quot;no low surrogate in string&quot;.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
 a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
@@ -20,8 +20,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <meta name="robots" content="max-image-preview:large">
 <meta name="author" content="hexisteme">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Claude Code 400: &quot;surrogates not allowed&quot;">
-<meta property="og:description" content="A Claude Code session throwing 400 &quot;no low surrogate in string&quot; or &quot;surrogates not allowed&quot; is poisoned by the same lone UTF-16 surrogate. Here&#x27;s the fix.">
+<meta property="og:title" content="Claude Code 400 &quot;str is not valid utf-8: surrogates not allowed&quot;: the fix">
+<meta property="og:description" content="Every turn fails with API Error: 400 &quot;the request body is not valid json: str is not valid utf-8: surrogates not allowed&quot;? One lone UTF-16 surrogate in the session JSONL poisons the whole transcript. Find and repair that line in five minutes — script included. Also fixes &quot;no low surrogate in string&quot;.">
 <meta property="og:url" content="https://hexisteme.github.io/notes/claude-code-400-no-low-surrogate-jsonl-repair.html">
 <meta property="og:site_name" content="hexisteme notes">
 <meta property="og:image" content="https://hexisteme.github.io/notes/og/claude-code-400-no-low-surrogate-jsonl-repair.png">
@@ -29,8 +29,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <meta property="og:image:height" content="630">
 <meta property="article:published_time" content="2026-06-23">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Claude Code 400: &quot;surrogates not allowed&quot;">
-<meta name="twitter:description" content="A Claude Code session throwing 400 &quot;no low surrogate in string&quot; or &quot;surrogates not allowed&quot; is poisoned by the same lone UTF-16 surrogate. Here&#x27;s the fix.">
+<meta name="twitter:title" content="Claude Code 400 &quot;str is not valid utf-8: surrogates not allowed&quot;: the fix">
+<meta name="twitter:description" content="Every turn fails with API Error: 400 &quot;the request body is not valid json: str is not valid utf-8: surrogates not allowed&quot;? One lone UTF-16 surrogate in the session JSONL poisons the whole transcript. Find and repair that line in five minutes — script included. Also fixes &quot;no low surrogate in string&quot;.">
 <meta name="twitter:image" content="https://hexisteme.github.io/notes/og/claude-code-400-no-low-surrogate-jsonl-repair.png">
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Claude Code \"400: no low surrogate in string\" on every turn: repairing a permanently broken session transcript", "datePublished": "2026-06-23", "dateModified": "2026-06-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Claude Code API Error 400 'the request body is not valid JSON: no low surrogate in string' every turn — how to fix a permanently broken session", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/claude-code-400-no-low-surrogate-jsonl-repair.png"}</script>
 <script type="application/ld+json">
