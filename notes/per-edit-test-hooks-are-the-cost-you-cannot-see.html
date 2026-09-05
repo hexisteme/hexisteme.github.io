@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Per-Edit Test Hook Is the Cost You Can&#x27;t See — hexisteme notes</title>
+<meta name="description" content="A PostToolUse hook that reran a whole test file after every single-file edit was invisible to tool-call audits because a passing run produced no output, and it broke multi-file changes on purpose by scoring their still-incomplete first half as failure until the trigger moved from the editor&#x27;s per-edit event to the author&#x27;s end-of-turn signal.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your Per-Edit Test Hook Is the Cost You Can't See", "datePublished": "2026-09-05", "dateModified": "2026-09-05", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Redesigning a per-edit PostToolUse test hook that was invisible to tool-call and turn audits and that scored intentionally incomplete multi-file edits as failures, by moving the trigger to a queue drained once by a Stop/SubagentStop hook at end of turn.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why didn't a standard tool-call or turn audit catch a hook that was costing 5 hours of test runs?", "acceptedAnswer": {"@type": "Answer", "text": "Because the hook doesn't run through Bash or any tool the audit was counting — it runs through a PostToolUse layer the audit was never pointed at, and a passing run produces no output at all. Only failures leave a trace: 971 failed runs totaling 5.0 hours showed up in the transcripts, while the true count of successful, silent runs was uncountable, and edits in the main session alone were enough to trigger the hook 533 times before adding whatever the sub-agent workers triggered on their own edits."}}, {"@type": "Question", "name": "Why does running the full test suite right after every single-file edit cause more harm than good?", "acceptedAnswer": {"@type": "Answer", "text": "Because a change that spans multiple files is correctly broken partway through — editing the first file leaves its tests red until the second file is also edited. A hook that fires on every edit catches that expected, temporary redness and wakes the model with a failure message, and the model's response is to revert or route around the file it just touched rather than finish the second file that would have made the suite pass."}}, {"@type": "Question", "name": "What exactly changed between the old per-edit hook and the fix?", "acceptedAnswer": {"@type": "Answer", "text": "The PostToolUse hook now only appends the edited file's path to a queue file, a few milliseconds of work. A Stop/SubagentStop hook, which fires once at the end of a turn, de-duplicates that queue and runs pytest exactly once across every file touched in the turn, returning a summary only if the combined run fails. Turns with no edits cost nothing, a lock prevents two drains from overlapping, and an empty queue is its own stopping condition."}}, {"@type": "Question", "name": "Why might a hook change not seem to take effect right after making it?", "acceptedAnswer": {"@type": "Answer", "text": "Because hook configuration is snapshotted at session start. Editing the hook definition mid-session doesn't change the behavior of the session you're in — the new configuration only takes effect starting the next session, so testing the fix in the same session where it was written can look like it failed when it actually just hasn't loaded yet."}}, {"@type": "Question", "name": "How would you know if this fix actually solved the problem, rather than just moving it?", "acceptedAnswer": {"@type": "Answer", "text": "By watching whether the end-of-turn drain still turns up red at close to the same rate the old per-edit hook did, because of the same mid-edit, still-incomplete state. If that rate doesn't drop, the defect was never about timing — it means the test files are too coarse a unit for any single trigger point to time correctly, and the next step is splitting the suite, not relocating the hook again."}}]}
+</script>
+</head>
+<body>
+<h1>Your Per-Edit Test Hook Is the Cost You Can&#x27;t See</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-05</p>
+<div class="note">A PostToolUse hook reran an entire test file after every single-file edit during a 24-day agent-fleet session. 971 failed runs totaling 5.0 hours showed up in the transcripts, but a passing run produced no output at all, so the true number of times the hook fired was uncountable and a tool-call audit missed it completely. Worse, the hook fired mid multi-file edit, scoring the intentionally incomplete first half of a change as a failure and pushing the model to revert work instead of finishing it. The fix moved verification from a per-edit hook to a queue drained once by a Stop/SubagentStop hook at the end of each turn — same suite, same guarantee, one run instead of hundreds.</div>
+
+<p>I audited a 24-day session on a short-form video pipeline I run with a small fleet of coding agents. On paper the headline numbers were unremarkable for a project that size: 52,188 main-thread turns, roughly 1,065 turns per episode, and 1,873 calls to pytest sitting right there in the Bash tool-call log. Then the person actually using the pipeline flagged something that didn't match any of those numbers at all: the worker, they said, kept trying tests it didn't need to. That complaint didn't trace back to Bash. It traced back to a hook I'd wired in during an earlier session and half-forgotten.</p>
+
+<h2>Not another measurement-artifact story</h2>
+
+<p>It's worth being precise about what kind of failure this is, because it sits right next to a few others I've written up that look similar from a distance and aren't. A measurement proxy inserted to observe a system can quietly change what that system does, inflating the very number you added it to see. Pooling behavioral metrics across two different roles in a fleet — a long interactive session and a short one-shot worker — without separating them first can turn two nearly-identical within-role ratios into a misleading pooled headline. Two different models can bill different token counts for nearly identical input, because the token meter itself is scoped to whichever model is doing the counting. All three of those are stories about a number that comes back wrong, or a number that's right but not comparable to the number sitting next to it.</p>
+
+<p>This one has no number to begin with, wrong or otherwise. The cost wasn't measured incorrectly — it was never inside the measurement's field of view. A tool-call audit counts what runs through the tools it's watching, and a hook doesn't run through Bash; it runs through a layer that audit was never pointed at. Worse, when the hook succeeds it produces no output at all, so there's nothing for even a hook-aware audit to add up except the failures. This isn't an instrument distorting a reading. It's a cost source sitting on a wire nobody had an instrument on.</p>
+
+<h2>The mechanism</h2>
+
+<p>The hook itself was simple, which is exactly why it had been running unexamined. Every time an agent edited <code>src/&lt;mod&gt;.py</code>, a PostToolUse hook ran the entire corresponding suite, <code>tests/test_&lt;mod&gt;.py</code> — a run costing anywhere from two to three and a half minutes — and only spoke up, waking the model with a failure message, if something in that suite came back red. A clean run produced nothing: no log line, no transcript entry, no evidence that anything had happened.</p>
+
+<h2>Why a silent, per-edit hook is worse than it sounds</h2>
+
+<p>Three things stacked on top of each other here, and any one alone would have been tolerable.</p>
+
+<p>First, it's invisible to the audit method you'd normally reach for. An audit that counts tool calls counts Bash invocations, API calls, background processes it already knows to watch — not hooks, and especially not a hook whose success path is silent. All you can ever recover after the fact is a lower bound, built out of whichever failures were loud enough to leave a trace.</p>
+
+<p>Second, and worse than the blind spot, the hook was scoring the wrong moment. A change that touches multiple files is, by construction, broken partway through: you edit the first file, and until you've also edited the second, the tests covering the first file are correctly red. That redness is exactly what wakes the hook into failure mode, and the pressure it creates is "fix this now." Faced with that pressure, the model reverts or routes around the file it just touched — the one already edited — rather than moving on to the second file it hasn't gotten to yet, the one that would have actually made the suite pass.</p>
+
+<p>Third, it was a cost nobody had asked for. Neither I nor the model triggered these runs on purpose — the hook fired on its own, off an edit event — which means nobody was ever in a position to ask "why is this running," the question that would normally catch a wasteful process before it repeats hundreds of times.</p>
+
+<h2>The numbers</h2>
+
+<p>Counting up what the transcripts actually showed over the 24-day window: 971 failed hook runs, totaling 5.0 hours. Edits in the main session alone were enough to trigger the hook 533 times — before adding in whatever the sub-agent workers triggered on their own edits, which ran through separate transcripts not folded into that count. The true number of times the hook fired, successes and failures combined, isn't something I can reconstruct after the fact; silence doesn't leave a receipt.</p>
+
+<p>The per-file cost behind those numbers: <code>test_cli</code> took 216 seconds, <code>test_map_scenes</code> took 160, <code>test_compliance_gate</code> took 134 — every one of those running in full, after every single edit to the file it covered.</p>
+
+<p>After the fix, a smoke test told the other side of the story: a queue of 3 pending files drained down to pytest running against 2 files, in 4 seconds.</p>
+
+<h2>The fix: move the trigger from the editor to the author</h2>
+
+<p>The fix keeps the same suite and the same enforcement intent — verification still has to happen — and only changes when it fires.</p>
+
+<p>The PostToolUse hook now does one thing: it appends the path of the file that was just edited to a queue file. That's a write of a few milliseconds, not a multi-minute test run.</p>
+
+<p>A Stop/SubagentStop hook — the one that fires when a turn actually ends — reads that queue, de-duplicates it, and runs pytest exactly once, covering every file touched during the turn. It returns a summary to the model only if something in that single combined run fails. A turn with no edits costs nothing, because the queue is empty and there's nothing to drain. A lock keeps two drains from overlapping, and an empty queue is its own stopping condition, so there's no path to the drain looping on itself.</p>
+
+<p>One part of this was easy to get backwards: hook configuration is snapshotted at session start. Change the hook definition mid-session, and the session you're in keeps running on the old snapshot — the new behavior only takes effect starting the next session. That's worth flagging on its own, because it's exactly the kind of fix that looks broken if you test it in the same session where you wrote it.</p>
+
+<h2>What generalizes</h2>
+
+<p>If you've established a rule like "verification happens once per unit of work," the first thing to go looking for isn't more verification — it's the automation that's already quietly breaking that rule. A written rule changes what a person or a model does next. It does nothing to a hook, because a hook doesn't read rules; it reads trigger events, and it keeps firing on the event it was configured for regardless of what the team has since agreed the right cadence should be.</p>
+
+<p>The practical corollary is about how you audit time and cost in an agent fleet at all: tool calls are not the whole cost surface. Hook output and background processes are part of it too, and a hook whose success path is silent means any total computed from logs is a floor, not a figure — bounded below by whichever failures happened to be loud enough to record themselves, and unbounded above by however many quiet successes never got the chance.</p>
+
+<p>And the timing question generalizes past testing specifically. The right moment to verify a change is almost never "immediately after this one edit." It's "after this one unit of change is finished" — and knowing where that boundary sits isn't something an editor or a file-save event can know. Only whoever is actually authoring the change, and deciding when a turn is done, is in a position to say so.</p>
+
+<h2>Where this would turn out to be wrong</h2>
+
+<p>The falsifier here is specific enough to check for directly: in the next batch of work, if the end-of-turn drain still comes back red at roughly the same rate the old per-edit hook did — because of the same mid-edit, still-incomplete state — then the fix didn't actually solve the problem it looks like it solved. That result would mean the defect was never about when the check runs. It would mean the test files themselves are too coarse a unit, bundling too much unrelated behavior into one suite for any single trigger point to time correctly. At that point the next move isn't to move the hook again — it's to split the suite.</p>
+
+<h2>FAQ</h2>
+<h3>Why didn&#x27;t a standard tool-call or turn audit catch a hook that was costing 5 hours of test runs?</h3>
+<p>Because the hook doesn't run through Bash or any tool the audit was counting — it runs through a PostToolUse layer the audit was never pointed at, and a passing run produces no output at all. Only failures leave a trace: 971 failed runs totaling 5.0 hours showed up in the transcripts, while the true count of successful, silent runs was uncountable, and edits in the main session alone were enough to trigger the hook 533 times before adding whatever the sub-agent workers triggered on their own edits.</p>
+<h3>Why does running the full test suite right after every single-file edit cause more harm than good?</h3>
+<p>Because a change that spans multiple files is correctly broken partway through — editing the first file leaves its tests red until the second file is also edited. A hook that fires on every edit catches that expected, temporary redness and wakes the model with a failure message, and the model's response is to revert or route around the file it just touched rather than finish the second file that would have made the suite pass.</p>
+<h3>What exactly changed between the old per-edit hook and the fix?</h3>
+<p>The PostToolUse hook now only appends the edited file's path to a queue file, a few milliseconds of work. A Stop/SubagentStop hook, which fires once at the end of a turn, de-duplicates that queue and runs pytest exactly once across every file touched in the turn, returning a summary only if the combined run fails. Turns with no edits cost nothing, a lock prevents two drains from overlapping, and an empty queue is its own stopping condition.</p>
+<h3>Why might a hook change not seem to take effect right after making it?</h3>
+<p>Because hook configuration is snapshotted at session start. Editing the hook definition mid-session doesn't change the behavior of the session you're in — the new configuration only takes effect starting the next session, so testing the fix in the same session where it was written can look like it failed when it actually just hasn't loaded yet.</p>
+<h3>How would you know if this fix actually solved the problem, rather than just moving it?</h3>
+<p>By watching whether the end-of-turn drain still turns up red at close to the same rate the old per-edit hook did, because of the same mid-edit, still-incomplete state. If that rate doesn't drop, the defect was never about timing — it means the test files are too coarse a unit for any single trigger point to time correctly, and the next step is splitting the suite, not relocating the hook again.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-proxy-i-added-to-measure-tokens-tripled-them.html">The Proxy I Added to Measure Tokens Tripled Them</a></li>
+<li><a href="./subagent-metrics-not-comparable-to-main-thread.html">Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics</a></li>
+<li><a href="./stop-hook-gates.html">Claude Code Stop Hooks as Behavioral Gates</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering">Get new notes by email</a></strong>.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · CC-BY 4.0</div>
+</body>
+</html>
