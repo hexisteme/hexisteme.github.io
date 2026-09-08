@@ -43,6 +43,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 {"@type": "Question", "name": "What is the actual fix for this class of problem?", "acceptedAnswer": {"@type": "Answer", "text": "Inject metered credentials at the process that spends them, not at the shell that starts every process: a server gets the key in its own launch config, a scheduled job reads it from a permissioned file only its wrapper touches, and an interactive one-off gets it prefixed inline for that single command. None of these let the value outlive the process it was meant for."}}
 ]}
 </script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 

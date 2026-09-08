@@ -36,6 +36,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a QC harness pass every synthetic fixture and fail on real input?", "acceptedAnswer": {"@type": "Answer", "text": "Its thresholds were absolute constants that implicitly assumed the scale of the fixtures. On real content at a different scale the checks did not fail, they stopped firing — and a check that stops firing reports a pass, so it survives indefinitely in the suite."}}, {"@type": "Question", "name": "How do you prove a threshold change tightened a check instead of loosening it?", "acceptedAnswer": {"@type": "Answer", "text": "Measure a detection floor: inside the same run and on the same content, inject a synthetic defect at a sweep of amplitudes and record the smallest amplitude that still fires the check. In this case the floor improved from 0.05 to 0.001 — 50x more sensitive — while all 13 prior positive controls stayed green."}}, {"@type": "Question", "name": "What should a check report when it cannot discriminate on the given input?", "acceptedAnswer": {"@type": "Answer", "text": "Not a pass. Report an explicit 'discrimination absent' state. A pass and a could-not-measure are different facts, and merging them means the next reader takes the second for the first."}}]}
 </script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 

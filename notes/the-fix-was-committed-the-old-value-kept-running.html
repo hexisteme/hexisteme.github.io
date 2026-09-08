@@ -42,6 +42,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 {"@type": "Question", "name": "Does this problem only apply to shell environment variables?", "acceptedAnswer": {"@type": "Answer", "text": "No. The same shape appears anywhere a long-lived process holds a cached snapshot instead of a live read: a connection pool still using a credential from before a rotation, a daemon that only reads its config at boot and needs a restart rather than a reload signal, or a build agent that cached a registry token before it was revoked. In every case, changing the source of truth and the change taking effect are two separate claims."}}
 ]}
 </script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 

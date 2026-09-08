@@ -41,6 +41,7 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 {"@type": "Question", "name": "What's the fix that actually closes this, versus a one-off patch?", "acceptedAnswer": {"@type": "Answer", "text": "The immediate fix is to measure the original-case text, matching what the renderer draws. The durable fix is structural: either the measurement path calls the exact same text-transformation step the render path calls, so they can't silently diverge, or the pipeline adds a check that samples actual rendered frames rather than relying only on unit-level assertions about intermediate values."}}
 ]}
 </script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
