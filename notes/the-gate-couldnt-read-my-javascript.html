@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="google-adsense-account" content="ca-pub-7703102732951458">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
 <title>The gate couldn't read my JavaScript, so I removed the numbers from it — hexisteme notes</title>
 <meta name="description" content="A publishing gate that blocks any unsourced number on a page cannot read inside a script tag, which breaks the moment a page needs a JavaScript calculator. Instead of teaching the gate to parse JavaScript, or exempting scripts from the check, I restructured the calculator so its JavaScript never contains a domain number at all — rates arrive through the DOM already verified, and a numeric-literal whitelist makes the workaround structurally impossible. This piece walks through the invariants and tests that make that enforceable rather than aspirational.">
 <style>
