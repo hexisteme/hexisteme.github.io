@@ -1,0 +1,148 @@
+{
+  "measured_at": "2026-09-10T00:17:48.075715+00:00",
+  "source_unchanged": true,
+  "render_dpi": 150,
+  "note": "No OCR used in extraction; whitespace-normalized text match is not a visual-quality score.",
+  "exports": [
+    {
+      "file": "source.pdf",
+      "bytes": 3328510,
+      "sha256": "5107f76d6c2ddc55b03d1f37cf50ef92681f5d0baf4f6edb36b744318b6e566c",
+      "page_count": 2,
+      "pages": [
+        {
+          "text_characters": 900,
+          "text_matches_source_page1_ignoring_whitespace": true,
+          "image_pixels": [],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        },
+        {
+          "text_characters": 0,
+          "text_matches_source_page1_ignoring_whitespace": false,
+          "image_pixels": [
+            [
+              2550,
+              3300
+            ]
+          ],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "control-no-filter.pdf",
+      "bytes": 3329765,
+      "sha256": "21853759a0cdf03dfd07683cb79f4abe6fb0c335d9f6136ebc8dfe431be9c0b8",
+      "page_count": 2,
+      "pages": [
+        {
+          "text_characters": 900,
+          "text_matches_source_page1_ignoring_whitespace": true,
+          "image_pixels": [],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        },
+        {
+          "text_characters": 0,
+          "text_matches_source_page1_ignoring_whitespace": false,
+          "image_pixels": [
+            [
+              2550,
+              3300
+            ]
+          ],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "reduce-file-size.pdf",
+      "bytes": 267157,
+      "sha256": "75cd6e3ad072e60dd94b2c86dc0508cfb3fd2654b303c09f9bd79f4c27c377a6",
+      "page_count": 2,
+      "pages": [
+        {
+          "text_characters": 899,
+          "text_matches_source_page1_ignoring_whitespace": true,
+          "image_pixels": [],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        },
+        {
+          "text_characters": 0,
+          "text_matches_source_page1_ignoring_whitespace": false,
+          "image_pixels": [
+            [
+              1224,
+              1584
+            ]
+          ],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        }
+      ]
+    },
+    {
+      "file": "screen-jpeg.pdf",
+      "bytes": 3329765,
+      "sha256": "8b56a7249a7d784c39015ae6f7d5d8aaa442ca7a6e44ec6b376e97f5f0fc6579",
+      "page_count": 2,
+      "pages": [
+        {
+          "text_characters": 900,
+          "text_matches_source_page1_ignoring_whitespace": true,
+          "image_pixels": [],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        },
+        {
+          "text_characters": 0,
+          "text_matches_source_page1_ignoring_whitespace": false,
+          "image_pixels": [
+            [
+              2550,
+              3300
+            ]
+          ],
+          "page_points": [
+            0.0,
+            0.0,
+            612.0,
+            792.0
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Mac PDF 용량 줄이기: 미리보기로 압축하고 작은 글씨 확인하기 — hexisteme notes</title>
+<meta name="description" content="macOS 미리보기의 Reduce File Size를 합성 벡터 텍스트와 이미지 전용 페이지에서 측정하고, 보내기 전 확인 순서를 정리했다.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/preview-pdf-compression-text-check-ko.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Mac PDF 용량 줄이기: 미리보기로 압축하고 작은 글씨 확인하기">
+<meta property="og:description" content="macOS 미리보기의 Reduce File Size를 합성 벡터 텍스트와 이미지 전용 페이지에서 측정하고, 보내기 전 확인 순서를 정리했다.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/preview-pdf-compression-text-check-ko.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Mac PDF 용량 줄이기: 미리보기로 압축하고 작은 글씨 확인하기">
+<meta name="twitter:description" content="macOS 미리보기의 Reduce File Size를 합성 벡터 텍스트와 이미지 전용 페이지에서 측정하고, 보내기 전 확인 순서를 정리했다.">
+<meta property="article:published_time" content="2026-09-10">
+<link rel="alternate" hreflang="en" href="https://hexisteme.github.io/notes/preview-pdf-compression-text-check.html">
+<link rel="alternate" hreflang="ko" href="https://hexisteme.github.io/notes/preview-pdf-compression-text-check-ko.html">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.note-image{max-width:100%;height:auto}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "Article", "headline": "Mac PDF 용량 줄이기: 미리보기로 압축하고 작은 글씨 확인하기", "inLanguage": "ko", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "합성 2페이지 PDF를 macOS 26.6.2의 Preview 11.0에서 내보냈다. 선택 가능한 벡터 텍스트와 이미지 전용 페이지를 분리하고 파일 크기, 이미지 크기, 제한적인 텍스트 검사를 기록했다.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "datePublished": "2026-09-10", "dateModified": "2026-09-10"}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": "ko", "mainEntity": [{"@type": "Question", "name": "Reduce File Size를 쓰면 항상 읽을 수 있나요?", "acceptedAnswer": {"@type": "Answer", "text": "아니요. Apple은 압축 후 품질이 낮아질 수 있다고 안내합니다. 이 실험의 이미지 전용 페이지에서는 작은 글자가 더 부드러워졌으므로 보내기 전에 중요한 페이지를 확인해야 합니다."}}, {"@type": "Question", "name": "텍스트를 선택할 수 있으면 벡터 텍스트 페이지인가요?", "acceptedAnswer": {"@type": "Answer", "text": "아니요. 텍스트 선택은 보조 검사일 뿐입니다. 이 실험은 OCR 텍스트가 없는 이미지 전용 페이지를 따로 두고 페이지 구성와 선택 동작을 구분했습니다."}}, {"@type": "Question", "name": "흐려진 압축 PDF를 다시 압축하면 복구되나요?", "acceptedAnswer": {"@type": "Answer", "text": "그렇게 기대하지 마세요. 원본을 보관하고 같은 페이지와 확대 비율에서 비교한 뒤, 읽기 요건을 충족하는 파일을 선택하세요."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Mac PDF 용량 줄이기: 미리보기로 압축하고 작은 글씨 확인하기</h1>
+<p class="meta"><a href="https://hexisteme.github.io/">← hexisteme</a> · <a href="https://hexisteme.github.io/notes/">notes</a> · 2026-09-10</p>
+<nav class="language-switch" aria-label="언어"><a hreflang="en" lang="en" href="./preview-pdf-compression-text-check.html">English</a> · <a hreflang="ko" lang="ko" href="./preview-pdf-compression-text-check-ko.html">한국어</a></nav>
+<div class="note">이 실험에서는 용량을 줄인 뒤 스캔 이미지 속 작은 한글이 더 흐려졌다. 아래 순서로 사본을 만들어 원본과 비교해 보자.</div>
+
+<p>메일에 PDF를 붙이려 할 때 Mac의 미리보기에는 내장 기능이 있다. <strong>파일 &gt; 내보내기 &gt; Quartz 필터 &gt; Reduce File Size</strong>다. Apple도 압축 뒤 품질이 낮아질 수 있다고 안내한다. 하지만 실제로 필요한 질문은 조금 더 구체적이다. 작아진 PDF에서 내가 읽어야 할 글자와 문서번호가 계속 읽히는가?</p>
+
+<p>이 실험에는 합성 PDF를 사용했다. 고객 문서, 실물 스캔본, 업로드 파일이 아니다. 두 페이지는 같은 내용을 서로 다른 방식으로 담았다.</p>
+
+<ul><li>1페이지: 선택 가능한 벡터 텍스트. 영어·한국어, 6pt 작은 글자, 합성 문서번호가 있다.</li><li>2페이지: 같은 페이지를 300dpi 회색조 이미지로 넣은 이미지 전용 페이지. 종이 같은 작은 배경 변화를 넣었지만 OCR 텍스트는 포함하지 않았다.</li></ul>
+
+<p>PDF가 문서처럼 보여도 실제 페이지가 이미지일 수 있으므로 이 구분이 중요하다.</p>
+
+<img class="note-image" src="./pdf-preview-assets/comparison.png" alt="같은 합성 6pt 글자를 미리보기 내보내기 전후로 비교한 그림">
+
+<p><a href="./pdf-preview-assets/comparison.png">원본 크기 비교 그림</a>, <a href="./pdf-preview-assets/source.pdf">합성 샘플 PDF</a>, <a href="./pdf-preview-assets/reduce-file-size.pdf">Reduce File Size 결과 PDF</a>, <a href="./pdf-preview-assets/measurements.json">측정 JSON</a>을 함께 제공한다.</p>
+
+<h2>보내기 전에 확인하는 순서</h2>
+
+<p>원본을 덮어쓰지 말고, 압축본을 만든 뒤 같은 조건에서 비교한다.</p>
+
+<ol><li>미리보기에서 PDF를 연 뒤 <strong>파일 &gt; 내보내기</strong>를 선택한다.</li><li>내보내기 대화상자에서 새 파일 이름을 입력한다.</li><li>첨부 용량이 우선이면 <strong>Quartz 필터 &gt; Reduce File Size</strong>를 선택한다.</li><li><strong>저장</strong>을 눌러 별도 파일을 만든다. 확인이 끝날 때까지 원본은 보관한다.</li><li>원본과 새 파일을 같은 페이지, 같은 확대 비율로 나란히 연다.</li><li>작은 글자, 문서번호, 금액, 날짜, 표, 이미지 스캔 페이지를 직접 확인한다. 텍스트 선택/복사는 보조 검사로만 쓴다.</li><li>모든 작은 문자가 읽혀야 한다면 원본 또는 그 읽기 요건을 충족하는 파일을 선택한다. 흐려진 결과를 다시 압축해서 복구할 수 있다고 기대하지 않는다.</li></ol>
+
+<p>내장 기능이라 별도 설치가 필요 없다는 점은 편리하다. 하지만 모든 PDF가 줄어들고, 같은 선명도를 유지하며, 모든 업무 요건을 만족한다고 보장하지는 않는다.</p>
+
+<h2>실험 방법</h2>
+
+<p>macOS 26.6.2, Preview 11.0에서 원본을 덮어쓰지 않고 새 파일로 내보냈다. 같은 두 페이지 PDF에 아래 세 가지를 적용했다.</p>
+
+<ol><li>Quartz 필터와 추가 체크를 모두 끈 기본 내보내기</li><li>Quartz 필터만 <code>Reduce File Size</code>로 선택하고 나머지는 끈 내보내기</li><li>Quartz 필터는 끄고 <strong>이미지 최적화</strong>, <strong>JPEG로 이미지 저장</strong>만 선택한 내보내기. PDF/A, 선형화, 텍스트 포함 옵션은 끔</li></ol>
+
+<table>
+<thead><tr><th>파일</th><th>바이트</th><th>확인한 항목</th></tr></thead>
+<tbody>
+<tr><td>원본</td><td>3,328,510</td><td>2페이지. 1페이지 텍스트 추출 가능, 2페이지 이미지 2550 × 3300</td></tr>
+<tr><td>기본 내보내기</td><td>3,329,765</td><td>원본과 같은 페이지 수·텍스트 검사·이미지 크기</td></tr>
+<tr><td>Reduce File Size</td><td>267,157</td><td>2페이지. 1페이지는 공백 정규화 뒤 원문 텍스트와 일치, 2페이지 이미지는 1224 × 1584</td></tr>
+<tr><td>화면 최적화 + JPEG</td><td>3,329,765</td><td>이 실험용 PDF에서는 원본과 같은 페이지 수·텍스트 검사·이미지 크기</td></tr>
+</tbody>
+</table>
+
+<p>출처: 2026-09-10 로컬 측정 기록. 텍스트 추출에 OCR을 쓰지 않았다. 공백을 정리한 뒤 텍스트가 일치한다는 검사는 화면 가독성 점수가 아니다.</p>
+
+<h2>이 PDF에서는 무엇이 달랐나</h2>
+
+<p><code>Reduce File Size</code>는 이 파일을 크게 줄였다. 동시에 이미지 전용 페이지의 크기는 2550 × 3300에서 1224 × 1584로 바뀌었다.</p>
+
+<p>비교 그림을 같은 확대 비율로 보면 벡터 텍스트 페이지의 가는 획은 유지됐다. 이미지 전용 페이지의 6pt 한국어는 더 부드러워지고 일부 정보가 약해 보인다. 그렇다고 모든 글자가 읽을 수 없게 됐다고 말할 수는 없다. 그래서 파일 용량만 보고 선택하면 안 된다.</p>
+
+<p>화면 최적화와 JPEG 두 체크는 이 합성 PDF에서 용량 이득을 만들지 못했다. 이것은 다른 PDF에서도 효과가 없다는 뜻이 아니다. 이 원본·설정·Preview 버전에서 나온 결과일 뿐이다.</p>
+
+<p>이번 실행에서 Preview의 접근성 출력은 이미지 페이지의 일부 글자를 인식했다. 하지만 해당 PDF 페이지에는 텍스트가 저장되어 있지 않았다. 화면에서 인식됐다는 관측만으로 벡터 텍스트나 저장된 OCR이라고 판단할 수 없다. 수동 클립보드 복사는 시험하지 않았으며, PDF 구성 측정과 작은 글자 화면 확인은 별개다.</p>
+
+<h2>이 실험의 한계</h2>
+
+<p>이것은 합성 2페이지 PDF 하나다. 비밀번호, 양식, 서명, 링크, 컬러 스캔, OCR, 복잡한 글꼴, 실제 개인 문서는 시험하지 않았다. 업로드 가능 여부, 법적 효력, 접근성도 측정하지 않았다. Apple도 압축본의 품질이 낮아질 수 있고 결과 크기와 이미지 품질은 선택한 옵션에 따라 달라질 수 있다고 안내한다.</p>
+
+<p>이 글은 어떤 부분을 확인해야 하는지 알려 주는 실험 기록이다. 모든 PDF에 적용되는 압축법을 무조건 권하는 글이 아니다. 정확히 읽혀야 하는 번호나 문장이 있다면 보내기 전에 내보낸 사본에서 다시 확인한다.</p>
+
+<p><strong>공개:</strong> AI가 합성 실험용 PDF를 만들고, 로컬 PDF 구성 측정을 실행하고, Preview UI 내보내기 조작과 결과 검토를 수행했다. 별도 PDF 압축기를 구매하지 않았고 파일은 이 Mac 안에 머물렀다. 고객 문서를 사용하거나 업로드하지 않았다.</p>
+
+<p>추가 자료: <a href="https://support.apple.com/guide/preview/reduce-the-size-of-a-pdf-prvw1509/mac">Apple의 Preview PDF 크기 줄이기 안내</a>, <a href="https://support.apple.com/ko-kr/guide/preview/prvw1020/mac">Apple의 PDF 텍스트 선택·복사 안내</a>.</p>
+
+<h2>자주 묻는 질문</h2>
+<h3>Reduce File Size를 쓰면 항상 읽을 수 있나요?</h3>
+<p>아니요. Apple은 압축 후 품질이 낮아질 수 있다고 안내합니다. 이 실험의 이미지 전용 페이지에서는 작은 글자가 더 부드러워졌으므로 보내기 전에 중요한 페이지를 확인해야 합니다.</p>
+<h3>텍스트를 선택할 수 있으면 벡터 텍스트 페이지인가요?</h3>
+<p>아니요. 텍스트 선택은 보조 검사일 뿐입니다. 이 실험은 OCR 텍스트가 없는 이미지 전용 페이지를 따로 두고 페이지 구성와 선택 동작을 구분했습니다.</p>
+<h3>흐려진 압축 PDF를 다시 압축하면 복구되나요?</h3>
+<p>그렇게 기대하지 마세요. 원본을 보관하고 같은 페이지와 확대 비율에서 비교한 뒤, 읽기 요건을 충족하는 파일을 선택하세요.</p>
+
+
+
+<div class="foot"><a href="https://hexisteme.github.io/">← hexisteme</a> · <a href="https://hexisteme.github.io/notes/">notes</a> · <a href="https://hexisteme.github.io/about/">소개</a> · <a href="https://hexisteme.github.io/editorial-policy/">편집 정책</a> · <a href="https://hexisteme.github.io/privacy-policy/">개인정보 처리방침</a> · <a href="https://hexisteme.github.io/contact/">문의</a> · CC-BY 4.0</div>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Compress a PDF on Mac with Preview: Check the Small Print Before You Send — hexisteme notes</title>
+<meta name="description" content="A local macOS Preview test compares PDF size reduction with vector-text and image-only pages, then gives a safe check-before-send workflow.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/preview-pdf-compression-text-check.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Compress a PDF on Mac with Preview: Check the Small Print Before You Send">
+<meta property="og:description" content="A local macOS Preview test compares PDF size reduction with vector-text and image-only pages, then gives a safe check-before-send workflow.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/preview-pdf-compression-text-check.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Compress a PDF on Mac with Preview: Check the Small Print Before You Send">
+<meta name="twitter:description" content="A local macOS Preview test compares PDF size reduction with vector-text and image-only pages, then gives a safe check-before-send workflow.">
+<meta property="article:published_time" content="2026-09-10">
+<link rel="alternate" hreflang="en" href="https://hexisteme.github.io/notes/preview-pdf-compression-text-check.html">
+<link rel="alternate" hreflang="ko" href="https://hexisteme.github.io/notes/preview-pdf-compression-text-check-ko.html">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.note-image{max-width:100%;height:auto}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "Article", "headline": "Compress a PDF on Mac with Preview: Check the Small Print Before You Send", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A synthetic two-page PDF was exported in Preview 11.0 on macOS 26.6.2. It separates selectable vector text from an image-only page and records file size, image dimensions, and a limited text check.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "datePublished": "2026-09-10", "dateModified": "2026-09-10"}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": "en", "mainEntity": [{"@type": "Question", "name": "Will Reduce File Size always keep my PDF readable?", "acceptedAnswer": {"@type": "Answer", "text": "No. Apple says compressed output can be lower quality. This test found softer small text on its image-only page, so check your own important pages before sending."}}, {"@type": "Question", "name": "Does selectable text prove that a PDF page is vector text?", "acceptedAnswer": {"@type": "Answer", "text": "No. Text selection is only an additional check. This experiment used an image-only page with no embedded OCR text and keeps page structure separate from selection behavior."}}, {"@type": "Question", "name": "Can I restore a blurry compressed PDF by compressing it again?", "acceptedAnswer": {"@type": "Answer", "text": "Do not rely on that. Keep the original and choose the copy that meets the reading requirement after comparing the same page at the same zoom."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Compress a PDF on Mac with Preview: Check the Small Print Before You Send</h1>
+<p class="meta"><a href="https://hexisteme.github.io/">← hexisteme</a> · <a href="https://hexisteme.github.io/notes/">notes</a> · 2026-09-10</p>
+<nav class="language-switch" aria-label="Language"><a hreflang="en" lang="en" href="./preview-pdf-compression-text-check.html">English</a> · <a hreflang="ko" lang="ko" href="./preview-pdf-compression-text-check-ko.html">한국어</a></nav>
+<div class="note">Preview made the sample smaller, while fine print on the image-only page softened. Save a new copy and compare the details that matter before sending it.</div>
+
+<p>If you need to email a PDF from a Mac, Preview offers a built-in way to make it smaller: <strong>File &gt; Export &gt; Quartz Filter &gt; Reduce File Size</strong>. Apple also warns that compression can lower quality, but that warning leaves an important practical question: does a smaller PDF still keep the information you need to read?</p>
+
+<p>The test used a small synthetic document. It is not a customer file, a scanned record, or an upload. The two-page PDF contains the same sheet twice:</p>
+
+<ul><li>Page 1 has selectable vector text, including English, Korean, small 6 pt lines, and synthetic IDs.</li><li>Page 2 is a 300 dpi grayscale image-only copy of the page, with a small amount of seeded paper-like variation and no embedded OCR text.</li></ul>
+
+<p>That distinction matters. A PDF can look like a document while its page is really an image.</p>
+
+<img class="note-image" src="./pdf-preview-assets/comparison.png" alt="Comparison of the same synthetic 6 pt text crop before and after Preview export">
+
+<p><a href="./pdf-preview-assets/comparison.png">Open the full comparison image</a>. You can also inspect the <a href="./pdf-preview-assets/source.pdf">sample PDF</a>, the <a href="./pdf-preview-assets/reduce-file-size.pdf">reduced PDF</a>, and the <a href="./pdf-preview-assets/measurements.json">measurement record</a>.</p>
+
+<h2>Check your own PDF before you send it</h2>
+
+<p>Before choosing a compressed copy, make a new file and inspect it:</p>
+
+<ol><li>Open the PDF in Preview and choose <strong>File &gt; Export</strong>.</li><li>In the export dialog, enter a new filename; do not overwrite the source while testing.</li><li>Choose <strong>Quartz Filter &gt; Reduce File Size</strong> if a smaller attachment is the priority.</li><li>Click <strong>Save</strong> to create that separate exported copy.</li><li>Open the new PDF beside the original and compare the same page at the same zoom.</li></ol>
+
+<p>The English menu words are Apple’s documentation wording. This test does not claim that an English-language Preview interface was run.</p>
+
+<p>The controlled exports were run in macOS 26.6.2 with Preview 11.0; the source file stayed unchanged. The test compared three exports of the same two-page source:</p>
+
+<ol><li>A control export with no Quartz filter and no extra export options.</li><li><code>Reduce File Size</code> as the Quartz filter, with the other options off.</li><li>No Quartz filter, with <strong>Optimize images for screen</strong> and <strong>Save images as JPEG</strong> selected. PDF/A, linearization, and embedded text were off.</li></ol>
+
+<table>
+<thead><tr><th>Output</th><th>Bytes</th><th>What the measurement checked</th></tr></thead>
+<tbody>
+<tr><td>Original</td><td>3,328,510</td><td>Two pages; page 1 extractable text; page 2 image-only at 2550 × 3300 pixels</td></tr>
+<tr><td>Control, no filter</td><td>3,329,765</td><td>Same page count, text check, and image dimensions as the source</td></tr>
+<tr><td>Reduce File Size</td><td>267,157</td><td>Two pages; page 1 text matched after whitespace normalization; page 2 image was 1224 × 1584 pixels</td></tr>
+<tr><td>Screen + JPEG options</td><td>3,329,765</td><td>Same page count, text check, and image dimensions as the source in this fixture</td></tr>
+</tbody>
+</table>
+
+<p>Source: local measurement record, 2026-09-10. The text extraction used no OCR. A whitespace-normalized text match is not a visual-quality score.</p>
+
+<h2>What changed in this test</h2>
+
+<p>The Reduce File Size export made this particular file much smaller. It also reduced the image-only page from 2550 × 3300 to 1224 × 1584 pixels.</p>
+
+<p>In the comparison crop, the page with vector text kept its fine strokes. On the image-only page, the 6 pt Korean line looks softer after reduction, but it is not accurate to say that all text became unreadable. That is why a byte count alone is a poor decision rule.</p>
+
+<p>The other two checked export options did not make this fixture smaller. That does <strong>not</strong> mean those options never help other PDFs. It only records their result for this source, these settings, and this Preview version.</p>
+
+<p>In this run, Preview’s accessibility output recognized some words on the image-only page even though the PDF had no embedded text there. That observation does not establish vector text or stored OCR. Manual clipboard copying was not tested; the measurements and the small-print view are separate checks.</p>
+
+<h2>What to inspect in the exported copy</h2>
+
+<p>Look at small print, IDs, totals, dates, tables, and any image-only scan page. Select or copy text only as an additional check. If a reader needs every small character, keep the original or choose the version that meets that reading requirement. Do not expect repeated compression of a blurry result to restore detail.</p>
+
+<p>The built-in command is useful because it is already on a Mac. It is not a promise that every PDF will shrink, stay equally sharp, or preserve every workflow requirement.</p>
+
+<h2>How this test is limited</h2>
+
+<p>This was one synthetic two-page document. It does not cover passwords, forms, signatures, hyperlinks, color scans, OCR, complex fonts, or a real person’s paperwork. It does not measure upload acceptance, legal validity, or accessibility. Apple’s own Preview guide says compressed output may be lower quality and that file size and image quality can vary with the options you choose.</p>
+
+<p>Use the test as a way to decide what to inspect, not as a universal compression recommendation. If the page contains a number or sentence that must be read correctly, verify it in the exported copy before sending it.</p>
+
+<p><strong>Disclosure:</strong> AI generated the synthetic document, ran local structural measurements, operated the Preview UI export, and reviewed the result. No additional PDF-compressor was purchased; files stayed on this Mac. No customer document was used or uploaded.</p>
+
+<p>Further reading: <a href="https://support.apple.com/guide/preview/reduce-the-size-of-a-pdf-prvw1509/mac">Apple’s Preview PDF size guide</a> and <a href="https://support.apple.com/guide/preview/select-and-copy-text-in-a-pdf-prvw1020/mac">Apple’s guide to selecting PDF text</a>.</p>
+
+<h2>FAQ</h2>
+<h3>Will Reduce File Size always keep my PDF readable?</h3>
+<p>No. Apple says compressed output can be lower quality. This test found softer small text on its image-only page, so check your own important pages before sending.</p>
+<h3>Does selectable text prove that a PDF page is vector text?</h3>
+<p>No. Text selection is only an additional check. This experiment used an image-only page with no embedded OCR text and keeps page structure separate from selection behavior.</p>
+<h3>Can I restore a blurry compressed PDF by compressing it again?</h3>
+<p>Do not rely on that. Keep the original and choose the copy that meets the reading requirement after comparing the same page at the same zoom.</p>
+
+
+
+<div class="foot"><a href="https://hexisteme.github.io/">← hexisteme</a> · <a href="https://hexisteme.github.io/notes/">notes</a> · <a href="https://hexisteme.github.io/about/">about</a> · <a href="https://hexisteme.github.io/editorial-policy/">editorial policy</a> · <a href="https://hexisteme.github.io/privacy-policy/">privacy</a> · <a href="https://hexisteme.github.io/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
