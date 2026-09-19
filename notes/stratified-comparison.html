@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Your LLM Telemetry Table Does Not Have One Denominator — hexisteme notes</title>
+<meta name="description" content="A routed LLM telemetry table can put several incompatible populations under one model label. The comparison becomes honest only after model epoch, role, analysis unit, and proxy eligibility are kept separate.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/stratified-comparison.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Your LLM Telemetry Table Does Not Have One Denominator">
+<meta property="og:description" content="A routed LLM telemetry table can put several incompatible populations under one model label. The comparison becomes honest only after model epoch, role, analysis unit, and proxy eligibility are kept separate.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/stratified-comparison.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/stratified-comparison.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-19">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your LLM Telemetry Table Does Not Have One Denominator">
+<meta name="twitter:description" content="A routed LLM telemetry table can put several incompatible populations under one model label. The comparison becomes honest only after model epoch, role, analysis unit, and proxy eligibility are kept separate.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/stratified-comparison.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your LLM Telemetry Table Does Not Have One Denominator", "datePublished": "2026-09-19", "dateModified": "2026-09-19", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "How to read stratified LLM telemetry as an association under a dispatch policy rather than as a causal model ranking.", "image": "https://hexisteme.github.io/notes/og/stratified-comparison.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why can’t a lower tool-error median prove that one model is better?", "acceptedAnswer": {"@type": "Answer", "text": "The rows come from a routed production policy rather than random assignment. Task mix, project, timing, and policy changes can differ between cells, so the median describes this conditional sample without proving a causal model advantage."}}, {"@type": "Question", "name": "Why are main threads and sidechains kept apart?", "acceptedAnswer": {"@type": "Answer", "text": "They have different session structures and ending conventions. A main thread can contain repeated reads, edits, and recovery, while a sidechain may finish after a bounded task, so their counts and completion proxies are not interchangeable."}}, {"@type": "Question", "name": "What does a collapsed bootstrap interval mean in a zero-heavy cell?", "acceptedAnswer": {"@type": "Answer", "text": "It can mean that tied values make the median constant across resamples. That is a limitation of the percentile bootstrap under heavy ties, not independent proof that the estimate is precise."}}, {"@type": "Question", "name": "What should I record beside a comparison before acting on it?", "acceptedAnswer": {"@type": "Answer", "text": "Record the population, unit of analysis, role, model epoch, assignment policy, and the limitation that could reverse the interpretation. Those labels tell you what the score is allowed to describe and what experiment would be needed for a causal claim."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Your LLM Telemetry Table Does Not Have One Denominator</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-19</p>
+<div class="note">A routed LLM telemetry table can describe conditional differences without identifying a winning model. This note shows why model epoch, role, unit, and completion proxy must stay separate, and why bootstrap intervals need their metric and tie structure beside them.</div>
+
+<p>I had an LLM telemetry report with the usual reassuring furniture: medians, interquartile ranges, sample sizes, and bootstrap intervals. The rows were grouped by model. It looked ready for comparison.</p>
+
+<p>It was actually several different studies sharing a table.</p>
+
+<p>The core process metrics were attributed to model epochs inside threads. The completion proxy existed only at thread level. Main sessions and sidechains had different structures. Mixed-model threads could contribute to one table but fail the purity rule for another. Historical routing policy was often unknown, and task family was not observed at all.</p>
+
+<p>The dangerous mistake was no longer simply calling an association causal. It was treating every <code>n</code> beside a model label as if it counted the same kind of thing.</p>
+
+<p><em>For readers auditing an agent harness, <a href="https://github.com/hexisteme/hard-gate-hooks">hexisteme/hard-gate-hooks</a> contains two MIT-licensed Stop-hook examples, their tests, and a read-only scanner. They are adjacent implementation examples, not the telemetry instrument described here.</em></p>
+
+<h2>A model column is not an analysis unit</h2>
+
+<p>For the core metrics, attribution happened inside a thread. A multi-model thread could produce separate epoch rows because each assistant turn was assigned to the model epoch that produced it. Tool-error rate, re-edit rate, validation runs, recovery sequences, and output tokens therefore described epoch-attributed portions of work.</p>
+
+<p>The completion proxy had a different contract. It was computed once per thread, only for main threads with model purity at or above <code>0.9</code>, and censored threads were excluded. The same model label could therefore have one sample size in the core table and a smaller one in the proxy table without either count being wrong.</p>
+
+<p>That distinction changes what a sentence is allowed to say:</p>
+
+<ul><li>An epoch-attributed error rate describes the observed portion of work assigned to that epoch.</li><li>A thread-level completion proxy describes eligible, sufficiently pure main threads.</li><li>Neither can silently stand in for “tasks completed by this model.”</li></ul>
+
+<p>Putting the values in neighboring sections does not make their denominators interchangeable. Before reading a difference, I now ask what one row represents: a turn-attributed epoch fragment, a whole thread, a delegation edge, or something else.</p>
+
+<h2>Role changes the meaning of the metric</h2>
+
+<p>The report kept main sessions and sidechains separate. That was necessary because they do not end the same way and do not carry the same amount of interaction.</p>
+
+<p>A main thread can contain repeated reads, edits, recovery, and user turns. A sidechain is often a bounded delegated run. A re-edit rate in those two populations mixes model behavior with session structure. Calling the gap “rework” would add another unsupported interpretation: the metric sees repeated edits to a file, but it cannot tell productive iteration from repair.</p>
+
+<p>The completion proxy made the role mismatch even sharper. One sidechain harness commonly ended on a <code>tool_result</code> line. In one recorded cell, that happened in <code>92</code> of <code>99</code> threads. A last-line heuristic could read those endings as incomplete even when the delegated work had finished. The report therefore excluded sidechains from completion comparison instead of repairing the headline with a caveat.</p>
+
+<p>That is the right direction for an invalid metric: narrow its valid population. A warning below a cross-role chart does not undo a denominator that never meant the same thing across roles.</p>
+
+<h2>Epoch boundaries belong in the key</h2>
+
+<p>A model name can survive a relaunch, configuration change, or routing change. The treatment does not.</p>
+
+<p>The report split pre-relaunch and relaunch observations into separate model epochs and refused to pool them. This was more than a naming preference. Sequence metrics were calculated within each epoch fragment, so an edit performed by one model and validated after a model switch was not credited as a within-epoch validation sequence for either side.</p>
+
+<p>That limitation is useful because it is visible. Pooling both epochs under the same display name would create a larger sample by erasing the boundary that explains why the sample is heterogeneous.</p>
+
+<p>The practical key for a row is therefore at least:</p>
+
+<p><code>model_epoch × role × analysis_unit</code></p>
+
+<p>Add policy and task family only when those fields are actually observed. A friendly model name is presentation. It is not a stable experimental identity.</p>
+
+<h2>Missing strata do not become controls</h2>
+
+<p>The report also grouped rows by a source-stamped dispatch-policy hash when that evidence existed. Many historical sessions had no known policy version. Those rows remained <code>UNKNOWN</code>; they were not backfilled from the current router or guessed from which model happened to run.</p>
+
+<p>Task family was stricter still. Every populated row in that stratum was marked <code>NOT_OBSERVED</code>. The correct output was an empty comparison, despite thousands of rows elsewhere in the report.</p>
+
+<p>This is the point where a telemetry system proves whether it is an instrument or a story generator. A missing assignment variable is not a neutral baseline. It is an unmeasured confounder. The table may still describe the sample under the routing policy that produced it, but it cannot claim to have held task family or policy constant.</p>
+
+<h2>Bootstrap the metric you actually defined</h2>
+
+<p>The interval calculation also had to follow the unit contract. Continuous process metrics used a difference in medians. Binary completion proxies used a difference in proportions. Both cells needed enough observations, and comparisons stayed within the same role.</p>
+
+<p>Several zero-heavy cells still produced a bootstrap interval of <code>[0, 0]</code>. That did not mean the effect was known exactly. When most resamples contain the same tied value, the percentile bootstrap can collapse because the statistic does not move. The interval is describing the resampling behavior of a nearly constant cell, not granting the measurement infinite precision.</p>
+
+<p>An interval inherits every limitation of the metric beneath it. It cannot repair a proxy that changes meaning by role, a pooled epoch, or a policy field that was never observed.</p>
+
+<h2>The comparison contract I keep beside every table</h2>
+
+<p>Before I let a telemetry row influence routing, I record these fields with it:</p>
+
+<ul><li>population: which threads or fragments were eligible;</li><li>unit: what one observation represents;</li><li>role: main, sidechain, or another session structure;</li><li>epoch: the version boundary used for attribution;</li><li>assignment evidence: the source-stamped dispatch policy, or <code>UNKNOWN</code>;</li><li>metric semantics: process count, rate, additive total, or outcome proxy;</li><li>exclusion rule: censored, mixed, unattributed, or below the comparison threshold;</li><li>interpretation limit: the condition that would make the apparent difference disappear.</li></ul>
+
+<p>That last field matters most. In routed production telemetry, an observed gap can reverse after task family, project, time, or policy is held fixed. The table is useful for monitoring drift and choosing where a controlled experiment would pay. It is not a model leaderboard.</p>
+
+<p>As of the <code>2026-09-14</code> source snapshot, the table remains association-only. The testable prediction is that at least some apparent model gaps will shrink, disappear, or reverse after recorded policy, role, task family, and analysis unit are held fixed. That prediction is invalidated if adequately overlapping matched cohorts preserve the same gaps in direction and practical magnitude. The trigger is the first source-stamped task-family cohort large enough for that comparison. Persistence would justify a randomized dispatch experiment; only randomized assignment could support a causal attribution to the model.</p>
+
+<p>When you look at your own LLM telemetry, does every <code>n</code> count the same kind of thing?</p>
+
+<h2>FAQ</h2>
+<h3>Why can’t a lower tool-error median prove that one model is better?</h3>
+<p>The rows come from a routed production policy rather than random assignment. Task mix, project, timing, and policy changes can differ between cells, so the median describes this conditional sample without proving a causal model advantage.</p>
+<h3>Why are main threads and sidechains kept apart?</h3>
+<p>They have different session structures and ending conventions. A main thread can contain repeated reads, edits, and recovery, while a sidechain may finish after a bounded task, so their counts and completion proxies are not interchangeable.</p>
+<h3>What does a collapsed bootstrap interval mean in a zero-heavy cell?</h3>
+<p>It can mean that tied values make the median constant across resamples. That is a limitation of the percentile bootstrap under heavy ties, not independent proof that the estimate is precise.</p>
+<h3>What should I record beside a comparison before acting on it?</h3>
+<p>Record the population, unit of analysis, role, model epoch, assignment policy, and the limitation that could reverse the interpretation. Those labels tell you what the score is allowed to describe and what experiment would be needed for a causal claim.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./llm-model-comparison-observational-data.html">LLM Model Comparisons Are Observational Data</a></li>
+<li><a href="./same-bytes-20-percent-fewer-tokens.html">Same Bytes, Twenty Percent Fewer Tokens</a></li>
+<li><a href="./the-denominator-you-never-defined.html">The Denominator You Never Defined</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=stratified-comparison">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
