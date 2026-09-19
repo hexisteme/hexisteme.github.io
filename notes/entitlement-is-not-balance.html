@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Entitlement Is Not Balance: Don&#x27;t Authorize Google Flow Spend with Arithmetic — hexisteme notes</title>
+<meta name="description" content="An included-credit entitlement and a visible balance are different evidence. Authorize spend only from fresh source-specific balance and priority data.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/entitlement-is-not-balance.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Entitlement Is Not Balance: Don&#x27;t Authorize Google Flow Spend with Arithmetic">
+<meta property="og:description" content="An included-credit entitlement and a visible balance are different evidence. Authorize spend only from fresh source-specific balance and priority data.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/entitlement-is-not-balance.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/entitlement-is-not-balance.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-19">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Entitlement Is Not Balance: Don&#x27;t Authorize Google Flow Spend with Arithmetic">
+<meta name="twitter:description" content="An included-credit entitlement and a visible balance are different evidence. Authorize spend only from fresh source-specific balance and priority data.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/entitlement-is-not-balance.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Entitlement Is Not Balance: Don't Authorize Google Flow Spend with Arithmetic", "datePublished": "2026-09-19", "dateModified": "2026-09-19", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Google Flow credit authorization that separates plan terms, current balances, provider priority, freshness, and reservations.", "image": "https://hexisteme.github.io/notes/og/entitlement-is-not-balance.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is the difference between an entitlement and a balance?", "acceptedAnswer": {"@type": "Answer", "text": "An entitlement names what a plan may include. A balance names what remains in a pool at a specific time. They require separate evidence."}}, {"@type": "Question", "name": "Why is a hash not proof that a captured balance is authentic?", "acceptedAnswer": {"@type": "Answer", "text": "A hash shows that retained bytes did not change. It does not establish who produced the capture or whether its contents were truthful."}}, {"@type": "Question", "name": "Why does a pending request need a reservation?", "acceptedAnswer": {"@type": "Answer", "text": "A reservation prevents another request from spending the same verified funds before the first request reaches a known outcome."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Entitlement Is Not Balance: Don&#x27;t Authorize Google Flow Spend with Arithmetic</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-19</p>
+<div class="note">A plan entitlement, a current balance, pool priority, and a local reservation are separate facts. Spend authorization should name and verify the balance it consumes.</div>
+
+<p>A Google Flow account page said a plan included monthly credits and added daily credits. It was tempting to infer the remaining monthly balance by subtracting the daily amount from a displayed total. That arithmetic looked tidy, but it did not establish a balance, a billing cycle, or which credit pool would be spent next.</p>
+
+<p>The authorization code now treats those as separate facts. An entitlement says what a plan may include. A balance says what remains in a particular pool at a particular time. A priority rule says which pool a provider will debit. None follows from the others. Spend authorization requires evidence for the one it intends to consume.</p>
+
+<h2>The observation had a narrow scope</h2>
+
+<p>On September 13, a browser UI capture for one account showed text describing 1,000 monthly included credits and 50 daily credits, with daily credits used first. It also showed 50 daily credits remaining. It did not show a current monthly balance or a billing-cycle boundary. The historical observation is useful as an input format and a test fixture; it is not a statement about today's provider policy, this account's current balance, or any other account.</p>
+
+<p>A content hash bound the local receipt to the captured bytes. That confirms the file later used by the code did not change. It does not authenticate the capture's origin or prove a forged capture could not have been created with a matching hash. Provenance and byte integrity are separate properties.</p>
+
+<h2>Why subtraction is not authorization</h2>
+
+<p>Suppose a UI names a monthly entitlement, shows a daily remainder, and displays an unrelated total. Subtracting one number from another silently assumes the total is a monthly balance, that no past debits were assigned differently, that the cycle is current, and that the provider will consume pools in the assumed order. Each assumption can be false while the arithmetic remains correct.</p>
+
+<p>The code consequently permits daily-only use from a fresh daily balance without inventing a reset instant or a monthly remainder. Monthly use requires a source-specific current remaining balance, a current cycle, and an explicit priority statement from the same capture. Unknown historical debits are reported as unclassified rather than reassigned to make the numbers add up.</p>
+
+<p>Freshness also belongs in the authorization contract. The captured balance was accepted for 15 minutes, then had to be rechecked. That rule does not predict a provider reset schedule. It limits how long the system is willing to act on an observation while external spending can change the account.</p>
+
+<h2>Count a reservation exactly once</h2>
+
+<p>The other subtle failure is double subtraction. A pending request reserves credits before a provider response arrives. If the same request is then recognized as completed, its reservation must be removed exactly once. If it is uncertain or has a remote job identifier, ordinary retry is blocked and recovery is required.</p>
+
+<p>This is why authorization is more than <code>remaining &gt;= planned</code>. It is a state transition with evidence: fresh observation, durable intent, lock held across the pre-submit recheck, and a unique binding from reservation to spend. Duplicate identifiers, conflicting balances, malformed evidence, stale observations, and insufficient verified funds all stop rather than falling back to a guessed pool.</p>
+
+<p>The scoped test suite recorded 268 passing cases for parsing, freshness, malformed captures, reservation accounting, and legacy behavior. Tests establish that the implementation enforces these rules for the fixtures. They do not refresh the account, create a provider guarantee, or authorize real spending.</p>
+
+<h2>Design for a missing balance</h2>
+
+<p>The safest useful outcome is often partial knowledge. A verified daily pool can authorize a daily-sized request even if monthly data is absent. A monthly entitlement alone cannot authorize a larger request. A UI total whose allocation is unknown should remain unknown, not be converted into a plausible answer for convenience.</p>
+
+<p>This pattern applies to prepaid APIs, cloud promotional credits, per-day quotas, and corporate allowances. Preserve the evidence source and capture time with every decision. Keep plan terms, available balance, pool order, and local reservations in different fields. When one of them is missing, reduce the authorization scope or stop.</p>
+
+<p>The falsifier is direct: reopen this design if a fresh, source-bound observation can pass while its declared pool balance or priority is wrong; if normal intent reobservation double-counts or drops a reservation; or if unknown historical rows are asserted as actual pool usage. The success condition is not a familiar-looking number. It is a traceable right to spend from a named balance.</p>
+
+<h2>FAQ</h2>
+<h3>What is the difference between an entitlement and a balance?</h3>
+<p>An entitlement names what a plan may include. A balance names what remains in a pool at a specific time. They require separate evidence.</p>
+<h3>Why is a hash not proof that a captured balance is authentic?</h3>
+<p>A hash shows that retained bytes did not change. It does not establish who produced the capture or whether its contents were truthful.</p>
+<h3>Why does a pending request need a reservation?</h3>
+<p>A reservation prevents another request from spending the same verified funds before the first request reaches a known outcome.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-key-owner-was-not-the-spender.html">The Key&#x27;s Owner Wasn&#x27;t the Spender</a></li>
+<li><a href="./measure-unit-price-before-you-ration.html">Measure Unit Price Before You Ration</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=entitlement-is-not-balance">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
