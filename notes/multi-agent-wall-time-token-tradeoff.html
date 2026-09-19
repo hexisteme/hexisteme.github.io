@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>My AI Agent Pipeline Cut Wall Time and Used More Tokens — hexisteme notes</title>
+<meta name="description" content="One episode reached review sooner, while total input and recovery work rose. The lesson is to measure elapsed time and context separately.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/multi-agent-wall-time-token-tradeoff.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="My AI Agent Pipeline Cut Wall Time and Used More Tokens">
+<meta property="og:description" content="One episode reached review sooner, while total input and recovery work rose. The lesson is to measure elapsed time and context separately.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/multi-agent-wall-time-token-tradeoff.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/multi-agent-wall-time-token-tradeoff.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-19">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="My AI Agent Pipeline Cut Wall Time and Used More Tokens">
+<meta name="twitter:description" content="One episode reached review sooner, while total input and recovery work rose. The lesson is to measure elapsed time and context separately.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/multi-agent-wall-time-token-tradeoff.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My AI Agent Pipeline Cut Wall Time and Used More Tokens", "datePublished": "2026-09-19", "dateModified": "2026-09-19", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "AI agent orchestration metrics that distinguish elapsed time from context work and recovery overhead.", "image": "https://hexisteme.github.io/notes/og/multi-agent-wall-time-token-tradeoff.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What should an AI agent pipeline measure besides wall time?", "acceptedAnswer": {"@type": "Answer", "text": "Measure wall time, uncached input, output, route count, blocked terminations, and context compactions. These describe different operational costs."}}, {"@type": "Question", "name": "Does a shorter wall time prove an AI agent pipeline is cheaper?", "acceptedAnswer": {"@type": "Answer", "text": "No. Different jobs can have different development work, and token counts are not currency. A shorter elapsed path can coexist with more total work."}}, {"@type": "Question", "name": "What should happen when a route budget is exceeded?", "acceptedAnswer": {"@type": "Answer", "text": "Trigger a scope decision or batch a development fix instead of creating another unbounded re-briefing cycle."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>My AI Agent Pipeline Cut Wall Time and Used More Tokens</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-19</p>
+<div class="note">A review candidate arrived sooner while measured context work increased. The next episode must qualify against explicit wall-time, token, route, recovery, render, and compaction limits.</div>
+
+<p>I expected a multi-agent production pipeline to have one obvious efficiency story: divide work, finish sooner, spend less. One observed episode broke that story. It reached its first complete review candidate in 6:09:31, compared with 13:56 for an earlier preserved case. At the same time, total input including cached input rose from 197,682,422 to 246,251,458, and uncached input rose from 5,406,198 to 5,674,946.</p>
+
+<p>That is a 55.8% shorter elapsed path to the first candidate, alongside 24.6% more total input and 5.0% more uncached input. These are token counts, not currency or a bill estimate. The episodes also had different subject matter and development work, so this is an operational comparison, not a controlled causal experiment. But it was enough to retire the convenient claim that parallelism had made the work cheaper.</p>
+
+<h2>Two clocks were telling different stories</h2>
+
+<p>The first candidate arrived sooner. The logs do not isolate how much of that difference came from overlap among production, diagnosis, review, and implementation work. The successor candidate, after feedback, still arrived in 9:53:46, 29.0% faster than the older case.</p>
+
+<p>The second clock was less flattering. By the successor endpoint, total input including cached input was 387,745,989 and uncached input 10,635,589: 96.1% and 96.7% above the comparison case. Output also rose. The system reached a review candidate sooner without reducing the work measured across all paths.</p>
+
+<p>That distinction matters outside AI agents. A build farm can improve time to a green artifact while spending more compute. A larger incident rotation can reduce customer wait time while creating more handoffs. Neither result is automatically bad. They answer different questions. The mistake is naming one of them “efficiency” and allowing it to stand in for both.</p>
+
+<h2>Recovery was a candidate source of overhead</h2>
+
+<p>The later endpoint recorded 37 routes: 22 production routes, 15 development routes, and 17 blocked terminal events. Seven owners avoided simultaneous writes, but that protection did not prevent a single episode from being repeatedly divided, re-briefed, and resumed. Each blocked path created a fresh diagnosis, a new brief, and context transfer to another participant.</p>
+
+<p>It would be too strong to say that parallelism caused the increase. The observation contains confounders: pipeline defects were fixed during production, an external consultation timed out, and the comparison episode was not the same job. What it does support is a more useful hypothesis: route fragmentation, blocked-path recovery, and long-lived coordinator context are candidate costs worth measuring separately.</p>
+
+<p>The stage ledger added another warning. It recorded 1,327.702 seconds of active stage time, about 3.7% of the successor wall time. That is ledger coverage, not the process's true active percentage: model inference, qualification, external consultation, coordination, and waiting were outside that ledger. A partial ledger cannot settle where the rest of the time went; it can only show that the ledger is not yet an accounting system for the whole workflow.</p>
+
+<h2>Put a budget at the handoff boundary</h2>
+
+<p>The remediation did not try to outlaw agents or make every task serial. It made a small set of limits explicit: one logical episode job, at most two production stages, one development batch, two blocked terminations, two full renders, and no compaction for the target path. It also records session usage deltas at attach and finish instead of assuming a route's nominal model represents its cost.</p>
+
+<p>Those are not universal thresholds. They are an experiment design. A route that crosses its limit should trigger a scope decision or a batched development fix, instead of quietly becoming another re-briefing cycle. More importantly, the metric must join the cost of the work with the work that made it necessary. Render-only timing, or an account-wide utilization percentage, cannot do that.</p>
+
+<p>The next newly produced episode is the immediate qualification. The improvement claim fails if it misses a 90-minute first-review wall time, 1,621,859 uncached-input cap, 198,609 output cap, one job, at most two production stages, one development batch, two blocked terminations, two full renders, or zero compactions. Repeating that measurement on later episodes is necessary before treating one qualification as a stable improvement. Passing supports this particular control-plane design, not a general proof that AI agent systems are cheaper.</p>
+
+<p>The useful dashboard therefore has at least two lines: time to a reviewable result, and total work consumed to get there. When those lines move in opposite directions, do not average them into a success story. Decide which trade-off the product can actually afford, then make the handoffs observable enough to change it.</p>
+
+<h2>FAQ</h2>
+<h3>What should an AI agent pipeline measure besides wall time?</h3>
+<p>Measure wall time, uncached input, output, route count, blocked terminations, and context compactions. These describe different operational costs.</p>
+<h3>Does a shorter wall time prove an AI agent pipeline is cheaper?</h3>
+<p>No. Different jobs can have different development work, and token counts are not currency. A shorter elapsed path can coexist with more total work.</p>
+<h3>What should happen when a route budget is exceeded?</h3>
+<p>Trigger a scope decision or batch a development fix instead of creating another unbounded re-briefing cycle.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./subagent-metrics-not-comparable-to-main-thread.html">Subagent Metrics Are Not Comparable to the Main Thread</a></li>
+<li><a href="./per-edit-test-hooks-are-the-cost-you-cannot-see.html">Per-Edit Test Hooks Are the Cost You Cannot See</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=multi-agent-wall-time-token-tradeoff">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
