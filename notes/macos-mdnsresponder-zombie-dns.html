@@ -24,7 +24,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 </head>
 <body>
 
-<h1>macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie</h1><p>If <code>nslookup</code> resolves a host fine but <code>curl</code>, <code>pip</code>, and Python (<code>requests</code>/<code>httpx</code>) fail with "Could not resolve host," your <strong><code>mDNSResponder</code> daemon has almost certainly entered a non-responsive "zombie" state</strong> — and the fix is to restart it (<code>sudo killall -9 mDNSResponder</code>), not to touch your API keys, SDK versions, or code.</p>
+<h1>macOS: nslookup works but curl and Python "Could not resolve host" — the mDNSResponder zombie</h1>
+<div class="note">If <code>nslookup</code> resolves a host fine but <code>curl</code>, <code>pip</code>, and Python (<code>requests</code>/<code>httpx</code>) fail with "Could not resolve host," your <strong><code>mDNSResponder</code> daemon has almost certainly entered a non-responsive "zombie" state</strong> — and the fix is to restart it (<code>sudo killall -9 mDNSResponder</code>), not to touch your API keys, SDK versions, or code.</div>
 <p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 23, 2026 · 7 min read</p>
 
 <p>This failure is maddening because every signal points the wrong way. <code>nslookup example.com</code> returns a clean IP, so DNS "works." Your network is up. Your code didn't change. Yet <code>curl</code>, <code>pip install</code>, and every Python HTTP call die with "Could not resolve host." People burn hours rotating API keys, downgrading SDKs, and editing config files. None of that is the problem.</p>
