@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Your SKILL.md Was Valid. Codex Ran Out of File Descriptors — hexisteme notes</title>
+<meta name="description" content="A Codex skill-loading warning led me to file-descriptor pressure, MCP pipes, and a distinction between configured limits and measured recovery.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/your-skill-md-was-valid-codex-ran-out-of-file-descriptors.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Your SKILL.md Was Valid. Codex Ran Out of File Descriptors">
+<meta property="og:description" content="A Codex skill-loading warning led me to file-descriptor pressure, MCP pipes, and a distinction between configured limits and measured recovery.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/your-skill-md-was-valid-codex-ran-out-of-file-descriptors.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/your-skill-md-was-valid-codex-ran-out-of-file-descriptors.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-26">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your SKILL.md Was Valid. Codex Ran Out of File Descriptors">
+<meta name="twitter:description" content="A Codex skill-loading warning led me to file-descriptor pressure, MCP pipes, and a distinction between configured limits and measured recovery.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/your-skill-md-was-valid-codex-ran-out-of-file-descriptors.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your SKILL.md Was Valid. Codex Ran Out of File Descriptors", "datePublished": "2026-09-26", "dateModified": "2026-09-26", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A Codex file-descriptor exhaustion postmortem with scoped recovery evidence.", "image": "https://hexisteme.github.io/notes/og/your-skill-md-was-valid-codex-ran-out-of-file-descriptors.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does an invalid SKILL.md warning prove the file is malformed?", "acceptedAnswer": {"@type": "Answer", "text": "No. In this incident the nested error was a failed read caused by too many open files. That required investigating process resources before document syntax."}}, {"@type": "Question", "name": "Did the CLI change prove the Desktop limit increased?", "acceptedAnswer": {"@type": "Answer", "text": "No. The user-session launchd change was rejected, and the wrapper probe did not establish the final target limit. The recorded GUI mitigation reduced default MCP demand."}}, {"@type": "Question", "name": "What would falsify the resource diagnosis for a particular skill?", "acceptedAnswer": {"@type": "Answer", "text": "Repeated failure of the same files in a fresh base-profile process with a verified NOFILE limit of 65,536, after os error 24 disappears, triggers a separate syntax or schema investigation."}}, {"@type": "Question", "name": "Did the smoke checks prove the problem cannot recur?", "acceptedAnswer": {"@type": "Answer", "text": "No. Fresh base and full executions completed without FD or skill warnings, but that does not substitute for a long-duration session-lifetime test."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Your SKILL.md Was Valid. Codex Ran Out of File Descriptors</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-26</p>
+<div class="note">Codex labeled skills invalid after a file-open failure. My recorded recovery reduced MCP demand and changed CLI launch limits; the evidence distinguishes successful fresh runs from an unverified final limit.</div>
+
+<p>The warning named my documents: Codex had skipped loading 13 skills because their <code>SKILL.md</code> files were invalid. The detail beneath the heading named a different failure: <code>failed to read file: Too many open files (os error 24)</code>.</p>
+
+<p>That distinction determined the repair. A file that could not be opened had not necessarily failed a Markdown or schema check. Editing its contents would not answer why the process could not read it.</p>
+
+<p>This is a postmortem of my September incident, based on the remediation record dated 2026-09-21. The observations below belong to that run. They are not a claim about every Codex release or every warning carrying the word “invalid.”</p>
+
+<h2>Start with the nested error</h2>
+
+<p>The useful signal was <code>EMFILE</code>, the process-level “too many open files” error. “File” in this context includes descriptors consumed by communication channels. My setup had stdio MCP servers attached to a long-lived Desktop app-server, so ordinary skill documents were sharing a resource budget with pipes.</p>
+
+<p>The diagnostic record contained several different measurements:</p>
+
+<table>
+<thead><tr><th>Surface measured</th><th>Observation before remediation</th></tr></thead>
+<tbody>
+<tr><td>Shell soft NOFILE limit</td><td>256</td></tr>
+<tr><td>Shell hard NOFILE limit</td><td>unlimited</td></tr>
+<tr><td>Kernel-reported maximum number of files per process</td><td>92,160</td></tr>
+<tr><td>Desktop app-server numeric descriptors</td><td>274</td></tr>
+<tr><td>Desktop app-server PIPE entries</td><td>201</td></tr>
+<tr><td>Desktop app-server direct children</td><td>67</td></tr>
+<tr><td>Globally enabled MCP servers</td><td>23</td></tr>
+</tbody>
+</table>
+
+<p>These are separate surfaces. In particular, the shell's soft limit was not a measurement of the already-running Desktop process's effective limit. Seeing 274 descriptors in that process does not establish that it was running under the shell's 256 limit. I would need the target process's own limit to make that claim.</p>
+
+<p>What the snapshot did show was a substantial pipe footprint alongside the read failures. The process inventory also showed MCP groups corresponding to several sessions. The resource hypothesis therefore had evidence beyond the top-level warning, even though the snapshot alone did not identify the exact descriptor allocation that failed.</p>
+
+<p>My inventory was also broad: 61 skills under the agent tree, 16 under the Codex skill directory, and 112 in plugin caches. Those counts describe the configured surface, not the number of simultaneously open files. I did not turn them into a concurrency measurement.</p>
+
+<h2>Two pressures met at the same boundary</h2>
+
+<p>The incident record connected the symptom to parallel skill loading and the pipes associated with session-specific MCP children. It referenced the upstream discussions in <a href="https://github.com/openai/codex/issues/36755">issue #36755</a>, <a href="https://github.com/openai/codex/issues/26984">issue #26984</a>, and <a href="https://github.com/openai/codex/issues/37971">issue #37971</a>. Those are investigation pointers from the record; their current status is not evidence supplied by this post.</p>
+
+<p>My working explanation was that loading skills needed transient descriptors while the long-lived process already held a large communication footprint. A document happened to be the next resource consumer denied an open. Its filename made the failure look local to the document, while the nested error implicated the process.</p>
+
+<p>I treated that explanation as sufficient to test a resource intervention. I did not have a controlled experiment separating the contribution of loader concurrency from the contribution of retained MCP pipes. The successful intervention below supports the resource diagnosis, but it cannot assign each mechanism a share of the failure.</p>
+
+<h2>Change both the budget and the default demand</h2>
+
+<p>I changed the CLI launch path to request a soft NOFILE limit of up to 65,536 before starting Codex. The wrapper respects a lower hard limit and preserves its existing behavior if the operating system refuses the change. The domain launcher received the same target.</p>
+
+<p>There is a limitation in my own evidence here. The verification note records a wrapper probe issuing <code>ulimit -Sn 4096</code> from a parent whose soft limit was 256. That supports the narrower claim that the launch path could attempt a higher limit. It does not prove that the final 65,536 target was effective in every launched process. Configuration intent and an inherited runtime limit are different facts, and my record does not close that gap.</p>
+
+<p>The other change reduced routine demand. I cut the global MCP default from 23 servers to 8, disabled the Comfy and video-vision plugins by default, and retained domain profiles for work that needed a larger tool set. The full profile retained the previous broader configuration.</p>
+
+<p>That gave me an operational choice: a smaller baseline for ordinary work, with broader dependencies selected when required. A high ceiling alone would have left the original pipe demand in place. A smaller baseline alone would not have addressed the CLI's low inherited soft limit.</p>
+
+<p>The GUI path had its own boundary. My attempt to change the launchd maxfiles limit from the user session was rejected with <code>Operation not permitted</code>. I did not record that as a successful Desktop limit increase. The changes actually applied were the reduced default demand and the CLI-side launch behavior.</p>
+
+<h2>Measure the process after the change</h2>
+
+<p>After hot reload, the recorded Desktop app-server snapshot had 116 numeric descriptors, 78 PIPE entries, and 26 direct children. The before-and-after snapshots show that the retained footprint fell. They do not establish that an upstream lifetime-management defect was permanently fixed.</p>
+
+<p>The validation record was broader than the snapshot. Shell syntax checks passed for the wrapper and launcher. All 11 profile configurations passed their parsing and MCP-list checks. The strict doctor run reported 23 checks OK.</p>
+
+<p>I also ran fresh ephemeral executions with both the base profile and the full profile. Each returned exit 0, produced the requested response marker, and emitted no FD or skill warnings. The check after those runs found no new MCP orphans.</p>
+
+<p>Those fresh runs are the strongest recovery evidence in the record: the system performed the operation that had been failing. The full-profile run matters because reducing the default server set was not the only path exercised. Still, these were bounded smoke checks, not a long-duration test of session churn. “Recovered in the checked runs” is supported. “Cannot recur” is not.</p>
+
+<h2>Keep a way to reject the diagnosis</h2>
+
+<p>The remediation record includes a specific falsifier, evaluated on 2026-09-21: if a fresh process with the base profile and a verified NOFILE limit of 65,536 repeatedly fails on the same <code>SKILL.md</code> files after <code>os error 24</code> disappears, reclassify those files for a separate syntax or schema defect.</p>
+
+<p>The word “verified” matters because of the wrapper-probe gap. I would confirm the effective limit before treating that retry as a test of the falsifier. Otherwise, a failed attempt to apply the mitigation could be mistaken for evidence against the diagnosis.</p>
+
+<p>For recurrence, my runbook starts with the Desktop app-server's pipe count and direct-child count. Growth across sessions under the smaller baseline would reopen the lifetime-management question. Restarting the application is a recovery action in that situation, not proof that the cause has been removed.</p>
+
+<p>A fresh session also matters after a skipped-skill warning. The record's recovery procedure opens a new session rather than assuming the failed load has been repaired inside the old one. Saving active work and fully restarting Desktop is the stronger reset when the affected process persists.</p>
+
+<h2>The diagnostic process had a separate failure</h2>
+
+<p>During this investigation, raw configuration diffs and adjacent configuration lines exposed credential values in tool output. The remediation record explicitly leaves credential rotation as an unresolved follow-up. I am not reproducing those values or treating the descriptor fix as a security repair.</p>
+
+<p>The operational lesson is concrete: configuration diagnosis should print server names, enabled flags, counts, and whether credentials are present. Narrow line ranges are not a sufficient filter when secrets can occupy neighboring lines. That mistake belongs in this postmortem because it happened while collecting the evidence, not because it explains <code>EMFILE</code>.</p>
+
+<p>The resource repair began when I stopped taking “invalid” as the diagnosis and followed the nested read error. The acceptance check was equally specific: fresh executions completed without the original warning, and the observed pipe footprint fell. Keeping those claims narrower than “all limits fixed” leaves the next investigation somewhere honest to start.</p>
+
+<p><em>This post was prepared with AI assistance from my incident and remediation record.</em></p>
+
+<p><em>License: CC BY 4.0.</em></p>
+
+<h2>FAQ</h2>
+<h3>Does an invalid SKILL.md warning prove the file is malformed?</h3>
+<p>No. In this incident the nested error was a failed read caused by too many open files. That required investigating process resources before document syntax.</p>
+<h3>Did the CLI change prove the Desktop limit increased?</h3>
+<p>No. The user-session launchd change was rejected, and the wrapper probe did not establish the final target limit. The recorded GUI mitigation reduced default MCP demand.</p>
+<h3>What would falsify the resource diagnosis for a particular skill?</h3>
+<p>Repeated failure of the same files in a fresh base-profile process with a verified NOFILE limit of 65,536, after os error 24 disappears, triggers a separate syntax or schema investigation.</p>
+<h3>Did the smoke checks prove the problem cannot recur?</h3>
+<p>No. Fresh base and full executions completed without FD or skill warnings, but that does not substitute for a long-duration session-lifetime test.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./wrapper-failure-is-not-capability-failure.html">The Wrapper Failed, Not the Capability: Descend to the API Before Saying Impossible</a></li>
+<li><a href="./the-process-check-that-could-never-fire.html">The Process Check That Could Never Fire</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=your-skill-md-was-valid-codex-ran-out-of-file-descriptors">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
