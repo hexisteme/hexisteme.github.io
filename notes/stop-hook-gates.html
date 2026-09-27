@@ -41,7 +41,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 </head>
 <body>
 
-<h1>Claude Code Stop Hooks as Behavioral Gates</h1><p>To enforce behavioral constraints on Claude Code, register a <strong>stop hook</strong> — a shell script in <code>settings.json</code> that runs after every response is generated, inspects the response text and session transcript via stdin JSON, and either allows it (<code>exit 0</code>) or blocks it (<code>exit 2</code>) with a correction message Claude must address before the user sees output. Unlike prompt instructions, this is a hard constraint enforced outside the model.</p>
+<h1>Claude Code Stop Hooks as Behavioral Gates</h1>
+<div class="note">To enforce behavioral constraints on Claude Code, register a <strong>stop hook</strong> — a shell script in <code>settings.json</code> that runs after every response is generated, inspects the response text and session transcript via stdin JSON, and either allows it (<code>exit 0</code>) or blocks it (<code>exit 2</code>) with a correction message Claude must address before the user sees output. Unlike prompt instructions, this is a hard constraint enforced outside the model.</div>
 <p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 13, 2026 · 9 min read</p>
 
 <p>Prompt instructions are soft constraints. They shape behavior probabilistically. When RLHF-trained patterns conflict with your instructions — deference to the user, hedged language, option-listing instead of committing — the RLHF training usually wins, especially under pressure.</p>

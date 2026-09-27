@@ -39,7 +39,8 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 </head>
 <body>
 
-<h1>Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors</h1><p>For a small, high-churn fleet of agents, cron jobs, and MCP servers you don't fully control, prefer <strong>pull</strong> (scan on-disk state) over <strong>push</strong> (an event bus): a poller is self-healing and needs zero instrumentation, while an event bus goes silently blind the moment a component fails to emit, crashes before emitting, or is a third-party tool you can't modify at all. I designed the inbox as a computed view over existing state and rejected the event bus on purpose. Here is the reasoning, because it generalizes past my setup.</p>
+<h1>Why I rejected an event bus for my solo agent fleet: state is truth, events are rumors</h1>
+<div class="note">For a small, high-churn fleet of agents, cron jobs, and MCP servers you don't fully control, prefer <strong>pull</strong> (scan on-disk state) over <strong>push</strong> (an event bus): a poller is self-healing and needs zero instrumentation, while an event bus goes silently blind the moment a component fails to emit, crashes before emitting, or is a third-party tool you can't modify at all. I designed the inbox as a computed view over existing state and rejected the event bus on purpose. Here is the reasoning, because it generalizes past my setup.</div>
 <p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · June 20, 2026 · 8 min read</p>
 
 <p>I run a personal fleet on one machine — a handful of small agents, a pile of cron jobs and LaunchAgents, and several MCP servers, some of them third-party. I wanted a single inbox that answers "what needs my attention right now?": new outputs I haven't seen, decisions only a human can close, dependencies that broke.</p>
