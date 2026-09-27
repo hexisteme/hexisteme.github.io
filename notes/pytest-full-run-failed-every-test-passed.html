@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>pytest Failed. Every Collected Test Still Had a Passing Run. — hexisteme notes</title>
+<meta name="description" content="A failed full pytest run and complete test-by-test PASS evidence can coexist. Keep process status, collected-node identity, and environment scope separate.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/pytest-full-run-failed-every-test-passed.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="pytest Failed. Every Collected Test Still Had a Passing Run.">
+<meta property="og:description" content="A failed full pytest run and complete test-by-test PASS evidence can coexist. Keep process status, collected-node identity, and environment scope separate.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/pytest-full-run-failed-every-test-passed.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/pytest-full-run-failed-every-test-passed.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-27">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="pytest Failed. Every Collected Test Still Had a Passing Run.">
+<meta name="twitter:description" content="A failed full pytest run and complete test-by-test PASS evidence can coexist. Keep process status, collected-node identity, and environment scope separate.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/pytest-full-run-failed-every-test-passed.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "pytest Failed. Every Collected Test Still Had a Passing Run.", "datePublished": "2026-09-27", "dateModified": "2026-09-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Separating failed pytest invocation status from complete collected-node PASS evidence across explicitly bounded execution epochs.", "image": "https://hexisteme.github.io/notes/og/pytest-full-run-failed-every-test-passed.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can complete collected-test evidence coexist with a failed full pytest run?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, if separate recorded executions supply an actual PASS for every expected collected node. The original failed invocation remains failed. This does not establish a successful same-process full run or justify overriding CI status."}}, {"@type": "Question", "name": "Why is adding passing test counts insufficient?", "acceptedAnswer": {"@type": "Answer", "text": "Equal totals do not prove equal identities. A case can be counted in multiple epochs while another is missing. Reconcile exact collected node IDs, preserve parametrized identities, and reject ambiguous or duplicated mappings."}}, {"@type": "Question", "name": "What source state does this verification cover?", "acceptedAnswer": {"@type": "Answer", "text": "The observed checkout, including its existing modifications, was hash-bound across execution epochs. The result is not evidence for a clean commit tree, changed dependencies, or a future source snapshot."}}, {"@type": "Question", "name": "Does an authorized browser retry prove live account or publishing behavior?", "acceptedAnswer": {"@type": "Answer", "text": "No. The retry used synthetic browser fixtures and temporary localhost data. Its changed launch and bind permissions are explicit, and live sign-in, Keychain access, publishing and production collection were outside the claim."}}, {"@type": "Question", "name": "When should the collected-coverage verdict be withdrawn?", "acceptedAnswer": {"@type": "Answer", "text": "Withdraw it if an expected node lacks an actual PASS, mapping is ambiguous or duplicated, source identity differs without explicit accounting, or the retry crosses an unauthorized live-operation boundary. A later passing full invocation adds a new fact without rewriting earlier failures."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>pytest Failed. Every Collected Test Still Had a Passing Run.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-27</p>
+<div class="note">My full pytest invocation failed, while an exact source-bound inventory eventually had a passing execution for every collected test. I preserved the failed exit codes and kept the authorized retry environment, process-state limits, and collected-node coverage separate.</div>
+
+<p>I had a red pytest command and a folder of green results. Choosing a color for the handoff would have thrown away information.</p>
+
+<p>The run that attempted everything returned exit code 1. After a carefully bounded retry, the records also showed a successful execution for each of the 1,269 named cases on the collection roster.</p>
+
+<p>Neither observation cancelled the other.</p>
+
+<p>This happened during a regression check dated 2026-09-27. The lesson is not a trick for rescuing red CI. It is about writing a completion statement whose nouns still mean what the evidence says.</p>
+
+<h2>Start with the question behind the green label</h2>
+
+<p>"Did this command finish successfully?" asks about a process. "Which cases have a successful result?" asks about a roster.</p>
+
+<p>Those questions often receive the same answer, so a dashboard can make them look interchangeable. Once retries enter the picture, they can diverge.</p>
+
+<p><a href="https://docs.pytest.org/en/stable/reference/exit-codes.html">pytest documents the meanings of its exit codes</a>. A result assembled afterward cannot retroactively change the value returned by the shell.</p>
+
+<p>That gave me a useful constraint: keep the command failure visible even if a later attempt supplied the missing results. Otherwise, someone reading the handoff could mistake an accounting result for an observation of everything working together.</p>
+
+<p>The distinction is easier to keep when the report contains both answers, instead of forcing the reader to infer one from the other.</p>
+
+<h2>There was an environmental cause to investigate</h2>
+
+<p>My initial attempt produced 1,199 passes alongside 31 skips, 3 failures, and 36 errors. The command returned 1. It had not been given the browser-runtime setting.</p>
+
+<p>An already installed, pinned Playwright runtime was available. I selected that cache and tried the complete roster again inside the restricted environment. This removed the skips, but it did not make the invocation successful: the results were 1,199 passes, 3 failures, and 67 errors, with exit code 1 again.</p>
+
+<p>At that point, calling the problem "environmental" still did not close it. I needed to find the operations being denied and establish what a retry would actually exercise.</p>
+
+<p>The browser component accounted for 69 cases. macOS denied its launch through MachPort. The other case belonged to an explorer fixture whose temporary web server was unable to bind localhost.</p>
+
+<p>Changing that boundary meant changing the conditions under which evidence would be collected. It deserved a precise scope, not an incidental mention buried under the final green number.</p>
+
+<h2>Retry the named group, not the permission model</h2>
+
+<p>I selected the unsuccessful cases by their exact node IDs. Before permitting another attempt, I inspected the fixture behavior associated with that selection.</p>
+
+<p>The browser consumed fabricated pages held in memory. Fixture responses supplied the content; requests that would leave the test were stopped. The explorer served disposable data from the machine. This selection involved no real sign-in, no fetching through a production API, no use of actual credentials from Keychain, and no publishing.</p>
+
+<p>The restricted retry reproduced the problem. The authorized retry then allowed only the necessary browser launch and local bind operations.</p>
+
+<p>Here is the full sequence. A pass total is not the process result; the right-hand column preserves that difference.</p>
+
+<table>
+<thead><tr><th>Attempt</th><th>Test outcomes</th><th>Process exit code</th></tr></thead>
+<tbody>
+<tr><td>Before selecting the installed browser cache</td><td>1199 passes; 31 skips; 3 failures; 36 errors</td><td>1</td></tr>
+<tr><td>Complete roster with the cache selected</td><td>1199 passes; 0 skips; 3 failures; 67 errors</td><td>1</td></tr>
+<tr><td>Selected group inside the original restrictions</td><td>0 passes; 0 skips; 3 failures; 67 errors</td><td>1</td></tr>
+<tr><td>Identical selection with bounded launch and bind permission</td><td>70 passes; 0 skips; 0 failures; 0 errors</td><td>0</td></tr>
+</tbody>
+</table>
+
+<p>No assertions were softened. No test was deleted from the selection. No new browser installation was needed, and the broad command did not receive blanket permission.</p>
+
+<p>The last row answers a specific question: these 70 cases worked when those local operations were allowed. It does not answer whether they would work inside the restrictions that produced the previous row.</p>
+
+<p>That qualification belongs next to the outcome. A retry without its changed conditions is an incomplete observation.</p>
+
+<h2>The sum was a clue, not the reconciliation</h2>
+
+<p>Adding 1,199 and 70 gives 1,269. That arithmetic would still be true if both groups included the same case and another case never appeared.</p>
+
+<p>I could not infer membership from totals.</p>
+
+<p><a href="https://docs.pytest.org/en/stable/how-to/usage.html#specifying-which-tests-to-run">pytest accepts individual node IDs</a>, including selections for parameterized cases. It also supports <a href="https://docs.pytest.org/en/stable/how-to/output.html#creating-junitxml-format-files">JUnit XML output</a>. Those mechanisms supply useful inputs, but they do not decide what a combined result means.</p>
+
+<p>The roster defined what needed a result. I associated each JUnit entry with a specific member, treating variations of a parameter as distinct cases rather than interchangeable names. Each outcome still pointed back to the attempt that produced it.</p>
+
+<p>The final comparison left 0 expected members without a pass, 0 deliberately excluded members, and 0 members covered only by a skip. In particular, the initial 31 skips earned no credit merely for having appeared in the output.</p>
+
+<p>A conceptual sketch is short:</p>
+
+<pre><code>missing = collected_ids - passed_ids
+extra = passed_ids - collected_ids
+
+assert not missing
+assert not extra</code></pre>
+
+<p>This is explanatory pseudocode, not the parser I ran. Before any set operation, the mapping must reject ambiguous identifiers and duplicate entries within an attempt. Converting a questionable list to a set can conceal the very defect the check is supposed to catch.</p>
+
+<p>I wanted an answer to "where is this case's successful execution?", not just a plausible total at the bottom of a log.</p>
+
+<h2>A commit name would have described the wrong object</h2>
+
+<p>The checkout was not pristine when this verification began. It already included two changes made concurrently with the surrounding work.</p>
+
+<p>If I had attached only a commit ID, a later reader could reasonably assume the measurements referred to that committed tree. They did not. The object under examination was the checkout as observed, including those modifications.</p>
+
+<p>The receipt included a fingerprint for each of 220 Git-tracked files, plus 7 markers used in operation. Comparing those fingerprints found no drift between attempts or when I checked the handoff.</p>
+
+<p>I did not alter application code or test code while resolving this verification. That statement is compatible with pre-existing modifications; it is not a claim that the worktree was clean.</p>
+
+<p>Nor do matching source bytes make the environments identical. Assigning the browser cache and permitting local launch and bind were real changes in execution conditions. A source fingerprint is useful precisely because it answers a narrower question, not because it proves every kind of sameness.</p>
+
+<p>This also limits reuse. A different checkout or changed dependency cannot inherit the result just because the old report is still nearby.</p>
+
+<h2>What I could say, and what I could not</h2>
+
+<p>The reconciliation gave every expected case a successful execution. It did not show the entire roster succeeding within a single process.</p>
+
+<p>A fixture may leave something behind for its neighbors. Scheduling or resource competition may change when cases share a process. Separate invocations can miss that behavior; this record does not measure it. Nor did I measure the likelihood of seeing the failures again.</p>
+
+<p>The denominator is a roster of named cases, not lines of executable Python. A statement about which cases succeeded cannot tell me which lines were exercised.</p>
+
+<p>And a synthetic browser fixture is not a live-account check. Permission to launch a browser for local content does not become permission to exercise credentials or publish something.</p>
+
+<p>I have written about a neighboring problem in <a href="https://hexisteme.github.io/notes/green-tests-prove-behavior-not-reachability.html">Green Tests Prove Behavior, Not Reachability</a>: a gate can behave correctly in isolation while being absent from the dispatch path. This case concerns a different object. I had an explicit roster, and needed an execution record for each member of it.</p>
+
+<p><a href="https://hexisteme.github.io/notes/a-check-that-never-ran-is-not-passing.html">A Check That Never Ran Is Not Passing</a> addresses a missing evaluable input. Here, the successful observations already existed. The work was to reconcile them without crediting omissions, or claiming that a changed environment was the original one.</p>
+
+<p>Those distinctions help keep similar-sounding failure stories from turning into the same generic lesson.</p>
+
+<h2>The handoff needs more than a status word</h2>
+
+<p>The custom result in my receipt was <code>FULL_COLLECTED_COVERAGE_BY_EXPLICIT_SHARDS</code>. Alongside it, <code>whole_pytest_invocation_exit_zero</code> stayed false.</p>
+
+<p>That is a description of this receipt, not a pytest feature or a reason to override the shell.</p>
+
+<p>For a future report, I would reserve room for the process outcome, the expected roster, the evidence attached to each member, the bytes examined, and the conditions changed by a retry. I would also state which decision the report supports.</p>
+
+<p>A verification statement and permission to merge or release are not interchangeable. Neither should disappear behind a green badge.</p>
+
+<p>This is a proposed reporting habit, not a claim that I have installed a general-purpose reconciliation framework across every project. Its useful property would be refusing completion when an identifier cannot be resolved or an expected result is absent.</p>
+
+<p>Preserving the earlier red attempts matters too. I retained the original logs and XML in a lossless archive and checked them against their hashes. A readable summary should sit beside those artifacts, not replace them with a tidied history.</p>
+
+<h2>Keep a way to revoke the conclusion</h2>
+
+<p>The result stops being defensible if a required member has no successful execution, if an identifier points to more than one case, or if I discover that the observations came from different checkouts.</p>
+
+<p>The same applies if the supposedly local retry actually used an unauthorized production operation or live account. Its permitted scope is part of what makes the evidence usable.</p>
+
+<p>A later all-green invocation would be welcome additional evidence. It would not erase the red invocations already recorded, and these separate attempts do not authorize relabeling a failed CI job.</p>
+
+<p>The handoff I could defend was simple:</p>
+
+<p><strong>The complete command returned failure. The named cases all had successful executions under the recorded conditions. The record preserves both facts.</strong></p>
+
+<p><em>Prepared with AI assistance from my preserved regression-verification records; source and execution evidence rechecked on 2026-09-27.</em></p>
+
+<h2>FAQ</h2>
+<h3>Can complete collected-test evidence coexist with a failed full pytest run?</h3>
+<p>Yes, if separate recorded executions supply an actual PASS for every expected collected node. The original failed invocation remains failed. This does not establish a successful same-process full run or justify overriding CI status.</p>
+<h3>Why is adding passing test counts insufficient?</h3>
+<p>Equal totals do not prove equal identities. A case can be counted in multiple epochs while another is missing. Reconcile exact collected node IDs, preserve parametrized identities, and reject ambiguous or duplicated mappings.</p>
+<h3>What source state does this verification cover?</h3>
+<p>The observed checkout, including its existing modifications, was hash-bound across execution epochs. The result is not evidence for a clean commit tree, changed dependencies, or a future source snapshot.</p>
+<h3>Does an authorized browser retry prove live account or publishing behavior?</h3>
+<p>No. The retry used synthetic browser fixtures and temporary localhost data. Its changed launch and bind permissions are explicit, and live sign-in, Keychain access, publishing and production collection were outside the claim.</p>
+<h3>When should the collected-coverage verdict be withdrawn?</h3>
+<p>Withdraw it if an expected node lacks an actual PASS, mapping is ambiguous or duplicated, source identity differs without explicit accounting, or the retry crosses an unauthorized live-operation boundary. A later passing full invocation adds a new fact without rewriting earlier failures.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./green-tests-prove-behavior-not-reachability.html">Green Tests Prove Behavior, Not Reachability</a></li>
+<li><a href="./a-check-that-never-ran-is-not-passing.html">A Check That Never Ran Is Not Passing</a></li>
+<li><a href="./wrapper-failure-is-not-capability-failure.html">Wrapper Failure Is Not Capability Failure</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=pytest-full-run-failed-every-test-passed">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
