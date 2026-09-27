@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google-adsense-account" content="ca-pub-7043920969859832">
 <title>Mac Local LLM OOM: Disk Full, APFS Postmortem and Guardrails</title>
-<meta name="description" content="A Mac Mini local LLM OOM postmortem: disk-full (ENOSPC), swap pressure, APFS failure, and a code-level block against unsafe model startup.">
+<meta name="description" content="A personal Mac Mini failure report: memory and disk pressure, an unproven APFS corruption cause, and code-level refusal of unwanted local model startup.">
 <style>
 body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
 a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
@@ -22,53 +22,50 @@ table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #
 <meta name="author" content="hexisteme">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Mac Local LLM OOM: Disk Full, APFS Postmortem and Guardrails">
-<meta property="og:description" content="A Mac Mini local LLM OOM postmortem: disk-full (ENOSPC), swap pressure, APFS failure, and a code-level block against unsafe model startup.">
+<meta property="og:description" content="A personal Mac Mini failure report: memory and disk pressure, an unproven APFS corruption cause, and code-level refusal of unwanted local model startup.">
 <meta property="og:url" content="https://hexisteme.github.io/notes/local-llm-oom-apfs-corruption-postmortem.html">
 <meta property="og:site_name" content="hexisteme notes">
-<meta property="og:image" content="https://hexisteme.github.io/notes/og/local-llm-oom-apfs-corruption-postmortem.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
 <meta property="article:published_time" content="2026-07-10">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Mac Local LLM OOM: Disk Full, APFS Postmortem and Guardrails">
-<meta name="twitter:description" content="A Mac Mini local LLM OOM postmortem: disk-full (ENOSPC), swap pressure, APFS failure, and a code-level block against unsafe model startup.">
-<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/local-llm-oom-apfs-corruption-postmortem.png">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Mac Local LLM OOM: Disk Full, APFS Postmortem and Guardrails", "datePublished": "2026-07-10", "dateModified": "2026-07-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A Mac Mini local LLM OOM and disk-full postmortem covering swap pressure, APFS failure and code-level startup guardrails; the exact corruption trigger remains unproven.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "image": "https://hexisteme.github.io/notes/og/local-llm-oom-apfs-corruption-postmortem.png"}</script>
+<meta name="twitter:description" content="A personal Mac Mini failure report: memory and disk pressure, an unproven APFS corruption cause, and code-level refusal of unwanted local model startup.">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Mac Local LLM OOM: Disk Full, APFS Postmortem and Guardrails", "datePublished": "2026-07-10", "dateModified": "2026-09-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A Mac Mini local LLM OOM and disk-full postmortem covering swap pressure, APFS failure and code-level startup guardrails; the exact corruption trigger remains unproven.", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}</script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can a local LLM running out of memory corrupt your filesystem?", "acceptedAnswer": {"@type": "Answer", "text": "Not directly, but it can create the conditions that do. On a unified-memory Mac, an oversized model exhausts the shared RAM pool; macOS responds by swapping to the boot disk; if that disk is nearly full, the swap writes fail, and sustained I/O errors during that failure can leave the volume's APFS metadata inconsistent enough that the machine will not boot. The LLM never touches the filesystem itself; it just forces the OS into the corner where the corruption happens. A disk with room to swap turns the same event into a slow machine instead of a dead one."}}, {"@type": "Question", "name": "Why is free disk space a memory safety net on Apple Silicon Macs?", "acceptedAnswer": {"@type": "Answer", "text": "Because macOS backs memory pressure with swapfiles on the boot volume. Unified memory means the OS, apps, and any ML workload all draw from one physical pool; when it overflows, the kernel compresses and then swaps to disk. Free disk space is the runway for that swap. If it is gone, the memory system has nowhere to overflow to, and running out of memory escalates from a slow machine to I/O failures on the system volume. Keeping roughly 20 GB or more free keeps the swap buffer healthy, which is why a full disk is a memory problem, not just a storage one."}}, {"@type": "Question", "name": "Why replace a do-not-run note with code that refuses to start?", "acceptedAnswer": {"@type": "Answer", "text": "Because a note is a soft default, and defaults get flipped by another session's environment export, an auto-start script, or simply not being read. A note assumes something reads and heeds it every time; a hard block assumes nothing. Turning the dangerous path into code that actively refuses (a False constant, stubbed spawners, a health check that always fails, a start command that declines) removes the failure mode instead of documenting it. If a path can physically brick the machine, it needs a block, not a warning."}}, {"@type": "Question", "name": "What is a code-level hard block, and how do you make it reversible?", "acceptedAnswer": {"@type": "Answer", "text": "It is defense in depth: every layer that could start the risky process is made to refuse. A single _ENABLED = False constant as the source of truth, server-spawn functions stubbed out, a health check hard-wired to False so the router never selects the local path, an executor that escalates and exits before importing the heavy library, and a start command that refuses. You keep it reversible by preserving the originals under a _LEGACY_ prefix, so revival is a rename rather than a rewrite, and by pairing it with an explicit ordered checklist of preconditions and a staged re-entry that starts with the smallest model."}}, {"@type": "Question", "name": "How do you safely run heavy GPU or ML workloads on a 24 GB unified-memory Mac?", "acceptedAnswer": {"@type": "Answer", "text": "One heavy job at a time, and never let two 14 GB-class workloads, or a heavy ML task plus Photoshop, a video editor, and a VM, overlap, because they contend for the same pool. Run a memory preflight before generative work: sum free, inactive, speculative, and purgeable pages from vm_stat, and if it is under about 8 GB, close apps first. Keep the model in a low-memory mode, and hold 20 GB or more of disk free so the swap buffer stays healthy. The goal is never to reach the memory-overcommit state that forces the OS to swap onto a disk with no room."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can a local LLM running out of memory corrupt your filesystem?","acceptedAnswer":{"@type":"Answer","text":"This report does not establish that causal link. Memory pressure, a nearly full disk, and an unmountable APFS volume occurred in the reported incident, but there is no published trace proving that failed swap writes caused the metadata damage. Treat that chain as a hypothesis, not a general property of APFS."}},{"@type":"Question","name":"Why does disk headroom matter during memory pressure on a Mac?","acceptedAnswer":{"@type":"Answer","text":"Apple documents swap as startup-disk storage used for memory management. Disk capacity therefore matters when swap is needed. The 20 GB floor in this report is a personal operating guardrail, not an Apple safety guarantee or a demonstrated threshold for preventing APFS damage."}},{"@type":"Question","name":"Why replace a do-not-run note with code that refuses to start?","acceptedAnswer":{"@type":"Answer","text":"A runtime refusal blocks an unwanted startup even when a separate script or caller ignores written guidance. The example exits before loading the model library and makes the startup command decline. It addresses that startup path, not every source of memory pressure or filesystem failure."}},{"@type":"Question","name":"What does preserving disabled code mean here?","acceptedAnswer":{"@type":"Answer","text":"Legacy code is retained for inspection and change review, not as permission to activate it. The local model path remains disabled. Any future change would need its own explicit authorization, call-path review, resource checks, and tests; this article does not provide a reactivation procedure."}},{"@type":"Question","name":"What can a 24 GB Mac owner take from this incident?","acceptedAnswer":{"@type":"Answer","text":"Avoid overlapping heavy workloads, observe memory pressure and swap in Activity Monitor, retain disk headroom, and keep recoverable backups. These are operating precautions, not a guarantee against crashes or APFS damage. The historical resource floors in this report have not been validated as universal limits."}}]}
 </script>
 <script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
 <h1>Mac Local LLM OOM: Disk Full, APFS Postmortem and Guardrails</h1>
-<p>I run a small fleet of local agents on a Mac Mini M4 with 24 GB of unified memory. One afternoon it went down hard — no wake from sleep, no boot chime past the logo, and in recovery mode an APFS volume that refused to mount. The unsettling part: I hadn't asked it to do anything heavy. Something had quietly started a large language model in the background, on a disk already nearly full, and by the time I noticed, the filesystem was past saving. Recovery took more than a day. This is the postmortem — and the fix, which turned out to be a single <code>False</code> and a checklist, not a note to myself.</p>
+<p>I run a small fleet of local agents on a Mac Mini M4 with 24 GB of unified memory. In the incident reported here, the machine would not boot and an APFS volume refused to mount in recovery mode. A background local model workload and a nearly full disk were part of the incident history. Recovery took more than a day. This is a personal failure report and a startup-control example, not a demonstrated mechanism by which an LLM corrupts APFS.</p>
 <p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-07-10</p>
+<p class="meta">AI-assisted revision, reviewed and approved by the author. Reported experiences and example policies are not new measurements.</p>
 
-<div class="note">A background LLM server, built on Apple's MLX, loaded a 14B and an 8B model on a Mac whose disk was already nearly full. Unified memory overflowed; macOS tried to swap; the disk had no room; the failed writes became I/O errors, and the boot volume's APFS metadata came out corrupt enough that the machine wouldn't boot — a 24-hour recovery. The durable fix was <strong>not</strong> a "don't run this" note — a note is a soft default, and defaults get flipped. It was a code-level hard block, plus a revival checklist. The lesson underneath: on a unified-memory Mac, free disk space is your memory safety net.</div>
+<div class="note"><strong>Evidence boundary:</strong> the author reports background 14B/8B model loading, low disk headroom, an unmountable APFS volume, and a prolonged recovery. No public diagnostic trace establishes the link from failed swap writes to metadata damage. The code change below targets unwanted model startup; it does not prove prevention of filesystem corruption. The local model path remains disabled.</div>
 
 <h2>The timeline: from "a little slow" to "won't boot"</h2>
 
 <p>It didn't look like a memory problem — just the machine getting sludgy: beachballs, slow app switching, the stuff you blame on too many tabs. Then the display went black, gone. A forced restart got the Apple logo and a progress bar that stalled and stayed. In recovery mode the shape came clear: Disk Utility saw the container, the data volume wouldn't mount, and the repair pass — <code>fsck_apfs</code> — hit metadata it couldn't reconcile, a volume whose own consistency layer had lost consistency. Repair couldn't finish, and the fix cost the better part of a day between attempts and a restore.</p>
 
-<h2>The root-cause chain: disk pressure is what turns OOM into corruption</h2>
+<h2>The proposed chain, and the missing evidence</h2>
 
-<p>Reconstructed after the fact, the chain had six links, none exotic:</p>
+<p>The original explanation combined incident recollection with an inferred mechanism. Those are different kinds of evidence:</p>
 
 <ul>
-<li><strong>The disk was already low on free space</strong> — the precondition that makes the rest dangerous, fine until the OS needs room and there isn't any.</li>
-<li><strong>A background server loaded large models</strong> — a 14B and an 8B, several gigabytes of resident memory with no window open.</li>
-<li><strong>Resident memory exceeded physical RAM.</strong> macOS doesn't refuse this; it manages it.</li>
-<li><strong>macOS reached for swap</strong> — compress, then page the overflow to swapfiles on the boot volume. The escape valve needs disk room.</li>
-<li><strong>The swap writes failed</strong> — no room to grow the swapfiles, so page-outs returned I/O errors.</li>
-<li><strong>The APFS metadata didn't survive it</strong> — left inconsistent, and an inconsistent APFS volume won't mount.</li>
+<li><strong>Reported observation:</strong> the disk was nearly full.</li>
+<li><strong>Reported workload:</strong> a background server loaded 14B and 8B models.</li>
+<li><strong>Reported symptoms:</strong> severe slowdown, a failed boot, and an APFS volume that recovery tools could not mount or repair.</li>
+<li><strong>Documented background:</strong> macOS can use startup-disk storage for swap; that does not establish what happened in this incident.</li>
+<li><strong>Hypothesis:</strong> memory pressure and insufficient swap capacity contributed to the failure.</li>
+<li><strong>Unidentified causal link:</strong> the trigger of the APFS metadata damage remains unproven.</li>
 </ul>
 
-<p>I'll flag that last link, the one I can't fully prove. APFS is copy-on-write and crash-consistent; a full disk alone should give clean <code>ENOSPC</code> errors, not corruption. The honest reading isn't "disk-full corrupts APFS"; it's that a nearly-full disk under sustained <em>failing</em> swap writes is a rare corner where the filesystem's guarantees get tested at the worst moment, and mine didn't hold. The rule doesn't need the exact trigger: <strong>never let the OS be forced to swap onto a disk with no room.</strong> You defend that corner by never entering it.</p>
+<p>Apple's <a href="https://support.apple.com/guide/activity-monitor/view-memory-usage-actmntr1004/mac">Activity Monitor guide</a> explains memory pressure and startup-disk swap. Its <a href="https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/APFS_Guide/FAQ/FAQ.html">archived APFS guide</a> describes filesystem protection features; it is background documentation, not a diagnosis of this machine. To establish the proposed cause, the report would need contemporaneous memory/swap, disk/I/O, and filesystem diagnostics that exclude alternative causes. Those traces are not supplied here. Disk headroom is still a useful operating precaution without claiming a proven corruption mechanism.</p>
 
 <h2>Why a note in the config was never going to hold</h2>
 
-<p>The detail that decided the fix: I didn't start that server. A global config had a line of <em>guidance</em> that local model delegation was preferred for background chores; some path read that as license and auto-started it. I was never in the loop. That's why the fix couldn't be another note. A soft default gets flipped by things that don't read it — an environment variable exported in another shell, an auto-start script, an agent following the <em>global</em> rule over the <em>local</em> exception. If a code path can physically brick the machine, the guardrail can't be a sentence asking it not to. It has to be code that <em>can't</em>.</p>
+<p>The startup-control problem is narrower than the corruption hypothesis: a background path could start a model I did not want running. Written guidance alone did not enforce that decision. A caller or startup script can ignore a note, so the live entry points needed to refuse the unwanted startup. This addresses a controllable software path even while the filesystem failure's cause remains unresolved.</p>
 
 <h2>The fix: make the dangerous path refuse to run</h2>
 
@@ -92,75 +89,71 @@ if __name__ == "__main__":        # executor: escalate &amp; exit before the
     sys.exit(0)
 
 def cmd_start(*args):             # CLI start refuses...
-    raise SystemExit("local model server disabled — see revival checklist")
+    raise SystemExit("local model server disabled — explicit change review required")
 
 def _LEGACY_cmd_start(*args):     # ...original kept intact, out of the call graph
     ...                           # `nohup mlx_lm.server ...`</pre>
 
-<p>Every block is a <em>positive refusal</em>, not a <em>missing feature</em>: it runs, and says no. A missing feature invites re-adding; a refusal is a decision you must consciously reverse — and because the <code>_LEGACY_</code> originals are right there, reversing it is a rename, not a reconstruction.</p>
+<p>Each example is a positive refusal: the entry point runs and declines before loading the model. Keeping legacy code is an inspection aid, not evidence that changing a constant or renaming a function would be safe. These snippets illustrate the design; they are not a standalone package or an independently reproduced incident test.</p>
 
-<h2>The other half of a hard block: a revival checklist</h2>
+<h2>Keep the disabled decision auditable</h2>
 
-<p>A hard block with no documented way back is its own trap — it calcifies into dead weight, or gets ripped out in a hurry without restoring what made it necessary. So it ships with its inverse, an explicit ordered checklist to re-enable it, deliberately:</p>
+<p>The historical write-up included a reactivation checklist. That is not the current operating instruction: the local model path remains disabled. What should survive in a change record is:</p>
 
 <ol>
-<li><strong>Verify disk headroom first</strong> — <code>df -h /</code> must show 20 GB+ free before anything competes for memory.</li>
-<li><strong>Re-check <code>iogpu.wired_limit_mb</code></strong> — so a model can't wire away the memory the OS needs.</li>
-<li><strong>Rename the <code>_LEGACY_</code> functions back</strong>, restoring the original call graph.</li>
-<li><strong>Restore the second repository in lockstep</strong> — its constant, its server manager, its batch engine.</li>
-<li><strong>Re-enter with the smallest model</strong> — a 3B 4-bit model first, confirm the machine stays healthy, then scale up.</li>
+<li>The incident symptoms and the limits of the available diagnostics.</li>
+<li>The entry points that refuse startup and the callers they cover.</li>
+<li>Tests that show refusal occurs before heavy imports or spawning.</li>
+<li>The owner of any future authorized change and the separate review it would require.</li>
 </ol>
 
-<p>The checklist turns "turn the LLM back on" from an impulse into a gated act: the block stops the machine bricking today, the checklist stops a careless un-block tomorrow.</p>
+<p>This records why the block exists without offering instructions to reactivate it or claiming that it prevents all machine failures.</p>
 
 <h2>The rule the whole thing taught: disk free space is a memory safety net</h2>
 
-<p>Step back from the specific server and the failure has one transferable lesson, about the hardware more than the software. On Apple Silicon, memory is <em>unified</em>: CPU and GPU share one physical pool, no separate VRAM. That pool is 24 GB, and everything draws from it — the OS, every app, any ML workload. A model's weights come out of the same 24 GB the OS is trying to live in. (The <code>iogpu.wired_limit_mb</code> sysctl caps how much of the pool can be <em>wired</em> for GPU/ML use — set it too high and a model can starve the OS.)</p>
+<p>The practical lesson is to budget concurrent workloads rather than treating a model's size as the machine's total demand. On this 24 GB machine, the OS, applications, and local workloads compete for resources. Activity Monitor's memory-pressure and swap indicators are more informative than model size alone.</p>
 
-<p>And macOS backs memory pressure by swapping to the boot volume — so <strong>free disk space isn't just for files; it is the runway the memory system needs when the pool overflows.</strong> When that runway is gone, "out of memory" becomes a filesystem-integrity problem. Treat free disk space as reserved memory: below a comfortable buffer — 20 GB is my floor — you are risking not a full disk but the swap subsystem, and through it the filesystem. That produced three standing rules, all aimed at never reaching overcommit:</p>
+<p>Swap uses disk storage, so free disk space also matters to memory management. My historical 20 GB disk floor was a precaution, not a measured boundary between a recoverable crash and filesystem damage. The operating rules recorded at the time were:</p>
 
 <ul>
-<li><strong>One heavy job at a time.</strong> On 24 GB of shared memory, two 14 GB-class workloads don't coexist, and neither does one heavy ML task alongside Photoshop, a video editor, and a VM. Light work is free; simultaneous heavyweights are banned.</li>
-<li><strong>A memory preflight before generative work.</strong> Sum the genuinely available memory — free + inactive + speculative + purgeable pages, which <code>vm_stat</code> reports — and if it's under roughly 8 GB, close apps first.</li>
-<li><strong>Low-memory mode by default, and 20 GB+ of disk free as a standing condition</strong> — the buffer only helps if it's there when the pressure hits.</li>
+<li><strong>One heavy job at a time:</strong> avoid the overlapping workload combination implicated in the incident history.</li>
+<li><strong>A memory preflight:</strong> the historical roughly 8 GB rule was a local policy, not a validated cross-machine threshold. Inspect memory pressure and swap, not an unvalidated sum of page categories.</li>
+<li><strong>Disk headroom and recoverable backups:</strong> the historical 20 GB floor was a local precaution. Neither headroom nor low-memory mode guarantees crash or filesystem protection.</li>
 </ul>
 
-<h2>The recurrence that proved the rule</h2>
+<h2>A later incident: comparison, not a controlled experiment</h2>
 
-<p>About two and a half months later, I got to run the experiment again by accident: a heavy image-generation workflow at 13.7 GB, plus Photoshop, a video editor, and a VM all open. The sum blew past 24 GB and the machine blacked out — same overcommit, same trigger as before.</p>
+<p>A later incident involved a reported 13.7 GB image workflow while Photoshop, a video editor, and a VM were open. The machine blacked out, but booted after a restart. This was a different workload, not a repetition with all variables controlled.</p>
 
-<p>But this time it <em>came back</em>: a blackout, a hard restart, a clean boot, no corruption. The one variable that had changed was the one the postmortem told me to watch — the disk. It had 55 GB free and a healthy swap buffer, so the overflow writes <em>succeeded</em>. The machine fell over instead of falling apart, and I lost minutes instead of a day.</p>
+<p>The author reported about 55 GB of disk headroom and a much shorter recovery. That is compatible with disk headroom helping, but it does not isolate disk capacity as the cause of the different outcome. No matched swap-write trace is supplied for the two events. The comparison below summarizes recollections, not instrumented measurements.</p>
 
 <table>
 <thead><tr><th>Dimension</th><th>2026-04-21</th><th>2026-07-03</th></tr></thead>
 <tbody>
 <tr><td>What overcommitted</td><td>Background LLM: 14B + 8B models</td><td>Image workflow 13.7 GB + Photoshop + video editor + VM</td></tr>
-<tr><td>Memory state</td><td>Exceeded 24 GB unified</td><td>Exceeded 24 GB unified</td></tr>
+<tr><td>Memory state</td><td>Memory pressure inferred from workload and symptoms</td><td>Memory pressure inferred from overlapping workloads</td></tr>
 <tr><td>Free disk at the time</td><td>Nearly none</td><td>~55 GB</td></tr>
-<tr><td>Swap outcome</td><td>Writes failed (no room)</td><td>Writes succeeded (healthy buffer)</td></tr>
+<tr><td>Swap-write trace</td><td>Not supplied</td><td>Not supplied</td></tr>
 <tr><td>Result</td><td>APFS metadata corrupt, unbootable</td><td>Blackout, clean reboot</td></tr>
 <tr><td>Recovery</td><td>24+ hours</td><td>A few minutes</td></tr>
 </tbody>
 </table>
 
-<p>Same trigger, opposite outcomes; the dimension separating "brick" from "annoyance" was free disk space. So the rules got sharper — "one heavy job" now names the combination that broke it, and disk headroom went from hygiene to load-bearing invariant. The code block keeps that server from sneaking back on; the disk rule makes sure the <em>next</em> overcommit — and there's always a next — costs a reboot, not a filesystem.</p>
+<p>The two outcomes motivated stricter workload budgeting, not a claim that disk headroom guarantees a clean reboot. The specific startup block and the operational precautions solve different problems. Evidence of another cause would overturn the proposed corruption chain; tests finding another live startup entry point would show that the block's coverage needs repair.</p>
 
+<section id="faq" aria-label="Frequently asked questions">
 <h2>FAQ</h2>
-
-<p><strong>Q. Can a local LLM running out of memory corrupt your filesystem?</strong><br>
-Not directly, but it can create the conditions that do. On a unified-memory Mac, an oversized model exhausts the shared RAM pool; macOS responds by swapping to the boot disk; if that disk is nearly full, the swap writes fail, and sustained I/O errors during that failure can leave the volume's APFS metadata inconsistent enough that the machine won't boot. The LLM never touches the filesystem itself; it just forces the OS into the corner where the corruption happens. A disk with room to swap turns the same event into a slow machine instead of a dead one.</p>
-
-<p><strong>Q. Why is free disk space a memory safety net on Apple Silicon Macs?</strong><br>
-Because macOS backs memory pressure with swapfiles on the boot volume. Unified memory means the OS, apps, and any ML workload all draw from one physical pool; when it overflows, the kernel compresses and then swaps to disk. Free disk space is the runway for that swap. If it's gone, the memory system has nowhere to overflow to, and running out of memory escalates from a slow machine to I/O failures on the system volume. Keeping roughly 20 GB+ free keeps the swap buffer healthy, which is why a full disk is a memory problem, not just a storage one.</p>
-
-<p><strong>Q. Why replace a do-not-run note with code that refuses to start?</strong><br>
-Because a note is a soft default, and defaults get flipped by another session's environment export, an auto-start script, or simply not being read. A note assumes something reads and heeds it every time; a hard block assumes nothing. Turning the dangerous path into code that actively refuses — a <code>False</code> constant, stubbed spawners, a health check that always fails, a start command that declines — removes the failure mode instead of documenting it. If a path can physically brick the machine, it needs a block, not a warning.</p>
-
-<p><strong>Q. What is a code-level hard block, and how do you make it reversible?</strong><br>
-It's defense in depth: every layer that could start the risky process is made to refuse. A single <code>_ENABLED = False</code> constant as the source of truth, server-spawn functions stubbed out, a health check hard-wired to <code>False</code> so the router never selects the local path, an executor that escalates and exits before importing the heavy library, and a start command that refuses. You keep it reversible by preserving the originals under a <code>_LEGACY_</code> prefix, so revival is a rename rather than a rewrite, and by pairing it with an explicit ordered checklist of preconditions and a staged re-entry that starts with the smallest model.</p>
-
-<p><strong>Q. How do you safely run heavy GPU or ML workloads on a 24 GB unified-memory Mac?</strong><br>
-One heavy job at a time, and never let two 14 GB-class workloads — or a heavy ML task plus Photoshop, a video editor, and a VM — overlap, because they contend for the same pool. Run a memory preflight before generative work (sum free, inactive, speculative, and purgeable pages from <code>vm_stat</code>; if it's under about 8 GB, close apps first), keep the model in a low-memory mode, and hold 20 GB+ of disk free so the swap buffer stays healthy. The goal is never to reach the memory-overcommit state that forces the OS to swap onto a disk with no room.</p>
+<h3>Can a local LLM running out of memory corrupt your filesystem?</h3>
+<p>This report does not establish that causal link. Memory pressure, a nearly full disk, and an unmountable APFS volume occurred in the reported incident, but there is no published trace proving that failed swap writes caused the metadata damage. Treat that chain as a hypothesis, not a general property of APFS.</p>
+<h3>Why does disk headroom matter during memory pressure on a Mac?</h3>
+<p>Apple documents swap as startup-disk storage used for memory management. Disk capacity therefore matters when swap is needed. The 20 GB floor in this report is a personal operating guardrail, not an Apple safety guarantee or a demonstrated threshold for preventing APFS damage.</p>
+<h3>Why replace a do-not-run note with code that refuses to start?</h3>
+<p>A runtime refusal blocks an unwanted startup even when a separate script or caller ignores written guidance. The example exits before loading the model library and makes the startup command decline. It addresses that startup path, not every source of memory pressure or filesystem failure.</p>
+<h3>What does preserving disabled code mean here?</h3>
+<p>Legacy code is retained for inspection and change review, not as permission to activate it. The local model path remains disabled. Any future change would need its own explicit authorization, call-path review, resource checks, and tests; this article does not provide a reactivation procedure.</p>
+<h3>What can a 24 GB Mac owner take from this incident?</h3>
+<p>Avoid overlapping heavy workloads, observe memory pressure and swap in Activity Monitor, retain disk headroom, and keep recoverable backups. These are operating precautions, not a guarantee against crashes or APFS damage. The historical resource floors in this report have not been validated as universal limits.</p>
+</section>
 
 <h2>Related notes</h2>
 <ul>
@@ -169,7 +162,7 @@ One heavy job at a time, and never let two 14 GB-class workloads — or a heavy 
 <li><a href="./claude-code-400-no-low-surrogate-jsonl-repair.html">Claude Code &quot;400: no low surrogate in string&quot; on every turn: repairing a permanently broken session transcript</a></li>
 </ul>
 
-<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Nothing here is gated. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=local-llm-oom-apfs-corruption-postmortem">Get new notes by email</a></strong>.</div>
+<div class="cta"><strong>Want more failure-analysis notes?</strong> Nothing here requires signup. I write about agent-fleet operations, harness bugs, and validation records, including their limits. This incident's corruption mechanism remains unresolved. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=local-llm-oom-apfs-corruption-postmortem">Get new notes by email</a></strong>.</div>
 
 <div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
 </body>
