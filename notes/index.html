@@ -38,6 +38,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A publish-blocking gate was implemented, unit-tested and green &mdash; and absent from the dispatch tuple the pipeline actually iterates, so it had never once run. Deleting it from the tuple leaves its own test file at 18 passed while a wiring test fails by name. Green proves behavior; reachability needs its own evidence.</p>
   <span class="tag">testing</span><span class="tag">python</span><span class="tag">architecture</span><span class="tag">debugging</span>
 </div>
+
+<div class="card">
+  <h3><a href="pytest-full-run-failed-every-test-passed.html">pytest Failed. Every Collected Test Still Had a Passing Run.</a></h3>
+  <p>A failed full pytest run and complete test-by-test PASS evidence can coexist. Keep process status, collected-node identity, and environment scope separate.</p>
+  <span class="tag">testing</span><span class="tag">python</span><span class="tag">debugging</span>
+</div>
 <div class="card">
   <h3><a href="when-you-delete-a-rule-hunt-the-quiet-tests.html">When You Delete a Rule, Hunt the Tests That Went Quiet</a></h3>
   <p>I deleted a validation rule that had never once been right, and twenty tests turned red — that part was bookkeeping. The four tests that stayed green were the ones that had quietly stopped testing anything at all.</p>
