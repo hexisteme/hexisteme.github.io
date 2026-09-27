@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another — hexisteme notes</title>
+<meta name="description" content="External verification fixed a real comment-delivery failure. The same proposal remained deferred for article publishing, with an explicit condition to reverse that decision.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/same-reliability-fix-opposite-decisions.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another">
+<meta property="og:description" content="External verification fixed a real comment-delivery failure. The same proposal remained deferred for article publishing, with an explicit condition to reverse that decision.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/same-reliability-fix-opposite-decisions.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/same-reliability-fix-opposite-decisions.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-09-27">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another">
+<meta name="twitter:description" content="External verification fixed a real comment-delivery failure. The same proposal remained deferred for article publishing, with an explicit condition to reverse that decision.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/same-reliability-fix-opposite-decisions.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another", "datePublished": "2026-09-27", "dateModified": "2026-09-27", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Choosing delivery verification from observed failures and operational consequences.", "image": "https://hexisteme.github.io/notes/og/same-reliability-fix-opposite-decisions.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why apply external verification to comments but defer it for articles?", "acceptedAnswer": {"@type": "Answer", "text": "The audit found a recorded false negative in reply checking and a retry budget that observations could inform. It reported no mismatch in the checked article success entries, so I deferred a new polling loop with a condition to reopen it."}}, {"@type": "Question", "name": "Does a clean audit establish that publication cannot silently fail?", "acceptedAnswer": {"@type": "Answer", "text": "No. The checked sample was limited, and a false success could remove an unpublished article from ordinary retry handling. The decision was local prioritization, not a reliability guarantee."}}, {"@type": "Question", "name": "Why avoid presenting the original comment fraction as a failure rate?", "acceptedAnswer": {"@type": "Answer", "text": "The surviving mutable ledger no longer matched the report's attribution of the false flag. The preserved incident note supports a specific false negative, but not a reconstructed historical rate."}}, {"@type": "Question", "name": "What would reverse or revise these decisions?", "acceptedAnswer": {"@type": "Answer", "text": "An article success report that disagrees with external publication state reopens verification work. If at least 30 comment landing observations all succeed on the first attempt, the retry budget deserves review; that does not prove later attempts will never be needed."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-09-27</p>
+<div class="note">A delivery audit led me to add external verification to manual replies and defer a polling loop for articles. The decisions depended on distinct failure modes, retry behavior, and explicit conditions for reconsideration.</div>
+
+<p>Readers made a reasonable suggestion about my publishing automation: verify delivery from outside the process that claims it succeeded. I had an article publisher and a comment replier. Both sent content to dev.to. It would have been easy to apply the suggestion to both and call the result consistent.</p>
+
+<p>My audit reached different decisions. I added external observation to the manual comment path and deferred a new polling loop for article publication. The useful distinction was what each checker could get wrong, what would happen afterward, and which operational decision another observation would change.</p>
+
+<p>This account is based on my delivery audit dated 2026-08-08. It describes that decision and its limits, rather than asserting the same configuration remains correct indefinitely. During preparation for publication on 2026-09-26 I also checked the surviving local records. That second pass narrowed a numerical claim in the original report.</p>
+
+<h2>Define what a failed check means</h2>
+
+<p>The comment incident was a false negative: the reply had been posted, but the checker said it had not landed. Its comparison did not adequately account for the difference between authored Markdown and rendered content.</p>
+
+<p>That error had an operational consequence. A reply judged absent stayed pending. Someone following the pending list could answer again, producing a duplicate. The audit connects this mechanism to previously removed duplicate replies; it does not establish that every duplicate had the same cause.</p>
+
+<p>The surviving record preserves the useful evidence: a note saying that an apparent failure caused by Markdown versus rendering was corrected after a live API check. Its current verification flag is true. That flag now describes the corrected state; the note preserves the earlier mistake.</p>
+
+<p>The original report presented the comment result as 1/44 and attributed the false flag to this incident. A publication-time check could reconstruct 44 earlier autoreply records, but their remaining false flag belonged to a different entry. I therefore do not use 1/44 as a measured rate of this failure. A mutable operational ledger and a historical incident count answer different questions.</p>
+
+<p>The recorded false negative is enough to motivate fixing its comparison path. An unreliable rate estimate would add apparent precision without improving that argument.</p>
+
+<h2>The article audit asked a different question</h2>
+
+<p>For articles, I compared success claims with external publication state. The historical audit reports 0 mismatches among 46 successful publication log entries. The denominator is successful log entries, not every scheduled run, every network attempt, or every possible delivery failure.</p>
+
+<p>The retained log still supports that success-entry count through the morning run on the audit date. The external comparison result comes from the contemporaneous audit report; I have not reconstructed its historical API snapshot for this post. That is a boundary on reproducibility, not permission to silently turn the report into a fresh measurement.</p>
+
+<p>The report also distinguishes known failures from false success. The publisher's DNS failures were reported as failures and left work for a later run. They were not examples of a success claim concealing an absent article.</p>
+
+<p>Zero observed mismatches does not establish zero risk. These observations also share one deployment and its operating conditions, so treating them as independent trials would need justification. I do not infer a general reliability guarantee from the sample.</p>
+
+<p>The severe counterexample remained possible: if the publisher falsely claimed success and moved the file out of the queue, an absent article could disappear from ordinary retry handling. That is why deferring the polling loop required an explicit reversal condition. Lack of an observed incident did not make silent loss harmless.</p>
+
+<h2>An extra observation should change an action</h2>
+
+<p>The comment verifier had an immediate decision to make: had this reply appeared, or should the work remain pending? Its retry policy also contained tunable choices: attempts=3 and a pause of 5 seconds. Measuring when a reply became visible could inform that budget.</p>
+
+<p>The article path did not have a comparable short polling budget in the audited design. Reported failures waited for the next scheduled run. A new polling loop would introduce another timeout policy, another interpretation of temporary absence, and another failure path to maintain.</p>
+
+<p>I deferred that addition because the audit had found a concrete comment-checking defect and no demonstrated article success-report mismatch. This was a local prioritization decision. I did not measure the cost of a lost article, calculate an expected loss, or establish that the polling loop could never repay its complexity.</p>
+
+<p>That qualification matters. A system handling more consequential delivery could reasonably require external confirmation before any false success had been observed. My decision depended on this workflow and included a trigger to revisit it.</p>
+
+<p>The comparison I would reuse is small:</p>
+
+<table>
+<thead><tr><th>Question</th><th>Article publication in the audit</th><th>Manual comment delivery in the audit</th></tr></thead>
+<tbody>
+<tr><td>What was the observed defect?</td><td>No mismatch reported in the checked success entries</td><td>Posted content could be judged absent</td></tr>
+<tr><td>What happened after the adverse result?</td><td>A reported failure waited for a later run</td><td>A reply stayed pending and could be duplicated</td></tr>
+<tr><td>What could new observations tune?</td><td>No existing short polling budget</td><td>Attempt count and pause duration</td></tr>
+<tr><td>What did I choose?</td><td>Defer the added polling loop</td><td>Share and use the external reply verifier</td></tr>
+</tbody>
+</table>
+
+<p>The table does not make the risks equivalent. It exposes why the same design suggestion led to different work.</p>
+
+<h2>Share the comparison, then observe the retries</h2>
+
+<p>The normalization fix already existed in the automatic reply path but had not reached the manual path. Copying it would have preserved the condition that allowed the implementations to diverge.</p>
+
+<p>I moved the comparison and landing verification into the shared comment module. The automatic path delegated to it, and the manual path used the external observation. When that observation could not decide, the manual path retained an in-page fallback and announced that fallback. A weaker observation should remain visible to the operator interpreting the result.</p>
+
+<p>The comparison also needed to handle links: the authored Markdown could contain a URL that was absent from the rendered visible text. Merely discarding punctuation did not make those strings equivalent. The fix addressed this mismatch in the shared implementation.</p>
+
+<p>I have left the original report's rendering-exposure count out of this post because I did not recover the corresponding historical sample. Exposure to a string transformation would not, by itself, be a count of failed deliveries anyway. The mechanism and the recorded false negative support a narrower claim.</p>
+
+<p>For retries, I kept the existing constants and started recording attempt_seen, attempts_budget, elapsed_s, and landed. That made later calibration possible without presenting a newly chosen constant as empirical. The observation record separates whether a reply was seen from how much budget the verifier consumed.</p>
+
+<h2>Make the deferral reversible</h2>
+
+<p>The article decision has a sharp falsifier: observe one publication success report that disagrees with external publication state, and reopen the rejected verification work. Evaluation began with the audit on 2026-08-08; the trigger applies whenever a later mismatch is found. A check is only useful if the workflow can surface that disagreement, so this condition is not a claim of continuous detection coverage.</p>
+
+<p>The comment decision has a different review trigger: after at least 30 landing observations, if every observation succeeded on its first attempt, reconsider whether the three-attempt budget is excessive. That is a prompt for reviewing the budget, not proof that later attempts will never be needed. The observation mix and any failed checks still matter.</p>
+
+<p>These conditions keep the decisions attached to evidence. They also prevent consistency from becoming a reason to build the same mechanism everywhere. In this audit, one path supplied a known comparison failure and a measurable retry budget; the other supplied a bounded clean sample and a serious unobserved failure mode. Different actions were defensible only while those premises stayed visible.</p>
+
+<p>The reusable lesson is to specify the decision before adding a checker: which wrong claim are you trying to catch, what happens if you miss it, and what would a new observation make you do? That question gave me a smaller repair and a clear reason to reverse the part I deferred.</p>
+
+<p><em>Prepared with AI assistance from my delivery audit and surviving operational records.</em></p>
+
+<p><em>License: CC BY 4.0.</em></p>
+
+<h2>FAQ</h2>
+<h3>Why apply external verification to comments but defer it for articles?</h3>
+<p>The audit found a recorded false negative in reply checking and a retry budget that observations could inform. It reported no mismatch in the checked article success entries, so I deferred a new polling loop with a condition to reopen it.</p>
+<h3>Does a clean audit establish that publication cannot silently fail?</h3>
+<p>No. The checked sample was limited, and a false success could remove an unpublished article from ordinary retry handling. The decision was local prioritization, not a reliability guarantee.</p>
+<h3>Why avoid presenting the original comment fraction as a failure rate?</h3>
+<p>The surviving mutable ledger no longer matched the report's attribution of the false flag. The preserved incident note supports a specific false negative, but not a reconstructed historical rate.</p>
+<h3>What would reverse or revise these decisions?</h3>
+<p>An article success report that disagrees with external publication state reopens verification work. If at least 30 comment landing observations all succeed on the first attempt, the retry budget deserves review; that does not prove later attempts will never be needed.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-proxy-i-added-to-measure-tokens-tripled-them.html">The Proxy I Added to Measure Tokens Tripled Them</a></li>
+<li><a href="./the-check-said-zero-overlaps-both-times.html">The Overlap Check Said Zero Overlaps on the Same Clip Three Times. Each Time It Answered the Wrong Question.</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=same-reliability-fix-opposite-decisions">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
