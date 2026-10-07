@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Our LLM Telemetry Stayed Green While the Work Moved to Codex — hexisteme notes</title>
+<meta name="description" content="My weekly agent telemetry report ran on schedule, passed its health check, and changed by 12 lines in a week, while my unattended and headless runs had moved to Codex, a tool it never reads. A health check that asks whether the job ran cannot tell you whether the input still represents the work.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/telemetry-stayed-green-while-work-moved-to-codex.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Our LLM Telemetry Stayed Green While the Work Moved to Codex">
+<meta property="og:description" content="My weekly agent telemetry report ran on schedule, passed its health check, and changed by 12 lines in a week, while my unattended and headless runs had moved to Codex, a tool it never reads. A health check that asks whether the job ran cannot tell you whether the input still represents the work.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/telemetry-stayed-green-while-work-moved-to-codex.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/telemetry-stayed-green-while-work-moved-to-codex.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-07">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Our LLM Telemetry Stayed Green While the Work Moved to Codex">
+<meta name="twitter:description" content="My weekly agent telemetry report ran on schedule, passed its health check, and changed by 12 lines in a week, while my unattended and headless runs had moved to Codex, a tool it never reads. A health check that asks whether the job ran cannot tell you whether the input still represents the work.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/telemetry-stayed-green-while-work-moved-to-codex.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Our LLM Telemetry Stayed Green While the Work Moved to Codex", "datePublished": "2026-10-07", "dateModified": "2026-10-07", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a telemetry pipeline's health checks stay green when work moves to an uninstrumented tool, and how to measure coverage from outside the instrumented path.", "image": "https://hexisteme.github.io/notes/og/telemetry-stayed-green-while-work-moved-to-codex.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can a telemetry report pass its health checks while missing work done in another tool?", "acceptedAnswer": {"@type": "Answer", "text": "The checks tested whether the copy exited 0, whether the archive shrank, whether files stayed unreadable, and whether the rows were internally consistent. None of those fails when no new rows arrive. Even the staleness check looked at when the database file was rewritten, not how old the newest session inside it was."}}, {"@type": "Question", "name": "Was the collector broken?", "acceptedAnswer": {"@type": "Answer", "text": "No. Every Claude Code transcript file on disk is in its archive except the 21 written after the last snapshot. After unattended runs and headless queries moved to Codex, the number of Claude Code transcript files written fell to 0, 1 and 3 per week while Codex wrote 192, 242 and 1,058 rollout files, and the ingest never reads the Codex directory."}}, {"@type": "Question", "name": "Why didn't the dev.to queue alarm catch the empty queue?", "acceptedAnswer": {"@type": "Answer", "text": "The low-water alarm prints at the start of a Claude Code session. Every session writes a transcript file, and only 0, 1 and 3 transcript files were written in those weeks, so there were at most that many working sessions to print it in. The alarm was correct but had almost no audience."}}, {"@type": "Question", "name": "What should a telemetry report print to catch this?", "acceptedAnswer": {"@type": "Answer", "text": "A coverage line that counts execution records across every path in the same window and shows the share that was ingested, plus a freshness check with a threshold on the gap between the newest ingested session and the report date."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Our LLM Telemetry Stayed Green While the Work Moved to Codex</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-07</p>
+<div class="note">My weekly agent telemetry report ran on schedule, exited <code>rc=0</code>, passed its health checks, and differed from the previous week by 12 lines, while my unattended and headless runs had moved to Codex and the ingest only reads Claude Code transcripts. Health checks that test whether the job ran cannot tell you whether the input still represents the work; the coverage denominator has to be counted outside the instrumented path.</div>
+
+<p>This Monday my weekly agent telemetry report came out on schedule. The ingest log said <code>rc=0</code>. The health line said normal. The data-quality line found zero sidechain flag mismatches and zero orphan tool results.</p>
+
+<p>It also differed from the previous week's report by 12 lines.</p>
+
+<p>Those lines were the title date, the data-as-of line, the ingest log line, one more synthetic turn (875 to 876), and one more unattributed main thread (48 to 49), which the report mentions in two places. Every median, every interquartile range, every bootstrap interval and every stratified table was identical to the week before.</p>
+
+<p>A week of agent work that moves no metric at all is not evidence of a stable system. It is a question about what the report can still see.</p>
+
+<h2>What the report reads</h2>
+
+<p>The report is a weekly stratified comparison over my own agent sessions: tool error rate, same-file re-edit rate, output tokens and completion proxies, split by model epoch and by role (main thread versus sub-agent). How to read that table is the subject of <a href="https://hexisteme.github.io/notes/stratified-comparison.html">Your LLM Telemetry Table Does Not Have One Denominator</a>. This note is about the step before any of that: where the rows come from.</p>
+
+<p>A snapshot job runs at 09:00 and 21:00 and copies Claude Code transcripts from <code>~/.claude/projects/</code> into an archive. A cron job builds the report every Monday at 09:30. That is the whole intake: one directory, written by one tool.</p>
+
+<h2>The headers I printed and did not read</h2>
+
+<p>Every edition prints two things at the top: when the newest session in the database ended, and the last ingest log line. Here are the last three editions:</p>
+
+<table>
+<thead><tr><th>Edition</th><th>Newest session in the DB ended</th><th>Ingest log line</th></tr></thead>
+<tbody>
+<tr><td>2026-09-21</td><td>2026-09-11T13:51:12Z</td><td><code>rc=0 source_readable=7015 archive=8979 prev_archive=8979</code></td></tr>
+<tr><td>2026-09-28</td><td>2026-09-27T05:42:05Z</td><td><code>rc=0 source_readable=7018 archive=8982 prev_archive=8982</code></td></tr>
+<tr><td>2026-10-05</td><td>2026-10-01T11:46:44Z</td><td><code>rc=0 source_readable=7019 archive=8983 prev_archive=8983</code></td></tr>
+</tbody>
+</table>
+
+<p>Across those editions the archive grew from 8979 files to 8982, then to 8983. The 2026-09-21 edition was built on data whose newest session had ended ten days earlier, and it still said normal.</p>
+
+<p>The freshness signal was on the page the whole time. Nothing judged it. It was printed the way a receipt prints a timestamp: present, accurate, and checked by no one.</p>
+
+<h2>Where the work went</h2>
+
+<p>On 2026-09-06 I changed which tool does which job. Unattended scheduled runs and one-shot headless queries moved to Codex by default, and Claude Code was rationed to two sessions a day. On 2026-10-05 I moved Claude Code back to the main orchestrator seat; unattended runs stayed on Codex.</p>
+
+<p>The ingest never reads <code>~/.codex/sessions/</code>. So I counted files in both directories, bucketed by the week of their last write:</p>
+
+<table>
+<thead><tr><th>Week (start inclusive, end exclusive)</th><th>Claude Code transcript files</th><th>Codex rollout files</th></tr></thead>
+<tbody>
+<tr><td>08-30 to 09-06</td><td>520</td><td>10</td></tr>
+<tr><td>09-06 to 09-13</td><td>271</td><td>256</td></tr>
+<tr><td>09-13 to 09-20</td><td>0</td><td>192</td></tr>
+<tr><td>09-20 to 09-27</td><td>1</td><td>242</td></tr>
+<tr><td>09-27 to 10-04</td><td>3</td><td>1,058</td></tr>
+<tr><td>10-04 to 10-07 (three days)</td><td>77</td><td>234</td></tr>
+</tbody>
+</table>
+
+<p>These are files, not sessions. Claude Code writes sub-agent transcripts as separate files, a resumed session lands in the week it was resumed, and I made no attempt to map a Codex rollout to a unit of work. The two columns are not comparable as workloads, and they don't need to be. The point is that one column fell to almost nothing while the other kept going.</p>
+
+<p>So I checked the collector. Every Claude Code transcript file on disk is in the archive, except 21 written on the day I checked, after the last snapshot. It copied what was there. What was new there had dwindled to almost nothing, and the report described that almost-nothing accurately, with confidence intervals, every week.</p>
+
+<h2>Why the health check stayed green</h2>
+
+<p>Look at what the health checks actually tested. Did the copy exit 0? Did the archive file count go down? Has the same file been unreadable 3 runs in a row? Are the sidechain flags consistent? Are there tool results with no parent call? Those are questions about whether the job ran and whether the rows it produced agree with each other. None of them fails when no new rows arrive.</p>
+
+<p>There is even a staleness check, and it is the instructive one. It alarms if the database file has not been rewritten in 8 days. The weekly build rewrites that file every week, so the check passed while the newest session inside it was ten days old. It measured when the file was written, not what the file contained.</p>
+
+<p>None of the checks asked the question that mattered: of the work that happened this week, how much is in here? That question needs a denominator the instrumented path cannot supply, because the missing work never reaches that path in the first place.</p>
+
+<p>An earlier note, <a href="https://hexisteme.github.io/notes/llm-model-comparison-observational-data.html">Your Agent Telemetry Ranks Your Routing Policy, Not Your Models</a>, argued that the model comparison table portrays my own routing policy rather than the models, because routing decides which model sees which task. This is the limiting case of the same point. The routing change did not just bias which rows reached the table. It moved a share of the work out of the table entirely, and the table had no column in which to say how large that share was.</p>
+
+<h2>A second monitor on the same path</h2>
+
+<p>My notes reach dev.to through a queue. A drain job publishes one finished draft a day at 09:00. On 2026-09-30 it published #124. From 2026-10-01 through 2026-10-07 the publish log has the same line every morning:</p>
+
+<pre><code>queue empty — skip</code></pre>
+
+<p>The queue has a low-water alarm that fires when fewer than 3 drafts are waiting. It prints its warning at the start of a Claude Code session. Every Claude Code session writes to a transcript file, and in the weeks when only 0, 1 and 3 transcript files were written, there were at most that many working sessions for it to print in. The alarm was correct and had almost no audience.</p>
+
+<p>Filling the queue is the job of a session I open; there is no automatic writing path. The weekly telemetry cron does create a stub for a new note from each report, a draft scaffold full of placeholders that the drain will never publish. This week's stub came from the report that changed by 12 lines. Filled in from that report, it would have republished the numbers from the earlier note under the same slug and overwritten its canonical page. I found that while preparing to write it: the diff against the previous week was 12 lines, and the slug matched the earlier note's.</p>
+
+<h2>One shape, two failures</h2>
+
+<p>Both failures have the same shape. A monitor attached to a tool inherits that tool's absence. When the work moves somewhere else, the monitor doesn't fail. It reports, correctly, on a shrinking slice, and its health checks pass because they test the monitor, not the coverage.</p>
+
+<p>That is worse than a crash. A crash gets noticed. A green report on a shrinking slice gets filed, and the confidence intervals make it look more trustworthy, not less.</p>
+
+<p>What I'm taking from it:</p>
+
+<ul><li><strong>Count the denominator outside the instrumented path.</strong> For the same window, the report should print how many execution records exist across every path I use, and what share of them it ingested. If Codex writes 1,058 rollout files in a week and the report ingests 3 transcripts, one line should make that obvious.</li><li><strong>Judge freshness instead of printing it.</strong> "Newest session ended 2026-09-11" on a report dated 2026-09-21 should be a failed check with a threshold, not a header.</li><li><strong>Put alarms where someone will be, whichever tool they're using that week.</strong> The drain already knows every morning that the queue is empty. That branch can raise a desktop notification instead of only appending a log line.</li></ul>
+
+<p>None of these exist yet. I'm writing them down with a falsifier attached. Claude Code transcripts are back: 77 files in the three days from 10-04. If next Monday's report still doesn't move, the work moving was not the cause; the problem is somewhere in the collection pipeline, and this note is wrong about why.</p>
+
+<h2>FAQ</h2>
+<h3>How can a telemetry report pass its health checks while missing work done in another tool?</h3>
+<p>The checks tested whether the copy exited 0, whether the archive shrank, whether files stayed unreadable, and whether the rows were internally consistent. None of those fails when no new rows arrive. Even the staleness check looked at when the database file was rewritten, not how old the newest session inside it was.</p>
+<h3>Was the collector broken?</h3>
+<p>No. Every Claude Code transcript file on disk is in its archive except the 21 written after the last snapshot. After unattended runs and headless queries moved to Codex, the number of Claude Code transcript files written fell to 0, 1 and 3 per week while Codex wrote 192, 242 and 1,058 rollout files, and the ingest never reads the Codex directory.</p>
+<h3>Why didn&#x27;t the dev.to queue alarm catch the empty queue?</h3>
+<p>The low-water alarm prints at the start of a Claude Code session. Every session writes a transcript file, and only 0, 1 and 3 transcript files were written in those weeks, so there were at most that many working sessions to print it in. The alarm was correct but had almost no audience.</p>
+<h3>What should a telemetry report print to catch this?</h3>
+<p>A coverage line that counts execution records across every path in the same window and shows the share that was ingested, plus a freshness check with a threshold on the gap between the newest ingested session and the report date.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./stratified-comparison.html">Your LLM Telemetry Table Does Not Have One Denominator</a></li>
+<li><a href="./llm-model-comparison-observational-data.html">Your Agent Telemetry Ranks Your Routing Policy, Not Your Models</a></li>
+<li><a href="./subagent-metrics-not-comparable-to-main-thread.html">Sub-Agent Metrics Are Not Comparable to Main-Thread Metrics</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=telemetry-stayed-green-while-work-moved-to-codex">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
