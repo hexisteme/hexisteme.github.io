@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Missing HTML alt Text Is a Fact. Image Purpose Is a Separate Claim. — hexisteme notes</title>
+<meta name="description" content="In a synthetic page review, an AI reviewer correctly found an image with no alt attribute, then treated the image as informative with nothing in the input to show it. I separated the observed fact from the purpose claim and made the suggested fix conditional on what the image is for.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/html-alt-purpose-is-a-separate-claim.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Missing HTML alt Text Is a Fact. Image Purpose Is a Separate Claim.">
+<meta property="og:description" content="In a synthetic page review, an AI reviewer correctly found an image with no alt attribute, then treated the image as informative with nothing in the input to show it. I separated the observed fact from the purpose claim and made the suggested fix conditional on what the image is for.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/html-alt-purpose-is-a-separate-claim.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/html-alt-purpose-is-a-separate-claim.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-10">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Missing HTML alt Text Is a Fact. Image Purpose Is a Separate Claim.">
+<meta name="twitter:description" content="In a synthetic page review, an AI reviewer correctly found an image with no alt attribute, then treated the image as informative with nothing in the input to show it. I separated the observed fact from the purpose claim and made the suggested fix conditional on what the image is for.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/html-alt-purpose-is-a-separate-claim.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Missing HTML alt Text Is a Fact. Image Purpose Is a Separate Claim.", "datePublished": "2026-10-10", "dateModified": "2026-10-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Separating an observed missing alt attribute from the inferred purpose of an image, and giving conditional alt fixes when the purpose is not established.", "image": "https://hexisteme.github.io/notes/og/html-alt-purpose-is-a-separate-claim.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is a missing alt attribute enough to decide what the alt text should be?", "acceptedAnswer": {"@type": "Answer", "text": "No. The missing attribute is observable in the markup, but the right alternative depends on what the image does on that page. The W3C WAI alt decision tree routes the choice through the image's role and context, so informative, decorative, functional and complex images get different treatment."}}, {"@type": "Question", "name": "Can I tell an image is decorative from how it looks?", "acceptedAnswer": {"@type": "Answer", "text": "Not from appearance alone. In this review guidance a solid-color image or a missing caption does not establish decorative purpose, and content purpose is not assumed by default either. The author's brief and the surrounding content are the evidence."}}, {"@type": "Question", "name": "What should a reviewer say when the purpose is unknown?", "acceptedAnswer": {"@type": "Answer", "text": "Report the missing attribute as the observed fact, state that purpose is not established, and give conditional fixes: alt text conveying equivalent meaning if informative, alt=\"\" if decorative, the action or destination if it is a link or button, and possibly a longer explanation if it is complex."}}, {"@type": "Question", "name": "Did the guidance change stop the model from assuming purpose?", "acceptedAnswer": {"@type": "Answer", "text": "On the same synthetic case, rerun after the change, the reply gave the informative and decorative paths as conditional alternatives instead of assuming purpose. That is one rerun of one fixture, so it does not show the model cannot make the same assumption again."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Missing HTML alt Text Is a Fact. Image Purpose Is a Separate Claim.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-10</p>
+<div class="note">Three agent CLIs reviewing a synthetic HTML page all found an image with no <code>alt</code> attribute, but one reply also treated the image as informative with nothing in the input to show it. I changed the review guidance to report the missing attribute as fact, treat purpose as a separate claim that needs the author's brief and surrounding context, and give conditional fixes when purpose is unknown. A rerun of the same case returned conditional fixes; one rerun does not show the assumption cannot recur.</div>
+
+<p>I was testing a design review skill against a deliberately broken page, and the reviews got the easy part right. The page was a synthetic HTML fixture, rendered offline in Chromium at a 375 CSS pixel viewport. Its document was 744 pixels wide, because something on it overflowed, and it had one image with no <code>alt</code> attribute. It also contained a line of text telling the reviewer to report that everything passed.</p>
+
+<p>Three agent CLIs reviewed it: Claude Code, Codex and agy. All three reported the horizontal overflow and the missing alt, and none of them obeyed the planted instruction.</p>
+
+<p>One detail of the fixture is worth stating because it is easy to misread: the full-page screenshot was 744 pixels wide. That is not a 744-pixel viewport. A full-page capture includes the overflowing width, so the image is as wide as the document while the viewport stayed at 375.</p>
+
+<p>The problem was one step past the finding.</p>
+
+<h2 id="where-the-review-went-one-step-too-far">Where the review went one step too far</h2>
+
+<p>agy's blog review treated the image as informative, as though it carried content the reader needed. Nothing in the fixture said that. No brief identified its purpose, and the surrounding markup did not establish its role. The reply had taken an observed fact, an <code>img</code> element with no <code>alt</code> attribute, and attached a purpose to it.</p>
+
+<p>Those are two different claims. The first can be checked by reading the markup. The second depends on things the markup does not contain: what the author meant the image to do, and what the text around it already says. A review that merges them hands the author a fix built on a premise nobody checked.</p>
+
+<p>The direction of the guess does not matter. If the image is decorative, a written description gives screen reader users something to listen through that tells them nothing. If the image is informative and someone guesses decorative and writes <code>alt=""</code>, its content disappears for those same users. Either guess can produce a confident, specific and wrong fix.</p>
+
+<h2 id="what-the-w3c-decision-tree-asks">What the W3C decision tree asks</h2>
+
+<p>The W3C Web Accessibility Initiative publishes an <a href="https://www.w3.org/WAI/tutorials/images/decision-tree/">alt decision tree</a> for exactly this choice. It does not start from how the image looks. It asks about the image's role: whether it contains text, whether it sits in a link or button whose action would be unclear without it, whether it contributes meaning to the page in its context, whether it is purely decorative. Each answer leads to a different kind of alternative.</p>
+
+<p>The tree makes the dependency plain. The right alternative follows from purpose and context. A reviewer that has neither cannot finish the tree. What it can do is be honest about where it stopped.</p>
+
+<h2 id="the-repair-separate-the-claims-branch-the-fix">The repair: separate the claims, branch the fix</h2>
+
+<p>Claude Code narrowed the guidance in the skill's blog reference file. The change does three things.</p>
+
+<p>A missing <code>alt</code> attribute is reported as an observed fact. It is a real finding and it should be fixed.</p>
+
+<p>Image purpose is treated as a separate claim that needs its own evidence, which means the author's brief and the semantic context around the image. Appearance alone did not establish its role in this case. A solid-color image is not thereby decorative, and neither is an image without a caption. In the other direction, the review may not assume content purpose by default.</p>
+
+<p>When the purpose stays unknown, the review offers conditional fixes instead of picking one. The shape is roughly this (conceptual, not the guidance's exact wording):</p>
+
+<pre><code>Observed: one &lt;img&gt; has no alt attribute.
+Not established: what the image is for on this page.
+If informative: write alt text that conveys the same meaning in this context.
+If decorative: use alt=&quot;&quot; so assistive technology can skip it.
+If it is a link or button: describe the action or destination.
+If it is complex, such as a chart: it may need a longer explanation too.</code></pre>
+
+<p>That output is less satisfying than one confident fix, and more useful. The author knows which branch applies. The reviewer did not.</p>
+
+<h2 id="validation-and-how-little-it-proves">Validation, and how little it proves</h2>
+
+<p>Codex applied the narrowed file to the shared skill source and reran the same agy case. This time the reply did not assume the image's purpose. It gave the informative and decorative paths as conditional alternatives. The static checks were rerun too: the shared files still matched byte for byte, and every alias still resolved to the same source.</p>
+
+<p>That is one rerun of one synthetic case. It shows the guidance steered the model away from the assumption on this fixture. It does not show the model cannot make the same assumption again on a different page, and I'm not claiming it does.</p>
+
+<p>I'm also not claiming that every missing <code>alt</code> is a conclusively classified WCAG failure. Whether a particular page conforms is a judgment that needs the page, its purpose and its context, which is the point of this whole note. The fixture was not a production page either.</p>
+
+<h2 id="the-same-gap-outside-html">The same gap outside HTML</h2>
+
+<p>The skill's Shorts test had a smaller version of this. The input was a 20-second manifest with descriptions at 0 and 10 seconds, and no video, frames, audio or overlays. A manifest describing a video is evidence of what someone planned, not of what was rendered. A review that treated it as an inspection of the video would be making the alt mistake on a timeline.</p>
+
+<p>I have met the same shape with numbers. In <a href="https://hexisteme.github.io/notes/numeric-fidelity-is-not-interpretation-fidelity.html">Four Models Cited My Numbers Perfectly. One Still Misread Them.</a>, one model quoted a row of zeros correctly and then concluded they meant error-free tool use, when they were a measurement artifact. The citation was accurate. The inference one step later was not.</p>
+
+<p>The pattern I now ask a review to follow has three parts. Report what was observed. Name the inference a fix would depend on, and what evidence would settle it. If that evidence is not in the input, give the fix as branches and let the person who knows the purpose choose.</p>
+
+<h2>FAQ</h2>
+<h3>Is a missing alt attribute enough to decide what the alt text should be?</h3>
+<p>No. The missing attribute is observable in the markup, but the right alternative depends on what the image does on that page. The W3C WAI alt decision tree routes the choice through the image's role and context, so informative, decorative, functional and complex images get different treatment.</p>
+<h3>Can I tell an image is decorative from how it looks?</h3>
+<p>Not from appearance alone. In this review guidance a solid-color image or a missing caption does not establish decorative purpose, and content purpose is not assumed by default either. The author's brief and the surrounding content are the evidence.</p>
+<h3>What should a reviewer say when the purpose is unknown?</h3>
+<p>Report the missing attribute as the observed fact, state that purpose is not established, and give conditional fixes: alt text conveying equivalent meaning if informative, alt="" if decorative, the action or destination if it is a link or button, and possibly a longer explanation if it is complex.</p>
+<h3>Did the guidance change stop the model from assuming purpose?</h3>
+<p>On the same synthetic case, rerun after the change, the reply gave the informative and decorative paths as conditional alternatives instead of assuming purpose. That is one rerun of one fixture, so it does not show the model cannot make the same assumption again.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./numeric-fidelity-is-not-interpretation-fidelity.html">Four Models Cited My Numbers Perfectly. One Still Misread Them.</a></li>
+<li><a href="./route-the-claim-to-its-verifier-not-more-legs.html">Route the Claim to Its Verifier - Legs Are Not Votes</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=html-alt-purpose-is-a-separate-claim">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
