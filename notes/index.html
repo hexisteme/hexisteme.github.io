@@ -105,6 +105,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A YouTube upload stage wrote its local &quot;already uploaded&quot; record only after verification succeeded, so a verification failure left the video live on the platform with nothing on disk to say so. Re-running the same command sailed past the duplicate guard and would have uploaded a second copy of a video that already existed.</p>
   <span class="tag">reliability</span><span class="tag">api</span><span class="tag">idempotency</span><span class="tag">devops</span>
 </div>
+
+<div class="card">
+  <h3><a href="python-retry-budget-before-api-call.html">An Atomic JSON Write Did Not Protect My Python Retry Budget.</a></h3>
+  <p>Each JSON file in my comment pipeline was written atomically, yet a failed save or a killed process let a queued retry call the model a second time. Reserving the attempt durably before the API call, under a shared lock, closed that path in subprocess tests, though the pipeline is still not exactly-once.</p>
+  <span class="tag">python</span><span class="tag">devops</span><span class="tag">testing</span><span class="tag">ai</span>
+</div>
 <div class="card">
   <h3><a href="the-checkpoint-remembered-the-result-not-the-request.html">The Checkpoint Remembered the Result, Not the Request</a></h3>
   <p>A checkpoint-before-verify fix correctly recorded a video ID the moment it came back, but the resume path re-derived what counted as correct from today's CLI flags and config instead of the request the checkpoint had actually recorded — and a clean resume set off a false "downgrade detected" alarm.</p>
@@ -189,6 +195,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="harness-invariants-stop-cross-component-leaks.html">How to Stop AI Agent Skills, Hooks, and Cron Jobs from Silently Conflicting Over Where They Run and What Data They Trust</a></h3>
   <p>Make every skill, hook, and scheduled job declare four invariants before it ships — Locality (where it can run), Source-of-truth (which facts it owns or borrows), Cross-ref (w</p>
   <span class="tag">ai</span><span class="tag">agents</span><span class="tag">devops</span>
+</div>
+
+<div class="card">
+  <h3><a href="shared-design-skill-claude-codex-agy.html">One Design Review Skill for Claude Code, Codex, and agy</a></h3>
+  <p>I put design direction and review for blog pages, app UI and Shorts into one skill that Claude Code, Codex and agy load from the same directory on my machine. The checks prove installation and explicit invocation on synthetic cases, not design quality or automatic skill selection.</p>
+  <span class="tag">ai</span><span class="tag">webdev</span><span class="tag">productivity</span>
 </div>
 
 
@@ -336,9 +348,21 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="llm-title-promise-body-evidence.html">A Telemetry Title Promised a Share the Data Did Not Measure.</a></h3>
+  <p>A draft reader-improvement plan offered my telemetry note a punchier feed title, It No Longer Saw Most of the Work. The note says its data had no column for how large the moved share was, so I rejected it and added a rule that surface quantifiers need a body sentence with the same value and denominator.</p>
+  <span class="tag">writing</span><span class="tag">ai</span><span class="tag">analytics</span><span class="tag">webdev</span>
+</div>
+
+<div class="card">
   <h3><a href="numeric-fidelity-is-not-interpretation-fidelity.html">Four Models Cited My Numbers Perfectly. One Still Misread Them.</a></h3>
   <p>Four model families cited every number from a frozen agent-telemetry table with zero errors — 70 of 70 recomputed within tolerance — and one still read a row of structural zeros as error-free tool use and built a routing suggestion on it. The one pre-registered equivalence test that passed cleared a margin 0.75 standard deviations wide while its own interval excluded zero. A citation audit is a copy-fidelity floor; it never checks the inference drawn from the number.</p>
   <span class="tag">multi-model</span><span class="tag">verification</span><span class="tag">statistics</span>
+</div>
+
+<div class="card">
+  <h3><a href="html-alt-purpose-is-a-separate-claim.html">Missing HTML alt Text Is a Fact. Image Purpose Is a Separate Claim.</a></h3>
+  <p>In a synthetic page review, an AI reviewer correctly found an image with no alt attribute, then treated the image as informative with nothing in the input to show it. I separated the observed fact from the purpose claim and made the suggested fix conditional on what the image is for.</p>
+  <span class="tag">html</span><span class="tag">accessibility</span><span class="tag">ai</span><span class="tag">webdev</span>
 </div>
 
 <div class="card">
@@ -529,6 +553,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
 </div>
 
 <div class="card">
+  <h3><a href="passing-python-tests-wrote-production-observations.html">My Python Tests Passed While Writing Synthetic Rows to the Production Log.</a></h3>
+  <p>Full offline unittest runs for my comment pipeline appended 122 synthetic rows to a real observation log, and the baseline run that wrote the first 30 reported OK. I redirected the tests to temporary files, added byte-for-byte guards on the real log, and removed only rows that could be attributed exactly.</p>
+  <span class="tag">python</span><span class="tag">testing</span><span class="tag">ai</span><span class="tag">devops</span>
+</div>
+
+<div class="card">
   <h3><a href="per-edit-test-hooks-are-the-cost-you-cannot-see.html">Your Per-Edit Test Hook Is the Cost You Can't See</a></h3>
   <p>A PostToolUse hook that reran a whole test file after every single-file edit was invisible to tool-call audits because a passing run produced no output, and it broke multi-file changes on purpose by scoring their still-incomplete first half as failure until the trigger moved from the editor's per-edit event to the author's end-of-turn signal.</p>
   <span class="tag">testing</span><span class="tag">automation</span><span class="tag">ai</span><span class="tag">devops</span>
@@ -675,6 +705,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A fifth shape, and the one that needed no breakage at all: the population was fully present and every check ran to completion, but each instrument's aperture was narrower than the thing it reported on. A lenient parser said 180/180 where a strict one said 174; a checker that only knew one heading wording, then the identical hole in its own frontmatter scan. The detector I threw away is the important one — it failed a positive control, and a false negative is the failure mode that never argues back.</p>
   <span class="tag">testing</span><span class="tag">verification</span><span class="tag">static analysis</span>
 </div>
+
+<div class="card">
+  <h3><a href="ripgrep-missed-existing-search-console-csv.html">ripgrep Missed the CSV Files. I Almost Designed a Collector We Already Had.</a></h3>
+  <p>A default rg --files listing respects .gitignore, so my research concluded Search Console data was missing and proposed a new 7-day views collector. A scoped --hidden --no-ignore search found three existing exports, an existing collector function already did the job, and the proposal was withdrawn.</p>
+  <span class="tag">devops</span><span class="tag">ai</span><span class="tag">analytics</span><span class="tag">productivity</span>
+</div>
 <div class="card">
   <h3><a href="detector-that-never-fires.html">A Detector That Never Fires Scores Perfect on False Positives</a></h3>
   <p>Three attempts at an overlap detector for rendered video frames failed the same hidden way, and the fourth split in two — one predicate got wired into the gate, one didn't. The split turned on whether each could be made to fire on a known-bad frame, not on false positives.</p>
@@ -740,6 +776,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <h3><a href="css-comment-typo-swallowed-fifteen-rules.html">CSS Doesn't Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet</a></h3>
   <p>A layout fell apart while 481 tests stayed green and the missing rules sat in the file, correctly written. A comment closed with Jinja's <code>#}</code> instead of <code>*/</code> made the parser consume seventeen lines to the next real closer. CSS has no fatal parse errors by design, so a linter cannot catch it — the fix that mattered was two assertions guarding the whole failure class.</p>
   <span class="tag">CSS</span><span class="tag">silent failure</span><span class="tag">guard tests</span>
+</div>
+
+<div class="card">
+  <h3><a href="html-tables-mobile-scroll-production-path.html">A Wide HTML Table Broke the Mobile Page. I Fixed the Generator.</a></h3>
+  <p>One data-heavy note was 460 CSS pixels wide on a 320-pixel viewport. I changed the generator for new notes so wide tables scroll inside a keyboard-focusable region, and on a synthetic sample the page width matched the viewport at 320, 375 and 768 pixels. Old pages were not retrofitted.</p>
+  <span class="tag">html</span><span class="tag">css</span><span class="tag">accessibility</span><span class="tag">webdev</span>
 </div>
 
 <div class="card">
