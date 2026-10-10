@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>A Wide HTML Table Broke the Mobile Page. I Fixed the Generator. — hexisteme notes</title>
+<meta name="description" content="One data-heavy note was 460 CSS pixels wide on a 320-pixel viewport. I changed the generator for new notes so wide tables scroll inside a keyboard-focusable region, and on a synthetic sample the page width matched the viewport at 320, 375 and 768 pixels. Old pages were not retrofitted.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/html-tables-mobile-scroll-production-path.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A Wide HTML Table Broke the Mobile Page. I Fixed the Generator.">
+<meta property="og:description" content="One data-heavy note was 460 CSS pixels wide on a 320-pixel viewport. I changed the generator for new notes so wide tables scroll inside a keyboard-focusable region, and on a synthetic sample the page width matched the viewport at 320, 375 and 768 pixels. Old pages were not retrofitted.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/html-tables-mobile-scroll-production-path.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/html-tables-mobile-scroll-production-path.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-10">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A Wide HTML Table Broke the Mobile Page. I Fixed the Generator.">
+<meta name="twitter:description" content="One data-heavy note was 460 CSS pixels wide on a 320-pixel viewport. I changed the generator for new notes so wide tables scroll inside a keyboard-focusable region, and on a synthetic sample the page width matched the viewport at 320, 375 and 768 pixels. Old pages were not retrofitted.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/html-tables-mobile-scroll-production-path.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A Wide HTML Table Broke the Mobile Page. I Fixed the Generator.", "datePublished": "2026-10-10", "dateModified": "2026-10-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Keeping wide HTML tables from widening a mobile page by fixing the generator that builds new pages, and checking document width separately from the table's scroll container.", "image": "https://hexisteme.github.io/notes/og/html-tables-mobile-scroll-production-path.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does one wide table make the whole mobile page scroll sideways?", "acceptedAnswer": {"@type": "Answer", "text": "An uncontained wide table can create page-level horizontal overflow. The repair puts the table in its own scrollable region so the rest of the page can reflow, rather than hiding columns."}}, {"@type": "Question", "name": "Is it acceptable for a data table to scroll horizontally?", "acceptedAnswer": {"@type": "Answer", "text": "The W3C's Understanding Reflow document treats content that needs a two-dimensional layout, such as data tables, differently from reading text: it can scroll within its own container while the rest of the page reflows. That does not make every scrolling table automatically accessible, and this work did not establish WCAG conformance."}}, {"@type": "Question", "name": "Why fix the generator instead of the site stylesheet?", "acceptedAnswer": {"@type": "Answer", "text": "New notes are built by a converter that reuses the style block of one specific existing page. Editing any other CSS source would not change what the converter produces, so the scroll wrapper and wrapping rules went into the converter, the path the next article actually takes."}}, {"@type": "Question", "name": "How was the fix checked?", "acceptedAnswer": {"@type": "Answer", "text": "A synthetic note built by the production converter, with a six-column table, long inline code and a repeated heading, was rendered with JavaScript off. At 320, 375 and 768 CSS pixels the document width was exactly 320, 375 and 768, and Tab then the right arrow key moved the table region's scrollLeft to 229. Only Playwright Chromium over file:// was tested, not Safari, a screen reader or a physical device."}}, {"@type": "Question", "name": "Were the existing overflowing pages fixed?", "acceptedAnswer": {"@type": "Answer", "text": "No. A local Chromium scan of 131 rendered pages found 44 with page-width overflow, and retrofitting old pages was excluded from this change. The repair applies to notes generated from now on."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>A Wide HTML Table Broke the Mobile Page. I Fixed the Generator.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-10</p>
+<div class="note">One of my data-heavy notes was 460 CSS pixels wide on a 320-pixel viewport because its six-column table widened the whole document. The converter that generates new notes now wraps each table in a named, keyboard-focusable scroll region and adds wrapping rules, and a synthetic sample it built rendered at exactly 320, 375 and 768 pixels wide with the table scrollable by keyboard. The 44 overflowing pages found in a local Chromium scan were not retrofitted.</div>
+
+<p>On a 320 CSS pixel viewport, one of my data-heavy notes was 460 pixels wide. Its first table had six columns and was 436 pixels wide on its own. The extra width did not stay inside that table. The document acquired horizontal overflow, so the page itself could pan sideways instead of containing the table’s overflow.</p>
+
+<p>That was one public page, observed once. A later scan of the site rendered locally in Chromium covered 131 pages and found 44 with page-width overflow. I treat that count as what it is: a measurement of my local build, not a fresh census of the live site, and not a breakdown of what caused each overflow.</p>
+
+<h2 id="why-a-wide-table-widens-the-page">Why a wide table widens the page</h2>
+
+<p>A table sizes itself to its content. Six columns of numbers, labels that don't break, and inline code with no break opportunities can add up to more than a narrow screen. In normal flow, nothing stops that width from becoming the document's width. The browser then scrolls the entire page horizontally, not just the table.</p>
+
+<p>The W3C's <a href="https://www.w3.org/WAI/WCAG22/Understanding/reflow.html">Understanding Reflow</a> document draws the distinction I needed. Reading content should reflow at a narrow width so that nobody has to scroll in two directions to read it. Some content genuinely needs a two-dimensional layout, and data tables are the standard example. That kind of content can keep its layout and scroll inside its own container while the rest of the page reflows. This does not make every scrolling table automatically acceptable. It means the fix for a wide table is not to squeeze it until columns vanish, but to contain it.</p>
+
+<h2 id="finding-the-code-that-writes-new-pages">Finding the code that writes new pages</h2>
+
+<p>The obvious move is to open the site's CSS and add a rule. That would change something, and prove nothing about the next article.</p>
+
+<p>New notes are not styled by a shared stylesheet. They are generated by a converter, <code>md2canonical.py</code>, that turns a Markdown draft into a standalone HTML page. For its CSS, the converter reads the <code>&lt;style&gt;</code> block of one specific existing note and reuses it. Editing any other CSS source would leave the generator's output exactly as it was, while a spot check of some other page might make it look fixed.</p>
+
+<p>So the repair had to live in the converter, because that is the path the next article actually takes. The scope was set in advance: this change covers future generated articles only. Retrofitting old pages was explicitly excluded, so this repair did not retrofit the 44 overflowing pages from the scan.</p>
+
+<h2 id="the-repair">The repair</h2>
+
+<p>The converter now wraps each Markdown table in a scroll container. The output looks like this (illustrative, with the label taken from my test sample):</p>
+
+<pre><code>&lt;div class=&quot;table-scroll&quot; role=&quot;region&quot; tabindex=&quot;0&quot;
+     aria-label=&quot;Table 1: Output tokens per thread by role&quot;&gt;
+  &lt;table&gt;…&lt;/table&gt;
+&lt;/div&gt;</code></pre>
+
+<p>The wrapper is a named region, so assistive technology can announce it, and <code>tabindex="0"</code> makes it focusable, so a keyboard user can scroll it. The name is "Table N:" followed by the nearest preceding heading. No columns are dropped or hidden. All the data is still there; you scroll to it inside the box.</p>
+
+<p>The CSS that goes with it is small. The container gets <code>overflow-x: auto</code>, <code>max-width: 100%</code> and a visible focus style, and the body gets <code>overflow-wrap: break-word</code> so long inline code wraps instead of pushing the page out. These rules live in a block called <code>READING_STYLE</code>, appended once after the inherited template style. If the template already contains it, the converter doesn't add it again.</p>
+
+<p>While I was in the converter, every body <code>h2</code> and <code>h3</code> also got a unique ID so sections can be linked, with a numeric suffix for repeated headings. Two headings were deliberately left alone: the exact "FAQ" and "Related notes" <code>h2</code> strings. Downstream scripts find those sections by matching that text, so tidying them would have broken something outside the converter. The converter's tests now check that those strings survive.</p>
+
+<h2 id="how-i-checked-it">How I checked it</h2>
+
+<p>The check that matters is not "does the table scroll". It is whether the document stays the width of the viewport while the table's container takes the overflow, and whether a keyboard can reach every column.</p>
+
+<p>I generated a new synthetic note with the production converter: a six-column table, a long run of inline code and a repeated heading. I rendered it with JavaScript off at three viewports. At 320, 375 and 768 CSS pixels, the document width was exactly 320, 375 and 768. In the table region, pressing Tab to focus it and then the right arrow key moved <code>scrollLeft</code> to 229, and scrolling reached both ends of the table. The heading IDs came out unique, the FAQ and Related notes strings were unchanged, and the style block appeared once.</p>
+
+<p>On the test side, 137 converter, localization and analytics tests passed, and 59 tests for the curation script passed. A separate offer-exposure suite ran 63 passing tests and 1 failing one. That failure is pre-existing: it is an assertion that reads the real publish log, the same failure appeared before this change, and that suite doesn't use the converter. I'm not describing the run as all green, because it wasn't.</p>
+
+<h2 id="what-this-does-not-cover">What this does not cover</h2>
+
+<p>The rendering checks ran in Playwright's Chromium against local <code>file://</code> pages. I did not test Safari, a screen reader or a physical phone. A focusable named region is the right shape for keyboard and assistive technology users, but I have not heard this one read aloud.</p>
+
+<p>The repair covers articles generated from now on. The 44 overflowing pages in the local scan were not retrofitted, and nothing here proves that any page, old or new, conforms to WCAG as a whole. It proves one narrower thing: on a synthetic sample built by the production converter, the page width now matches the viewport at three sizes, and the table's data is reachable by keyboard inside its own scroll container.</p>
+
+<p>Two habits came out of it. Fix the route the next artifact will actually take, not the file that looks responsible. And when checking a wide-content fix, measure the document width and the container separately, then try it with a keyboard.</p>
+
+<h2>FAQ</h2>
+<h3>Why does one wide table make the whole mobile page scroll sideways?</h3>
+<p>An uncontained wide table can create page-level horizontal overflow. The repair puts the table in its own scrollable region so the rest of the page can reflow, rather than hiding columns.</p>
+<h3>Is it acceptable for a data table to scroll horizontally?</h3>
+<p>The W3C's Understanding Reflow document treats content that needs a two-dimensional layout, such as data tables, differently from reading text: it can scroll within its own container while the rest of the page reflows. That does not make every scrolling table automatically accessible, and this work did not establish WCAG conformance.</p>
+<h3>Why fix the generator instead of the site stylesheet?</h3>
+<p>New notes are built by a converter that reuses the style block of one specific existing page. Editing any other CSS source would not change what the converter produces, so the scroll wrapper and wrapping rules went into the converter, the path the next article actually takes.</p>
+<h3>How was the fix checked?</h3>
+<p>A synthetic note built by the production converter, with a six-column table, long inline code and a repeated heading, was rendered with JavaScript off. At 320, 375 and 768 CSS pixels the document width was exactly 320, 375 and 768, and Tab then the right arrow key moved the table region's scrollLeft to 229. Only Playwright Chromium over file:// was tested, not Safari, a screen reader or a physical device.</p>
+<h3>Were the existing overflowing pages fixed?</h3>
+<p>No. A local Chromium scan of 131 rendered pages found 44 with page-width overflow, and retrofitting old pages was excluded from this change. The repair applies to notes generated from now on.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./css-comment-typo-swallowed-fifteen-rules.html">CSS Doesn&#x27;t Throw: One Mistyped Comment Closer Silently Ate 15 Lines of My Stylesheet</a></li>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./validate-what-you-ship-not-what-you-load.html">Your validator must measure what you ship, not what you loaded</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=html-tables-mobile-scroll-production-path">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
