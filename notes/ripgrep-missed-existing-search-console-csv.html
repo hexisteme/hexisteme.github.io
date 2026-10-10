@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>ripgrep Missed the CSV Files. I Almost Designed a Collector We Already Had. — hexisteme notes</title>
+<meta name="description" content="A default rg --files listing respects .gitignore, so my research concluded Search Console data was missing and proposed a new 7-day views collector. A scoped --hidden --no-ignore search found three existing exports, an existing collector function already did the job, and the proposal was withdrawn.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/ripgrep-missed-existing-search-console-csv.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ripgrep Missed the CSV Files. I Almost Designed a Collector We Already Had.">
+<meta property="og:description" content="A default rg --files listing respects .gitignore, so my research concluded Search Console data was missing and proposed a new 7-day views collector. A scoped --hidden --no-ignore search found three existing exports, an existing collector function already did the job, and the proposal was withdrawn.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/ripgrep-missed-existing-search-console-csv.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/ripgrep-missed-existing-search-console-csv.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-10">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ripgrep Missed the CSV Files. I Almost Designed a Collector We Already Had.">
+<meta name="twitter:description" content="A default rg --files listing respects .gitignore, so my research concluded Search Console data was missing and proposed a new 7-day views collector. A scoped --hidden --no-ignore search found three existing exports, an existing collector function already did the job, and the proposal was withdrawn.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/ripgrep-missed-existing-search-console-csv.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ripgrep Missed the CSV Files. I Almost Designed a Collector We Already Had.", "datePublished": "2026-10-10", "dateModified": "2026-10-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "How ripgrep's default ignore and hidden-file filtering turned an inventory gap into a false missing-data premise, and what to check before proposing new data collection.", "image": "https://hexisteme.github.io/notes/og/ripgrep-missed-existing-search-console-csv.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why doesn't rg --files list files that are in .gitignore?", "acceptedAnswer": {"@type": "Answer", "text": "By default rg --files respects .gitignore and ripgrep ignore rules and omits hidden entries. Those filters can hide CSV exports that are present on disk; binary-content detection is a separate concern when searching file contents."}}, {"@type": "Question", "name": "How do I include ignored and hidden files in a ripgrep inventory?", "acceptedAnswer": {"@type": "Answer", "text": "Add --hidden and --no-ignore, and keep the search bounded to the project directory rather than a whole home directory, where lifting every filter can read secrets and caches unrelated to the question. Then parse what you find instead of trusting filenames."}}, {"@type": "Question", "name": "Does finding old exports mean the data question is answered?", "acceptedAnswer": {"@type": "Answer", "text": "No. The three Search Console exports were historical snapshots. Their existence does not establish recent data for a comparable period, so the corrected state was that past exports exist and recent comparable data is still needed."}}, {"@type": "Question", "name": "Did the AI models confirm the files independently?", "acceptedAnswer": {"@type": "Answer", "text": "No. Claude Code and agy were given the corrected local observations and each explicitly withdrew the missing-data and new-collector premises. Neither scanned the disk, so their withdrawal shows they accepted the correction, not that they verified it."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>ripgrep Missed the CSV Files. I Almost Designed a Collector We Already Had.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-10</p>
+<div class="note">My research ran a default <code>rg --files</code> inventory, which skips gitignored and hidden paths, read the absence of Search Console files as missing data, and proposed a new 7-day views collector. A project-scoped <code>rg --files --hidden --no-ignore</code> plus direct parsing found three existing exports, and an existing <code>collect_devto_views_7d</code> function already did the collector's job, so the proposal was withdrawn before implementation. The exports are historical, so recent comparable data is still a separate gap.</div>
+
+<p>I was researching how to improve operations on my blog, and the research reached a confident conclusion early: there was no Google Search Console data to work with. It listed Search Console input as missing. Separately, it proposed building a new collector to measure each dev.to article's views at seven days.</p>
+
+<p>Both premises were wrong. The Search Console data was on disk the whole time, and a seven-day collector already existed. Neither failure was dramatic. What interests me is how ordinary the first one was.</p>
+
+<h2 id="what-the-inventory-actually-listed">What the inventory actually listed</h2>
+
+<p>The research built its file inventory with a plain <code>rg --files</code>. ripgrep's defaults are designed for searching code, and the <a href="https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md">ripgrep user guide</a> is explicit about what they filter out: paths matched by <code>.gitignore</code> and ripgrep's own ignore files, plus hidden files and directories. Those are the relevant filters for this file listing; binary detection concerns searching file contents, not <code>rg --files</code> inventory. The Search Console exports were CSV files in a gitignored location. A default listing was never going to include them.</p>
+
+<p>So ripgrep did exactly what it documents. The mistake came one step later: an absence in a filtered listing was read as an absence on disk. "The inventory did not list any Search Console files" became "Search Console input is missing", and that sentence went into the research as a fact.</p>
+
+<h2 id="the-correction">The correction</h2>
+
+<p>The rerun lifted the filters and stayed inside the project:</p>
+
+<pre><code># illustrative project directory; default listing respects ignore files and skips hidden entries
+rg --files ./project
+
+# scoped inventory with filtering lifted (illustrative glob)
+rg --files --hidden --no-ignore ./project -g &#x27;*.csv&#x27;</code></pre>
+
+<p>That listing found the files, and parsing them directly, rather than trusting the filenames, established what they were: three Search Console exports. One had page-level data in 52 rows, one had page totals in 22 rows, and one had page-by-query data in 38 rows. Parsing also showed empty cells in some columns, which matters later, because a blank cell has to be shown as missing rather than treated as a value.</p>
+
+<p>The second premise fell separately. An existing function, <code>collect_devto_views_7d</code>, already does what the proposed collector would have done. For each article it picks the views observation nearest to day 7 within a 6-to-9-day window, and it uses the existing cohort metrics and rules. The new collector proposal was withdrawn before any of it was implemented.</p>
+
+<p>I'm not attributing that second miss to ripgrep. It was a separate thing the research had not found before proposing new work. Both corrections landed in the same revision of the research, and they share a lesson more than a cause.</p>
+
+<h2 id="existing-data-is-not-automatically-fit-data">Existing data is not automatically fit data</h2>
+
+<p>Finding the exports did not settle the original question. They are historical snapshots. Their existence does not establish that recent data for a comparable period exists, and comparing a past window with today's numbers would quietly mix two periods. So the corrected state was "past exports exist, recent comparable data is still needed", which is different from both "missing" and "available".</p>
+
+<p>The same care applied to my local performance data. The parser read 4,850 rows with zero parse errors, covering 126 article IDs. Of those, 79 had an observation inside the 6-to-9-day window and 47 did not. Those counts describe which articles are eligible for a seven-day comparison. They are not users, sessions or a traffic gain, and nothing in this work showed any traffic effect.</p>
+
+<h2 id="the-models-withdrew-the-premises-and-that-is-all-it-shows">The models withdrew the premises, and that is all it shows</h2>
+
+<p>Claude Code and agy had both reviewed the original research. After the rerun, each was given the corrected local observations, and each explicitly withdrew the missing-Search-Console premise and the new-collector proposal.</p>
+
+<p>It would be easy to describe that as two independent confirmations. It was not. Neither model scanned the disk. Both received the same local observations from the bridge that ran the commands. Their withdrawal shows they accepted the correction when shown it. The evidence that the files exist is the scoped listing and the parse, not the models' agreement.</p>
+
+<h2 id="before-proposing-new-infrastructure">Before proposing new infrastructure</h2>
+
+<p>The rule I took from this: when an inventory says something is missing, ask what the inventory was able to see before believing it. For a file listing, that means stating which ignore rules applied and whether hidden entries were included, then rerunning with <code>--hidden --no-ignore</code> when the answer matters. Keep that rerun bounded to the project directory. Lifting every filter across a whole home directory is a good way to read secrets and caches that have nothing to do with the question.</p>
+
+<p>Then parse what was found instead of trusting names, and write down the period it covers, the population it describes and what is missing from it. Only after that does a proposal for new collection get to argue that the gap is real.</p>
+
+<p>The direction we took instead is small: a thin, read-only editorial view over data that already exists, with its period, population and missing values labeled. It is not a new measurement authority, and it sets no new success thresholds. Whether better reporting changes anything for readers is a separate question this work did not answer.</p>
+
+<p>It is the same lesson as <a href="https://hexisteme.github.io/notes/your-checker-returned-zero-check-its-aperture.html">Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</a>, where each instrument's printed number was narrower than it looked because of the slice it was built to examine. A file listing is an instrument too. Its ignore rules set its aperture.</p>
+
+<h2>FAQ</h2>
+<h3>Why doesn&#x27;t rg --files list files that are in .gitignore?</h3>
+<p>By default rg --files respects .gitignore and ripgrep ignore rules and omits hidden entries. Those filters can hide CSV exports that are present on disk; binary-content detection is a separate concern when searching file contents.</p>
+<h3>How do I include ignored and hidden files in a ripgrep inventory?</h3>
+<p>Add --hidden and --no-ignore, and keep the search bounded to the project directory rather than a whole home directory, where lifting every filter can read secrets and caches unrelated to the question. Then parse what you find instead of trusting filenames.</p>
+<h3>Does finding old exports mean the data question is answered?</h3>
+<p>No. The three Search Console exports were historical snapshots. Their existence does not establish recent data for a comparable period, so the corrected state was that past exports exist and recent comparable data is still needed.</p>
+<h3>Did the AI models confirm the files independently?</h3>
+<p>No. Claude Code and agy were given the corrected local observations and each explicitly withdrew the missing-data and new-collector premises. Neither scanned the disk, so their withdrawal shows they accepted the correction, not that they verified it.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./your-checker-returned-zero-check-its-aperture.html">Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</a></li>
+<li><a href="./the-denominator-was-already-on-disk.html">The Gate Only Logged When It Fired. I Replayed 116,022 Candidate Stop Points to Find the Rest.</a></li>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Your verification tool reports what it saw, never where it didn&#x27;t look</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=ripgrep-missed-existing-search-console-csv">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
