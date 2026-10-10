@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>My Python Tests Passed While Writing Synthetic Rows to the Production Log. — hexisteme notes</title>
+<meta name="description" content="Full offline unittest runs for my comment pipeline appended 122 synthetic rows to a real observation log, and the baseline run that wrote the first 30 reported OK. I redirected the tests to temporary files, added byte-for-byte guards on the real log, and removed only rows that could be attributed exactly.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/passing-python-tests-wrote-production-observations.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="My Python Tests Passed While Writing Synthetic Rows to the Production Log.">
+<meta property="og:description" content="Full offline unittest runs for my comment pipeline appended 122 synthetic rows to a real observation log, and the baseline run that wrote the first 30 reported OK. I redirected the tests to temporary files, added byte-for-byte guards on the real log, and removed only rows that could be attributed exactly.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/passing-python-tests-wrote-production-observations.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/passing-python-tests-wrote-production-observations.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-10">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="My Python Tests Passed While Writing Synthetic Rows to the Production Log.">
+<meta name="twitter:description" content="Full offline unittest runs for my comment pipeline appended 122 synthetic rows to a real observation log, and the baseline run that wrote the first 30 reported OK. I redirected the tests to temporary files, added byte-for-byte guards on the real log, and removed only rows that could be attributed exactly.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/passing-python-tests-wrote-production-observations.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My Python Tests Passed While Writing Synthetic Rows to the Production Log.", "datePublished": "2026-10-10", "dateModified": "2026-10-10", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Detecting and preventing test suites that pass while writing synthetic data to a production log, and cleaning the log up by exact attribution.", "image": "https://hexisteme.github.io/notes/og/passing-python-tests-wrote-production-observations.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How can tests pass while writing to a production file?", "acceptedAnswer": {"@type": "Answer", "text": "Assertions check the behavior a test is about, not every file the code touches. These tests fed the landing observer temporary HTTP data, but its output path still pointed at the real log, and no assertion looked at that file."}}, {"@type": "Question", "name": "How should a contaminated log be cleaned up?", "acceptedAnswer": {"@type": "Answer", "text": "Only with exact attribution. The synthetic rows were matched by exact timestamp, target and multiplicity, preserved with their original JSON in a recovery backup, and then removed, leaving the 623 production rows. Truncating the log, deleting a broad time window or copying an older backup over it could remove real observations."}}, {"@type": "Question", "name": "Is a before-and-after byte check enough?", "acceptedAnswer": {"@type": "Answer", "text": "It is the second layer. A guard that compares the real file's bytes turns a silent write into a failing run, but it does not undo the write. Redirecting the tests to temporary fixtures is what prevents it."}}, {"@type": "Question", "name": "Do the passing test counts add up to total coverage?", "acceptedAnswer": {"@type": "Answer", "text": "No. The 223 watcher, autoreply and reply tests and the 203 tests in the shared offline harness both include the watcher tests, so they overlap and are not independent totals."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>My Python Tests Passed While Writing Synthetic Rows to the Production Log.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-10</p>
+<div class="note">Full offline <code>unittest</code> runs for my comment pipeline appended 122 synthetic rows to a real landing-observation log, and the baseline run that wrote the first 30 reported OK. The tests now write to temporary fixtures, byte-for-byte guards compare the real log before and after the suites, and only rows attributable by exact timestamp, target and multiplicity were removed after being backed up. After the fixes 223 tests passed and the log stayed byte-identical at 97,094 bytes.</div>
+
+<p>My comment pipeline keeps a small production log of landing observations. Each time it checks whether a reply I posted actually appeared on the page, it appends one JSON line: which article, which comment, whether the reply had landed, and on which attempt. An earlier note, <a href="https://hexisteme.github.io/notes/same-reliability-fix-opposite-decisions.html">I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another</a>, tied a future review of the reply retry budget to these comment landing observations. They are meant to be evidence about real deliveries.</p>
+
+<p>During a round of fixes to that pipeline, I found that the full offline test suites had been writing to it.</p>
+
+<h2 id="what-happened">What happened</h2>
+
+<p>The watcher, autoreply and reply suites use Python's <code>unittest</code>. Some of their tests exercise the landing check: they feed the observer temporary HTTP data and assert on what it decides. The fake data was temporary. The output path was not. In those tests, the observer still wrote to the real <code>landing-observations.jsonl</code>.</p>
+
+<p>The first full baseline run appended 30 synthetic rows, and that run reported 176 tests, OK. Later full runs, before the fixtures were isolated, appended more. The final total was 122 synthetic rows. An intermediate brief had put the number at 145. Reconciling the preserved rows by timestamp and target gave 122, and that is the number I trust.</p>
+
+<h2 id="why-passing-told-me-nothing">Why passing told me nothing</h2>
+
+<p>A test passes when its assertions hold. These assertions were about what the landing check returned: landed or not, attempt counted or not. None of them asked what else the code had touched on the way. Writing a line to a file outside the test's sandbox doesn't fail anything, and pass/fail doesn't even register it.</p>
+
+<p>That is the whole mechanism. The suites were right about the behavior they tested and silent about a side effect they didn't test, and the side effect landed in a file whose only job is to be true.</p>
+
+<h2 id="cleaning-up-without-making-it-worse">Cleaning up without making it worse</h2>
+
+<p>There are fast, destructive ways to clean a log like this: truncate it, delete every row from the time window the tests ran in, or copy an older backup over the live file. Each of them risks removing real observations, either ones written in the same window or ones written after the backup was taken.</p>
+
+<p>The cleanup used exact attribution instead. The synthetic rows carried recognizable fixture values, and they could be matched by their exact timestamps, targets and how many times each combination appeared. Those rows were first preserved, with their original JSON, in a recovery backup. Then exactly those rows were removed from the log. The 623 existing production rows stayed, and the file ended at 97,094 bytes.</p>
+
+<p>If the rows had not been attributable exactly, the right move would have been to leave them and record the contamination as a known limitation of the log, not to guess.</p>
+
+<h2 id="the-fix-isolate-first-guard-second">The fix: isolate first, guard second</h2>
+
+<p>The primary fix is isolation. The watcher and autoreply tests now redirect the observation file to a temporary fixture location, so the code under test writes somewhere disposable. The reply suite's landing tests mock the watcher instead of calling it. Python's <a href="https://docs.python.org/3/library/tempfile.html"><code>tempfile</code></a> module is the standard tool for the disposable location. The pattern is roughly this (conceptual; the names are illustrative, not the suite's):</p>
+
+<pre><code>class LandingCheckTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patcher = mock.patch.object(watcher, &quot;OBS_PATH&quot;,
+                                    Path(tmp.name) / &quot;observations.jsonl&quot;)
+        patcher.start()
+        self.addCleanup(patcher.stop)</code></pre>
+
+<p>If you use pytest, its <code>tmp_path</code> fixture serves the same purpose. These suites are <code>unittest</code>, so that's not what they use.</p>
+
+<p>The second part is a guard that would have caught this the first time. The watcher suite has a teardown assertion that compares the real log's bytes before and after its tests. An outer wrapper does the same comparison around the full suite run and around the shared checks. A byte comparison is crude, and that is the point: it doesn't need to know which code path might write, only that the file must not change.</p>
+
+<p>A guard after the fact does not undo a write. It turns a silent side effect into a failing run. Isolation is what prevents the write.</p>
+
+<h2 id="validation">Validation</h2>
+
+<p>After the fixes, all 223 watcher, autoreply and reply tests passed, and the production log was unchanged, byte for byte, at 97,094 bytes.</p>
+
+<p>A shared offline harness runs checks across five components. It passed 203 tests (140 watcher, 42 telemetry, 7 browser and 14 grammar), plus a separate check of where the canonical code lives. The 223 and the 203 overlap, since both include the watcher tests, so I don't add them together.</p>
+
+<p>Claude Code, Codex and agy each ran that shared checker from a scratch directory outside the project. The checker makes no model calls and posts nothing. Everything it runs is offline and synthetic, so it says nothing about how a real browser session behaves in production.</p>
+
+<h2 id="what-i-check-now">What I check now</h2>
+
+<p>The byte guard covers one file I now know about. It does not find other paths that tests might write to. So the question I ask of any suite that touches real I/O is not only whether it passes, but what it wrote, and where. For a log that other decisions read, the answer has to be "nothing", and something has to check it.</p>
+
+<h2>FAQ</h2>
+<h3>How can tests pass while writing to a production file?</h3>
+<p>Assertions check the behavior a test is about, not every file the code touches. These tests fed the landing observer temporary HTTP data, but its output path still pointed at the real log, and no assertion looked at that file.</p>
+<h3>How should a contaminated log be cleaned up?</h3>
+<p>Only with exact attribution. The synthetic rows were matched by exact timestamp, target and multiplicity, preserved with their original JSON in a recovery backup, and then removed, leaving the 623 production rows. Truncating the log, deleting a broad time window or copying an older backup over it could remove real observations.</p>
+<h3>Is a before-and-after byte check enough?</h3>
+<p>It is the second layer. A guard that compares the real file's bytes turns a silent write into a failing run, but it does not undo the write. Redirecting the tests to temporary fixtures is what prevents it.</p>
+<h3>Do the passing test counts add up to total coverage?</h3>
+<p>No. The 223 watcher, autoreply and reply tests and the 203 tests in the shared offline harness both include the watcher tests, so they overlap and are not independent totals.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./same-reliability-fix-opposite-decisions.html">I Rejected the Same dev.to Reliability Fix on One Path and Shipped It on Another</a></li>
+<li><a href="./pytest-full-run-failed-every-test-passed.html">pytest Failed. Every Collected Test Still Had a Passing Run.</a></li>
+<li><a href="./the-proxy-i-added-to-measure-tokens-tripled-them.html">The Proxy I Added to Measure Tokens Tripled Them</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=passing-python-tests-wrote-production-observations">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
