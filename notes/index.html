@@ -607,6 +607,12 @@ a{color:#0969da}h1{font-size:26px}h2{font-size:18px;margin-top:30px;border-botto
   <p>A crosspost pipeline with 19 green gate tests published nine articles whose titles were visibly broken on the live platform for nine days. Tests verify the payload you build, not what the other system renders — a pipeline isn't verified until you check the output surface itself.</p>
   <span class="tag">testing</span><span class="tag">postmortem</span><span class="tag">pipeline</span>
 </div>
+
+<div class="card">
+  <h3><a href="codemirror-setvalue-published-empty-post.html">CodeMirror Showed My HTML. The Published Post Was Empty.</a></h3>
+  <p>A script filled a blog editor&#x27;s CodeMirror with setValue(), confirmed the fill by reading the same CodeMirror value back, and two posts went public with a title and a 0-byte body. The editor&#x27;s onChange ignored setValue changes, so the Redux store the publish payload is built from stayed empty.</p>
+  <span class="tag">javascript</span><span class="tag">react</span><span class="tag">debugging</span><span class="tag">automation</span>
+</div>
 <div class="card">
   <h3><a href="test-the-artifact-not-the-pipeline.html">The Renderer Dropped What the Script Ordered. Every Check Watched the Script.</a></h3>
   <p>Two same-day bugs in a map-animation renderer silently discarded part of what the script ordered — a country vanished, a highlighted country never got painted — and every existing check passed, because every check watched the input, not the artifact.</p>
