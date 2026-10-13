@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire — hexisteme notes</title>
+<meta name="description" content="A cron job on Python 3.9.6 could not parse a trailing Z, and fixing that exposed a stale-data alarm that a 7-day build and an 8-day threshold made certain to trip once work resumed after a quiet gap of more than a day before the build. I now alarm on how long the oldest record file newer than the loaded data has waited, not on the age of the newest loaded record.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/fromisoformat-fix-unmasked-a-rigged-stale-alarm.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire">
+<meta property="og:description" content="A cron job on Python 3.9.6 could not parse a trailing Z, and fixing that exposed a stale-data alarm that a 7-day build and an 8-day threshold made certain to trip once work resumed after a quiet gap of more than a day before the build. I now alarm on how long the oldest record file newer than the loaded data has waited, not on the age of the newest loaded record.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/fromisoformat-fix-unmasked-a-rigged-stale-alarm.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/fromisoformat-fix-unmasked-a-rigged-stale-alarm.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire">
+<meta name="twitter:description" content="A cron job on Python 3.9.6 could not parse a trailing Z, and fixing that exposed a stale-data alarm that a 7-day build and an 8-day threshold made certain to trip once work resumed after a quiet gap of more than a day before the build. I now alarm on how long the oldest record file newer than the loaded data has waited, not on the age of the newest loaded record.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/fromisoformat-fix-unmasked-a-rigged-stale-alarm.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire", "datePublished": "2026-10-13", "dateModified": "2026-10-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Defining data freshness for a weekly batch-loaded telemetry database, newest-record age versus the wait of the oldest record file newer than the loaded data, uncovered while fixing a Python 3.9 fromisoformat failure under cron.", "image": "https://hexisteme.github.io/notes/og/fromisoformat-fix-unmasked-a-rigged-stale-alarm.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did datetime.fromisoformat fail under cron but not in an interactive shell?", "acceptedAnswer": {"@type": "Answer", "text": "Under cron's PATH, python3 resolved to /usr/bin/python3, which is 3.9.6, and before Python 3.11 fromisoformat does not accept a trailing Z. The interactive shell ran 3.13, so the error never reproduced by hand. The fix is a wrapper that rewrites a trailing Z or z to +00:00, and a test that runs the module under the cron interpreter reproduced the error before the fix and passed after."}}, {"@type": "Question", "name": "Why was the stale alarm certain to trip?", "acceptedAnswer": {"@type": "Answer", "text": "Freshness was the age of the newest loaded ended_at, the threshold was 8 days, and the database is rebuilt every 7 days. If the quiet gap before a build exceeds one day, the newest record crosses 8 days before the next build, and any work done since supplies the newer record files the rule also required, so the STALE condition comes true before the next build. Whether a scheduled check catches it depends on the window; the gap before the October 5 build was 3 days, 12 hours and 43 minutes, and both failed runs fell inside the window."}}, {"@type": "Question", "name": "What does unreflected_wait_seconds measure, and when does it alert?", "acceptedAnswer": {"@type": "Answer", "text": "It is how long the oldest record file modified after the newest loaded ended_at has waited, with a five-minute grace for that session's own last write. When the newest ended_at is more than 8 days old, STALE also requires that wait to exceed 8 days; a shorter wait is AWAITING_BUILD and does not alert. On October 10 the cron run reported AWAITING_BUILD with the oldest file waiting 5.37 days against a newest-record age of 8.94 days, and raised no alert."}}, {"@type": "Question", "name": "Did opening SQLite with mode=ro avoid creating files?", "acceptedAnswer": {"@type": "Answer", "text": "Not in this setup. A direct query with a mode=ro URI on a WAL-mode database left a 0-byte -wal file and a -shm file, and the checker, which refuses to read while a -wal file exists, reported DB_UNAVAILABLE. On a copy, mode=ro created both files and immutable=1 created neither. That was observed on this machine and not checked against SQLite's documentation."}}, {"@type": "Question", "name": "What does the repair still not prove?", "acceptedAnswer": {"@type": "Answer", "text": "The evidence stops on October 10; the record documents one cron run of the new rule against real data. A new record file can now wait up to 8 days with no alert, the wait is measured from file modification time, and the link between the 8-day threshold and the 7-day build is a comment beside the constant."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-13</p>
+<div class="note">Under cron, <code>/usr/bin/python3</code> 3.9.6 could not parse a trailing <code>Z</code>, and fixing <code>fromisoformat</code> exposed a STALE alarm that a 7-day build and an 8-day threshold made certain to trip once work resumed after a quiet gap of more than a day before a build. I changed freshness from the age of the newest loaded record to how long the oldest record file newer than the loaded data has waited (<code>unreflected_wait_seconds</code>), with a quiet <code>AWAITING_BUILD</code> state. Separately, a direct SQLite query with <code>mode=ro</code> left WAL sidecar files on this machine, while <code>immutable=1</code> did not.</div>
+
+<p>At 21:00 on October 9, and again at 09:00 the next morning, the snapshot job in my agent telemetry pipeline raised this alert:</p>
+
+<pre><code>F3-SOURCE-CHECK-ERROR: argument --since: not an ISO-8601 timestamp: &#x27;1970-01-01T00:00:00Z&#x27;</code></pre>
+
+<p>The alert's wording pointed at suspected loss of the raw archive. Nothing had been lost. The archive copy was working, and its newest file was from 08:59 that morning. What failed was a source-freshness check inside the same job. The parse error was the easy part; what it had been covering up was the real lesson.</p>
+
+<h2 id="python-3-9-and-a-trailing-z">Python 3.9 and a trailing Z</h2>
+
+<p>Under cron's PATH, <code>python3</code> resolved to <code>/usr/bin/python3</code>, which is 3.9.6. Before 3.11, <code>datetime.fromisoformat</code> does not accept a trailing <code>Z</code>, and the job passes <code>--since 1970-01-01T00:00:00Z</code>. My interactive shell runs 3.13, so nothing reproduced by hand. The argument was not the only casualty: 540 of the 541 <code>ended_at</code> values in the database also end in <code>Z</code>, so under 3.9 the parser would have read none of them.</p>
+
+<p>The fix is a small wrapper, <code>_fromisoformat()</code>, that rewrites a trailing <code>Z</code> or <code>z</code> to <code>+00:00</code> before parsing; both the database and CLI parsers use it. The test that matters, <code>test_cron_interpreter_reads_z_suffix_timestamps</code>, runs the module under the cron interpreter (<code>PAMSL_PY</code>, defaulting to <code>/usr/bin/python3</code>), not the Python running pytest. It reproduced the error before the fix and passed after. The suite passed at 143 on 3.13, and the cron command, run verbatim, exited 0.</p>
+
+<p>An earlier note, <a href="https://hexisteme.github.io/notes/scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a>, covers how a bare <code>python3</code> resolves to Apple's system Python under launchd's PATH while a fail-soft step keeps the heartbeat green. That failure was silent. This one was loud, named the wrong problem, and sat on top of a second one.</p>
+
+<h2 id="what-the-parse-error-was-covering">What the parse error was covering</h2>
+
+<p>The job's alert function writes each message into a single flag file, replacing whatever was there. Once the parser worked, the next run would put this in its place:</p>
+
+<pre><code>F3-SOURCE-STALE source_data_age_seconds=771145.565 newest_ended_at=2026-10-01T11:46:44.435000Z: Claude record files newer than newest ended_at exist; DB lags source</code></pre>
+
+<p>771,145 seconds is just under nine days. I read it as a real alarm and left the flag in place while I looked for the cause.</p>
+
+<p>There was no broken build. The database is rebuilt only by the weekly report job, Mondays at 09:30. The October 5 build exited 0 and loaded all 541 top-level files then in the archive. The 76 files not in the database (617 archived minus 541 loaded) all belonged to sessions that started after that build. The database was exactly as current as a weekly design promises.</p>
+
+<p>The newest session inside it, though, had ended on October 1 at 11:46 UTC. Between September 20 and October 5 there were only four Claude Code sessions, because most of my agent work had moved to Codex (see <a href="https://hexisteme.github.io/notes/telemetry-stayed-green-while-work-moved-to-codex.html">Our LLM Telemetry Stayed Green While the Work Moved to Codex</a>). So the October 5 build came after a quiet gap of 3 days, 12 hours and 43 minutes.</p>
+
+<h2 id="why-that-alarm-had-to-fire">Why that alarm had to fire</h2>
+
+<p>The rule was: STALE if the newest <code>ended_at</code> is more than 8 days old and Claude record files newer than it exist. The build runs every 7 days. On build day the newest loaded record is already as old as the quiet gap before it, and it ages all week. If that gap exceeds one day, the record crosses 8 days before the next build, and any work done since supplies the newer files. The STALE condition is then certain to come true before the next build. It stays true for roughly the gap minus one day, and whether a scheduled check catches it depends on how that window lines up with the check times.</p>
+
+<p>This time the STALE window ran from 20:46 KST on October 9 until the build at 09:30 KST on October 12. Both failed runs fell inside it. The parse error had been hiding an alarm that would have fired on both of those runs and kept firing until Monday.</p>
+
+<p>The second condition makes it worse. With no new activity, the same rule reports INACTIVE and stays quiet. What tripped it was going back to work.</p>
+
+<h2 id="measuring-the-wait-instead-of-the-newest-record">Measuring the wait instead of the newest record</h2>
+
+<p>The Codex note describes the opposite failure in this pipeline: a staleness check keyed to when the database file was last rewritten, which a weekly rebuild always satisfies, so it stayed green while the newest session inside was ten days old. That note closed by recommending a freshness check on the gap between the newest ingested session and the report date. The checker here did exactly that, and <code>test_db_file_mtime_is_not_freshness</code> keeps a freshly rewritten file with old data from reading as FRESH.</p>
+
+<p>Newest-record age answers "when did the data last move?" In a store loaded in weekly batches, that depends on when I happened to stop working before the last batch. The question I wanted answered was "has anything waited too long to be loaded?"</p>
+
+<p>So the definition changed. The check takes the record files modified after the newest <code>ended_at</code> (plus a five-minute grace for that session's own last write) and measures how long the oldest of them has waited: <code>unreflected_wait_seconds</code>. Those files are a proxy for what the database has not loaded yet. When the newest <code>ended_at</code> is more than 8 days old, STALE now also requires that wait to exceed 8 days. If such files exist but none has waited that long, the status is <code>AWAITING_BUILD</code>, which does not alert. A quiet gap before a build no longer trips the alarm; a file has to sit newer than the loaded data for longer than the threshold. The alert line also prints <code>unreflected_wait_seconds=</code>.</p>
+
+<p>Three existing tests were rewritten to the new meaning, and a new one replays October 10: newest <code>ended_at</code> on October 1, first file after the build at 00:58 UTC on October 5, source age over 8 days, expected <code>AWAITING_BUILD</code>. The suite passed at 145, and the shared telemetry environment check passed. The cron command, run verbatim under 3.9, exited 0 with no alert: <code>AWAITING_BUILD</code>, 299 record files waiting, the oldest for 5.37 days, newest-record age 8.94 days. Those are record files, not sessions; one session spans several files. With both causes resolved, I deleted the alert flag.</p>
+
+<h2 id="a-read-only-query-that-wasn-t">A read-only query that wasn't</h2>
+
+<p>I caused one more failure during the investigation. I queried the database directly with Python's <code>sqlite3</code> and a <code>file:...?mode=ro</code> URI. The database runs in WAL mode, and that read left a 0-byte <code>-wal</code> file and a <code>-shm</code> file beside it. The checker refuses to read while a <code>-wal</code> file exists, so the next check reported <code>DB_UNAVAILABLE (active WAL present)</code>. I confirmed no process had the database open and deleted both files.</p>
+
+<p>On a copy, <code>mode=ro</code> created both sidecar files and <code>immutable=1</code> created neither. The checker already opens with <code>immutable=1</code>, and a test verifies that its read of a WAL-mode database leaves the directory unchanged; my hand-typed query skipped that. Direct queries now use <code>?immutable=1</code>. This is what happened on this machine with this database. I have not checked it against SQLite's documentation, so it is not a general claim about SQLite.</p>
+
+<h2 id="what-this-does-not-prove">What this does not prove</h2>
+
+<ul><li>The evidence stops on October 10. The record documents one cron run of the new rule against real data, and it does not show what the check printed after the October 12 build.</li><li>The new rule is quieter on purpose. A new record file can now wait up to 8 days to be loaded with no alert. In the alert mode the cron job uses, <code>AWAITING_BUILD</code> prints nothing; the wait is still recorded in the JSON report.</li><li>The wait is measured from file modification time, which the module itself calls a proxy: the last write to a file, with its contents unread.</li><li>In the code, the link between the 8-day threshold and the 7-day build is a comment beside the constant. If the build cadence changes, the threshold has to change with it by hand.</li><li><code>_fromisoformat()</code> handles a trailing <code>Z</code> or <code>z</code> and nothing else, and the job still runs on the 3.9 system interpreter. Whatever else differs between 3.9 and 3.13 will surface either in a test that runs the module under that interpreter or in the scheduled run itself.</li></ul>
+
+<h2>FAQ</h2>
+<h3>Why did datetime.fromisoformat fail under cron but not in an interactive shell?</h3>
+<p>Under cron's PATH, python3 resolved to /usr/bin/python3, which is 3.9.6, and before Python 3.11 fromisoformat does not accept a trailing Z. The interactive shell ran 3.13, so the error never reproduced by hand. The fix is a wrapper that rewrites a trailing Z or z to +00:00, and a test that runs the module under the cron interpreter reproduced the error before the fix and passed after.</p>
+<h3>Why was the stale alarm certain to trip?</h3>
+<p>Freshness was the age of the newest loaded ended_at, the threshold was 8 days, and the database is rebuilt every 7 days. If the quiet gap before a build exceeds one day, the newest record crosses 8 days before the next build, and any work done since supplies the newer record files the rule also required, so the STALE condition comes true before the next build. Whether a scheduled check catches it depends on the window; the gap before the October 5 build was 3 days, 12 hours and 43 minutes, and both failed runs fell inside the window.</p>
+<h3>What does unreflected_wait_seconds measure, and when does it alert?</h3>
+<p>It is how long the oldest record file modified after the newest loaded ended_at has waited, with a five-minute grace for that session's own last write. When the newest ended_at is more than 8 days old, STALE also requires that wait to exceed 8 days; a shorter wait is AWAITING_BUILD and does not alert. On October 10 the cron run reported AWAITING_BUILD with the oldest file waiting 5.37 days against a newest-record age of 8.94 days, and raised no alert.</p>
+<h3>Did opening SQLite with mode=ro avoid creating files?</h3>
+<p>Not in this setup. A direct query with a mode=ro URI on a WAL-mode database left a 0-byte -wal file and a -shm file, and the checker, which refuses to read while a -wal file exists, reported DB_UNAVAILABLE. On a copy, mode=ro created both files and immutable=1 created neither. That was observed on this machine and not checked against SQLite's documentation.</p>
+<h3>What does the repair still not prove?</h3>
+<p>The evidence stops on October 10; the record documents one cron run of the new rule against real data. A new record file can now wait up to 8 days with no alert, the wait is measured from file modification time, and the link between the 8-day threshold and the 7-day build is a comment beside the constant.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></li>
+<li><a href="./telemetry-stayed-green-while-work-moved-to-codex.html">Our LLM Telemetry Stayed Green While the Work Moved to Codex</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=fromisoformat-fix-unmasked-a-rigged-stale-alarm">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
