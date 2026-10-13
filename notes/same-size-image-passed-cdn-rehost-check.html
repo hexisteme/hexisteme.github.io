@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>A Same-Size Old Image Passed My Upload Check. Codex Found the Race. — hexisteme notes</title>
+<meta name="description" content="My publisher accepted a pasted chart once the editor&#x27;s CDN copy had the expected dimensions, and a Codex review reproduced an older same-size chart passing that check. The fix downloads the rehosted image and compares it with the source by SHA-256, then by exact decoded pixels.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/same-size-image-passed-cdn-rehost-check.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A Same-Size Old Image Passed My Upload Check. Codex Found the Race.">
+<meta property="og:description" content="My publisher accepted a pasted chart once the editor&#x27;s CDN copy had the expected dimensions, and a Codex review reproduced an older same-size chart passing that check. The fix downloads the rehosted image and compares it with the source by SHA-256, then by exact decoded pixels.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/same-size-image-passed-cdn-rehost-check.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/same-size-image-passed-cdn-rehost-check.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A Same-Size Old Image Passed My Upload Check. Codex Found the Race.">
+<meta name="twitter:description" content="My publisher accepted a pasted chart once the editor&#x27;s CDN copy had the expected dimensions, and a Codex review reproduced an older same-size chart passing that check. The fix downloads the rehosted image and compares it with the source by SHA-256, then by exact decoded pixels.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/same-size-image-passed-cdn-rehost-check.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A Same-Size Old Image Passed My Upload Check. Codex Found the Race.", "datePublished": "2026-10-13", "dateModified": "2026-10-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Verifying that an image rehosted by a third-party CDN is the same picture you generated, by comparing content rather than dimensions.", "image": "https://hexisteme.github.io/notes/og/same-size-image-passed-cdn-rehost-check.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why wasn't checking the rehosted image's width and height enough?", "acceptedAnswer": {"@type": "Answer", "text": "Different pictures can share dimensions. In the Codex reproduction, correcting one historical value in the chart data changed the PNG's hash but left the body text and the image dimensions identical, so an earlier chart already on the CDN satisfied both the text check and the size check."}}, {"@type": "Question", "name": "Why didn't requiring an empty editor before the paste fix it?", "acceptedAnswer": {"@type": "Answer", "text": "That only removes leftovers sitting in the editor before the run starts. The bypass happened between the clipboard write and the paste keystroke, and the third Codex round reproduced it with an in-memory mock of the browser while the editor was confirmed empty."}}, {"@type": "Question", "name": "How does the fix compare the images?", "acceptedAnswer": {"@type": "Answer", "text": "compare_rehosted_images downloads each rehosted image from the CDN in order and compares it with the source PNG by SHA-256. If the bytes differ, it requires the same size and identical decoded RGBA pixels. A failed download or a mismatch stops the run before the ATTEMPTED marker."}}, {"@type": "Question", "name": "What did the hash check still let through?", "acceptedAnswer": {"@type": "Answer", "text": "The fourth Codex round found that an animated PNG whose first frame equals the source passed the pixel comparison, and that the download followed redirects off the CDN. The fixes reject multi-frame files and refuse redirect targets and final URLs outside Kakao's CDN, each with a failing test written first."}}, {"@type": "Question", "name": "What happens if the platform starts re-encoding images lossily?", "acceptedAnswer": {"@type": "Answer", "text": "The pixel fallback requires exact equality, so a re-encoding that changes the decoded RGBA pixels would stop that publish at a content mismatch. On the day measured, the CDN copy was byte-identical to the source PNG, which is one observation of one service, not a guarantee."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>A Same-Size Old Image Passed My Upload Check. Codex Found the Race.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-13</p>
+<div class="note">A blog publisher accepted a pasted chart image once the hosted editor's copy on Kakao's CDN reported the expected dimensions. Codex reproduced an older same-size chart passing that check when it landed in the paste between the clipboard write and the paste keystroke, and a first fix that only required an empty editor did not close it. The repair, <code>compare_rehosted_images</code>, downloads each rehosted image and compares it with the source by SHA-256, then by exact decoded pixels, and the next review round still found an APNG and an off-CDN redirect to close.</div>
+
+<p>My blog publisher draws a chart image, pastes the post into a hosted blog editor, and clicks publish on a schedule. The editor does not always keep the image I paste as is. In my probes it re-uploaded some pasted images to Kakao's CDN (<code>blog.kakaocdn.net</code>) and rewrote the <code>src</code>, left others at their original URL, and dropped an image that returned 404 from the post without an error. The re-upload is asynchronous. So before the publish click, the publisher checks the editor: the right number of images, in order, rehosted on the CDN, each with the width and height of the PNG I generated.</p>
+
+<p>That last condition was the whole identity check. Codex, which I use as a second reviewer, showed that an older chart with the same dimensions satisfied it, inside a window between two steps of the publisher.</p>
+
+<h2 id="what-the-check-compared">What the check compared</h2>
+
+<p>The publish sequence runs in this order: write the body to the clipboard, press the paste key, confirm the pasted text (<code>PASTE_VERIFIED</code>), wait for the rehosted images to pass, log <code>BODY_IMAGES_VERIFIED</code>, write an <code>ATTEMPTED</code> delivery marker, click publish. If the image check fails, the run stops with an error before the marker, and the next scheduled slot retries the same body.</p>
+
+<p>The image check exists because the text check alone passed even when images were lost; that was a first-round Codex finding. But the image check compared metadata: the <code>src</code> prefix, whether rehosting had finished, the dimensions. None of those is the picture.</p>
+
+<p>The second Codex round found two ways this went wrong. A missing image could report <code>complete=true</code> with <code>naturalWidth=0</code>, and the check accepted it; I fixed that by also requiring the decoded natural size. The second finding was the one this note is about. Correcting a single historical value in the chart data changed the PNG's hash but left the body text and the image dimensions identical. If an earlier run's body, carrying the earlier chart already on the CDN, landed in the paste between the clipboard write and the paste keystroke, the text check and the size check would both pass. Codex also noted that my publish-gate tests expected <code>ok</code> from an arbitrary CDN address and matching sizes alone, so they could not catch either defect.</p>
+
+<h2 id="the-first-fix-did-not-close-it">The first fix did not close it</h2>
+
+<p>My first repair for that finding required the editor to contain zero images before the paste. That removes leftovers sitting in the editor before the run starts. It does nothing about the window after the clipboard write.</p>
+
+<p>The third Codex round said so. It ran read-only and reproduced the bypass with an in-memory mock of the browser. With the editor confirmed empty, replacing the paste with the earlier body between <code>clipboard.write</code> and the paste key still went <code>BODY_IMAGES_VERIFIED → ATTEMPTED → PUBLISH_CLICK</code>. Its summary: the size comparison does not bind the image content. Five of the seven second-round findings were now blocked; the two that were not were this same defect, once in the publisher and once in the tests. The tests I had added checked a broken image and a non-empty editor before the paste, but nothing replayed the swap after the clipboard write, so the false pass had no test that would go red. It was the second round in a row to report this defect.</p>
+
+<p>The recorded reproductions used mocks and did not observe a real publication. The point is that the check could not have told me if one had.</p>
+
+<h2 id="compare-what-the-cdn-serves">Compare what the CDN serves</h2>
+
+<p>The repair is <code>compare_rehosted_images</code>. Once the editor state looks right, the publisher downloads each rehosted image from the CDN, in order, and compares it with the source PNG. The comparison is SHA-256 first. If the bytes differ, it decodes both files and requires the same size and identical RGBA pixels. A failed download returns <code>fetch</code>, a mismatch returns <code>content</code>, and both stop the run before the <code>ATTEMPTED</code> marker.</p>
+
+<p>I checked the assumption that makes this workable against the real service. I downloaded the CDN copy of the chart, and its SHA-256 matched the source PNG byte for byte (prefix <code>113b23bd</code>). A same-size PNG with different content is blocked as <code>content</code>. When I reverted the fix, three of the new tests failed. The full suite finished at 1,720 passed.</p>
+
+<p>The regression test that models the post-paste image state, <code>test_rehosted_image_content_is_bound_after_paste</code>, has two cases. A fake browser shows a rehosted image only after the clipboard write, and that image reports the expected dimensions in both cases. If the downloaded file is the fresh chart, the result contains <code>BODY_IMAGES_VERIFIED:1</code>. If it is a PNG with a different shade, the result is <code>ERR:body_image_unverified(content)</code>, no publish button is clicked, and no delivery marker is written.</p>
+
+<h2 id="what-a-hash-check-still-let-through">What a hash check still let through</h2>
+
+<p>The fourth Codex round, scoped to this one finding, confirmed the original bypass was blocked and the test gap was filled. It then found two new holes in the comparison itself.</p>
+
+<ul><li><strong>An APNG whose first frame matches (P1).</strong> When the bytes differ, the fallback decodes the image. An animated PNG whose first frame equals the source passed the pixel comparison. The fix rejects any multi-frame file before comparing pixels.</li><li><strong>Redirects that leave the CDN (P2).</strong> The download followed a redirect off the CDN and accepted a final URL outside it. The fix refuses a redirect target outside Kakao's CDN before requesting it, and checks the final URL after the response.</li></ul>
+
+<p>For both, I wrote the failing test first, then the fix. I did not run a fifth Codex round; those two fixes rest on their tests.</p>
+
+<h2 id="a-side-finding-about-the-size-itself">A side finding about the size itself</h2>
+
+<p>The dimensions did not even stay fixed during the work. When I injected the draft into the real blog theme on a 390px screen, the body column was 310px wide, so the 1080px PNG shrank to 0.287x and its axis labels rendered at about 8px. I moved the chart to an 800px canvas, and the smallest text at 310px became 10.9px. The first injection into the real editor recorded the rehosted chart at 1080×1670; after the canvas change, the next recorded 800×1580 with <code>BODY_IMAGES_VERIFIED:1</code>. Neither injection published.</p>
+
+<p>Dimensions are a layout choice. In Codex's reproduction, a corrected chart kept the exact dimensions of the old one. They were never going to tell one day's chart from another's.</p>
+
+<h2 id="what-this-does-not-prove">What this does not prove</h2>
+
+<ul><li><strong>A lossy platform would stop every run.</strong> The pixel fallback requires exact equality. If the platform starts re-encoding images in a way that changes the decoded RGBA pixels, each such publish will stop at <code>content</code>. On the day I measured, the CDN copy was byte-identical; that is one observation of one service, not a guarantee.</li><li><strong>It costs a request per image.</strong> Each body image now means one CDN download, with a 15-second timeout and a 4 MB cap. A failed download stops the run before the marker, and the next slot retries.</li><li><strong>The race was mocked, not seen.</strong> The fix rests on tests plus one live measurement. The first scheduled publish with this path on was the next check, not part of this record.</li><li><strong>A hash binds bytes, not correctness.</strong> It shows the CDN serves the picture I generated. It does not show the chart is right, and the APNG and redirect findings show that a content check has bypasses of its own to enumerate.</li></ul>
+
+<p>The lesson I took: equal dimensions are not identity. When a third party rehosts your asset, download what it serves and compare content hashes, then list what the comparison still accepts. It is the same rule as <a href="https://hexisteme.github.io/notes/verify-the-output-surface.html">verifying the output surface</a>: tests verify the payload you build, not what the other system renders or, here, serves.</p>
+
+<h2>FAQ</h2>
+<h3>Why wasn&#x27;t checking the rehosted image&#x27;s width and height enough?</h3>
+<p>Different pictures can share dimensions. In the Codex reproduction, correcting one historical value in the chart data changed the PNG's hash but left the body text and the image dimensions identical, so an earlier chart already on the CDN satisfied both the text check and the size check.</p>
+<h3>Why didn&#x27;t requiring an empty editor before the paste fix it?</h3>
+<p>That only removes leftovers sitting in the editor before the run starts. The bypass happened between the clipboard write and the paste keystroke, and the third Codex round reproduced it with an in-memory mock of the browser while the editor was confirmed empty.</p>
+<h3>How does the fix compare the images?</h3>
+<p><code>compare_rehosted_images</code> downloads each rehosted image from the CDN in order and compares it with the source PNG by SHA-256. If the bytes differ, it requires the same size and identical decoded RGBA pixels. A failed download or a mismatch stops the run before the ATTEMPTED marker.</p>
+<h3>What did the hash check still let through?</h3>
+<p>The fourth Codex round found that an animated PNG whose first frame equals the source passed the pixel comparison, and that the download followed redirects off the CDN. The fixes reject multi-frame files and refuse redirect targets and final URLs outside Kakao's CDN, each with a failing test written first.</p>
+<h3>What happens if the platform starts re-encoding images lossily?</h3>
+<p>The pixel fallback requires exact equality, so a re-encoding that changes the decoded RGBA pixels would stop that publish at a content mismatch. On the day measured, the CDN copy was byte-identical to the source PNG, which is one observation of one service, not a guarantee.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./test-the-artifact-not-the-pipeline.html">The Renderer Dropped What the Script Ordered. Every Check Watched the Script.</a></li>
+<li><a href="./patch-and-test-wrong-in-the-same-direction.html">The patch and the test were wrong in the same direction</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=same-size-image-passed-cdn-rehost-check">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
