@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>CodeMirror Showed My HTML. The Published Post Was Empty. — hexisteme notes</title>
+<meta name="description" content="A script filled a blog editor&#x27;s CodeMirror with setValue(), confirmed the fill by reading the same CodeMirror value back, and two posts went public with a title and a 0-byte body. The editor&#x27;s onChange ignored setValue changes, so the Redux store the publish payload is built from stayed empty.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/codemirror-setvalue-published-empty-post.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CodeMirror Showed My HTML. The Published Post Was Empty.">
+<meta property="og:description" content="A script filled a blog editor&#x27;s CodeMirror with setValue(), confirmed the fill by reading the same CodeMirror value back, and two posts went public with a title and a 0-byte body. The editor&#x27;s onChange ignored setValue changes, so the Redux store the publish payload is built from stayed empty.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/codemirror-setvalue-published-empty-post.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/codemirror-setvalue-published-empty-post.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CodeMirror Showed My HTML. The Published Post Was Empty.">
+<meta name="twitter:description" content="A script filled a blog editor&#x27;s CodeMirror with setValue(), confirmed the fill by reading the same CodeMirror value back, and two posts went public with a title and a 0-byte body. The editor&#x27;s onChange ignored setValue changes, so the Redux store the publish payload is built from stayed empty.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/codemirror-setvalue-published-empty-post.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CodeMirror Showed My HTML. The Published Post Was Empty.", "datePublished": "2026-10-13", "dateModified": "2026-10-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Verifying a scripted fill of a React-wrapped CodeMirror editor at the Redux store the publish payload is built from, instead of reading back the widget that was just written.", "image": "https://hexisteme.github.io/notes/og/codemirror-setvalue-published-empty-post.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did the fill check pass when the published body was empty?", "acceptedAnswer": {"@type": "Answer", "text": "It read back the CodeMirror value the script had just written with setValue(), so it matched by construction. The publish payload's body comes from the Redux field post.newPost.content, and the editor's react-codemirror onChange ignores changes whose origin is setValue, so that field stayed empty."}}, {"@type": "Question", "name": "How was the editor fill changed?", "acceptedAnswer": {"@type": "Answer", "text": "The script first requires exactly one visible HTML-mode CodeMirror, then replaces the whole document with replaceRange and the origin '+input' instead of calling setValue(). With an origin other than setValue, onChange fires and the store picks up the content."}}, {"@type": "Question", "name": "How does the script verify what will actually be published?", "acceptedAnswer": {"@type": "Answer", "text": "It walks up the React fiber tree from the editor's container element to a component whose props hold the Redux store, reads getState().post.newPost, and requires content to equal the prepared HTML exactly, along with the title, category and post id, plus tags for a new post. If any check fails it closes the tab, so there is nothing to publish."}}, {"@type": "Question", "name": "What did the repaired path show on real posts?", "acceptedAnswer": {"@type": "Answer", "text": "The two empty posts were refilled in place with exact store matches of 16,397 of 16,397 and 10,085 of 10,085 characters, then published by the owner through the captcha. A read-only record step compared the saved editor body and the public page with the prepared bytes and recorded both as published. Two new posts later matched exactly at 16,290 and 15,397 characters."}}, {"@type": "Question", "name": "What does the store check not prove?", "acceptedAnswer": {"@type": "Answer", "text": "It proves the store held the prepared bytes when the script looked, not what happens between that moment and the publish click. It relies on React internals and the store's shape, and the post-publish record step can refuse a receipt but cannot take an already public post down."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>CodeMirror Showed My HTML. The Published Post Was Empty.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-13</p>
+<div class="note">A browser-automation script filled a blog editor's HTML-mode CodeMirror with <code>setValue()</code> and confirmed the fill by reading the same CodeMirror value back, and two posts went public with a title and a 0-byte body. The editor's react-codemirror <code>onChange</code> ignored changes with origin <code>setValue</code>, so the Redux field the publish payload comes from, <code>post.newPost.content</code>, stayed empty. The repair fills through <code>replaceRange(..., '+input')</code> and verifies the store itself, found through the React fiber tree, with an exact match before a person may publish.</div>
+
+<p>On 2026-10-10, two posts on a Tistory blog I publish to went public with a title and a body of 0 bytes. The script that prepared them had checked its own work, and the check had passed for both.</p>
+
+<p>Some context. Tistory asks for a human captcha on every save, so my publisher's own POST and PUT requests were coming back 400. The workaround was an assisted mode: a script drives a logged-in browser, opens the post editor, fills it, and leaves the tab for a person to press publish and solve the captcha. The script's whole job ends at one claim: this tab now holds the right post. That claim was false twice, and nothing in the script noticed.</p>
+
+<h2 id="the-check-that-could-not-fail">The check that could not fail</h2>
+
+<p>The post editor has an HTML mode backed by a CodeMirror instance. The fill step put the prepared HTML in with <code>setValue()</code>. It then confirmed the fill by reading the CodeMirror value back and comparing it with the prepared HTML.</p>
+
+<p>They matched, because the value it read was the value it had just written. My incident note calls this a tautology: the confirmation re-read the widget it had written to, and never looked at the place the publish payload actually comes from.</p>
+
+<h2 id="where-the-payload-actually-comes-from">Where the payload actually comes from</h2>
+
+<p>The editor is a React app with a Redux store. When the post is published, the body in the payload comes from <code>post.newPost.content</code> in that store, not from the CodeMirror instance on screen. Something has to carry each edit from CodeMirror into the store, and in this editor that is the <code>onChange</code> handler of the react-codemirror wrapper around the HTML mode.</p>
+
+<p>That handler ignores changes whose origin is <code>setValue</code>. So the sequence on the day was:</p>
+
+<ul><li><code>setValue()</code> put the HTML into CodeMirror.</li><li>CodeMirror reported the change with origin <code>setValue</code>, and the wrapper dropped it.</li><li>The store's <code>content</code> stayed empty.</li><li>My read-back of CodeMirror returned the full HTML, so the script reported success.</li><li>The post was published, and the payload carried an empty body.</li></ul>
+
+<p>There were two copies of "the post body" on the page: CodeMirror's text and the store's field, joined by an event handler that gets to decide which edits count. My check read the copy the submit path never reads. My notes don't record a version for the wrapper, so treat "onChange ignores origin <code>setValue</code>" as behaviour observed in this editor in October 2026, not as a promise about every react-codemirror release.</p>
+
+<h2 id="the-repair-write-like-an-edit-read-where-the-payload-reads">The repair: write like an edit, read where the payload reads</h2>
+
+<p>The fix is a small Playwright script, attached to the logged-in browser over CDP, that changes both halves.</p>
+
+<p><strong>Fill through an edit the wrapper forwards.</strong> Before writing, the script requires exactly one visible HTML-mode CodeMirror and refuses otherwise. It then replaces the whole document with a range edit tagged <code>'+input'</code> instead of calling <code>setValue()</code>. This is the line from the script:</p>
+
+<pre><code>cm.replaceRange(html, {line: 0, ch: 0}, {line: last, ch: cm.getLine(last).length}, &#x27;+input&#x27;);</code></pre>
+
+<p>Because the origin is no longer <code>setValue</code>, <code>onChange</code> fires and the store picks up the content.</p>
+
+<p><strong>Verify at the store.</strong> After the fill, the script finds the Redux store by walking up the React fiber tree from the editor's container element until it reaches a component whose props hold a store, then reads <code>getState().post.newPost</code>. Trimmed from the script:</p>
+
+<pre><code>const key = Object.keys(el).find(k =&gt; k.startsWith(&#x27;__reactFiber$&#x27;));
+for (let f = el[key]; f; f = f.return) {
+  const store = f.memoizedProps &amp;&amp; f.memoizedProps.store;
+  if (store &amp;&amp; store.getState) return store.getState().post.newPost;
+}</code></pre>
+
+<p>It requires <code>content</code> to equal the prepared HTML exactly, and also checks the title, the category and the post id (plus the tag list when it creates a new post). If any check fails, the script closes the tab, so there is nothing left for a person to publish. Only when everything passes does it print <code>READY_FOR_OWNER</code> and leave the tab open.</p>
+
+<p>The script also has a blocked mode that aborts every POST, PUT, DELETE or PATCH from the tab and closes the tab afterwards. Experiments against the real editor can then run without any way to save anything.</p>
+
+<h2 id="validation">Validation</h2>
+
+<p>The two empty posts were refilled in place through the new path. Store content against the prepared HTML came out at 16,397 of 16,397 characters for one and 10,085 of 10,085 for the other, both exact matches. The owner then published both through the captcha.</p>
+
+<p>After that, a separate read-only record step, which never writes to the blog, read each saved post's editor body and its anonymous public page back and compared them with the prepared bytes before writing a receipt to the publishing queue. Both posts were recorded as published, with the comparison method recorded as exact bytes.</p>
+
+<p>Two days later, two new posts went through the same path. Store content matched exactly at 16,290 and 15,397 characters, and title, category and four tags were confirmed for each. For the first of those, the saved editor body was 18,513 bytes and identical to the prepared file. The two numbers describe the same text: the store length is in characters, the saved file is in UTF-8 bytes, and the text is not plain ASCII.</p>
+
+<h2 id="the-general-version">The general version</h2>
+
+<p>A read-back from the widget you just wrote to is an echo. It tells you the write call didn't throw. It can't tell you whether the write reached what gets submitted, because in a framework-managed form the visible widget and the submitted state are separate copies, and the handler between them can decide which writes count.</p>
+
+<p>So the check belongs where the submit path reads: the store field, the request payload, or the saved record. In <a href="https://hexisteme.github.io/notes/verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a>, green tests verified the payload a pipeline built rather than what the other system rendered. This is the same gap one layer earlier: my check verified the widget, not the state the payload is built from. It also rhymes with <a href="https://hexisteme.github.io/notes/the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a>, where a guard kept returning PASS because it tested a probe row it manufactured itself, whether or not the real table held any data.</p>
+
+<h2 id="aside-bootout-is-not-off">Aside: bootout is not off</h2>
+
+<p>The old fully automated publish job, which still sent the requests the captcha now blocks, had been taken down on 10-10. Two days later it was loaded again and getting POST 400 every 15 minutes, so I unloaded it with <code>launchctl bootout</code>. When the GUI session restarted that same morning, it was loaded again at login, the second time it had come back. The fix that time was <code>bootout</code> followed by <code>launchctl disable</code>, which my notes record as keeping it down across a re-login. In this setup, unloading a job was not the same as keeping it off.</p>
+
+<h2 id="what-this-does-not-prove">What this does not prove</h2>
+
+<ul><li>The store check proves the store held the prepared bytes at the moment the script looked. Between that moment and the publish click, the tab is in a person's hands.</li><li>The fiber walk depends on React internals (<code>__reactFiber$</code> keys) and on the store's shape. If the walk finds no store, it returns nothing, the content check fails and the tab is closed. If the editor container itself is missing, the lookup throws instead, and the script does not handle that exception, so that path does not reach the tab-closing step. Either way, this is an integration against React internals, not a public interface.</li><li>The record step only accepts a post that is already public. It can refuse to write a receipt; it cannot take an empty post back down.</li><li>A correct fill doesn't make the bookkeeping correct. One of the later posts went out with exact bytes, but the queue refused to record it because the worklist had moved to a newer revision in the meantime. The guard behaved as designed and I didn't bypass it, so the queue has no receipt for that post.</li></ul>
+
+<h2>FAQ</h2>
+<h3>Why did the fill check pass when the published body was empty?</h3>
+<p>It read back the CodeMirror value the script had just written with setValue(), so it matched by construction. The publish payload's body comes from the Redux field post.newPost.content, and the editor's react-codemirror onChange ignores changes whose origin is setValue, so that field stayed empty.</p>
+<h3>How was the editor fill changed?</h3>
+<p>The script first requires exactly one visible HTML-mode CodeMirror, then replaces the whole document with replaceRange and the origin '+input' instead of calling setValue(). With an origin other than setValue, onChange fires and the store picks up the content.</p>
+<h3>How does the script verify what will actually be published?</h3>
+<p>It walks up the React fiber tree from the editor's container element to a component whose props hold the Redux store, reads getState().post.newPost, and requires content to equal the prepared HTML exactly, along with the title, category and post id, plus tags for a new post. If any check fails it closes the tab, so there is nothing to publish.</p>
+<h3>What did the repaired path show on real posts?</h3>
+<p>The two empty posts were refilled in place with exact store matches of 16,397 of 16,397 and 10,085 of 10,085 characters, then published by the owner through the captcha. A read-only record step compared the saved editor body and the public page with the prepared bytes and recorded both as published. Two new posts later matched exactly at 16,290 and 15,397 characters.</p>
+<h3>What does the store check not prove?</h3>
+<p>It proves the store held the prepared bytes when the script looked, not what happens between that moment and the publish click. It relies on React internals and the store's shape, and the post-publish record step can refuse a receipt but cannot take an already public post down.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./verify-the-output-surface.html">Verify the Output Surface: How 19 Green Tests Shipped Nine Broken Titles for Nine Days</a></li>
+<li><a href="./the-guard-passed-on-an-empty-table.html">The Guard Passed on an Empty Table</a></li>
+<li><a href="./a-measurement-that-never-ran-became-a-verdict.html">A Measurement That Never Ran Became a Verdict: A Second Automated Chrome Answered for the First</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=codemirror-setvalue-published-empty-post">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
