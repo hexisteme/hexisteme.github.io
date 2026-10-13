@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Qwen3-TTS Silently Dropped My Instruction, and My A/B Never Noticed — hexisteme notes</title>
+<meta name="description" content="In qwen_tts 0.1.1, generate_custom_voice sets the instruction to None on the 0.6B model without any warning, so half of my speech-rate A/B compared runs that never received it. Before comparing settings of a control knob, show that it moves a measurable output such as words per minute or F0.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/qwen3-tts-silently-dropped-the-instruction.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Qwen3-TTS Silently Dropped My Instruction, and My A/B Never Noticed">
+<meta property="og:description" content="In qwen_tts 0.1.1, generate_custom_voice sets the instruction to None on the 0.6B model without any warning, so half of my speech-rate A/B compared runs that never received it. Before comparing settings of a control knob, show that it moves a measurable output such as words per minute or F0.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/qwen3-tts-silently-dropped-the-instruction.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/qwen3-tts-silently-dropped-the-instruction.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Qwen3-TTS Silently Dropped My Instruction, and My A/B Never Noticed">
+<meta name="twitter:description" content="In qwen_tts 0.1.1, generate_custom_voice sets the instruction to None on the 0.6B model without any warning, so half of my speech-rate A/B compared runs that never received it. Before comparing settings of a control knob, show that it moves a measurable output such as words per minute or F0.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/qwen3-tts-silently-dropped-the-instruction.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Qwen3-TTS Silently Dropped My Instruction, and My A/B Never Noticed", "datePublished": "2026-10-13", "dateModified": "2026-10-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Verifying that a text-to-speech control knob such as an instruction actually changes measurable output (words per minute, F0) before comparing its settings.", "image": "https://hexisteme.github.io/notes/og/qwen3-tts-silently-dropped-the-instruction.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Where does qwen_tts drop the instruction?", "acceptedAnswer": {"@type": "Answer", "text": "In qwen_tts 0.1.1, generate_custom_voice checks self.model.tts_model_size in \"0b6\" and sets instruct = None. The 0.6B CustomVoice checkpoint carries the 0b6 size tag, so its instruction becomes None before tokenisation and generation proceeds as if none had been passed."}}, {"@type": "Question", "name": "Does qwen_tts warn when it drops the instruction?", "acceptedAnswer": {"@type": "Answer", "text": "Not in the installed 0.1.1 package. The branch raises no exception and emits no warning or log line, and the docstring describes instruct as optional without mentioning model size. The call returns normal audio."}}, {"@type": "Question", "name": "Was the conclusion that instruction cannot reach 230 wpm wrong?", "acceptedAnswer": {"@type": "Answer", "text": "The 0.6B half did not test the instruction's effect, because those runs never received the instruction. The 1.7B runs did receive it and reached 140.6 and 126.3 wpm against matched no-instruction runs at 129.9 and 128.3 wpm, which still supports the narrow claim for those two prompts, on one run per prompt."}}, {"@type": "Question", "name": "How did tone control on the Qwen3 Base clone model behave?", "acceptedAnswer": {"@type": "Answer", "text": "Injected instruction ids gave nearly the same output for excited and calm (F0 237/59 Hz versus 234/56 Hz), while Korean clones from calm and excited reference clips came out at 221/52 Hz and 271/86 Hz. Tone control therefore goes through a bank of per-tone reference clips."}}, {"@type": "Question", "name": "What should be checked before an A/B on a control knob?", "acceptedAnswer": {"@type": "Answer", "text": "Run the knob at its two extremes and measure a number that should move, such as wpm for speed or F0 for tone, trace an optional argument's path to the model input, calibrate the measuring instrument against a control known to differ, and repeat the check on the model size, speaker and mode you will ship."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Qwen3-TTS Silently Dropped My Instruction, and My A/B Never Noticed</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-13</p>
+<div class="note">In <code>qwen_tts</code> 0.1.1, <code>generate_custom_voice</code> sets <code>instruct = None</code> when the loaded model's size tag is <code>0b6</code>, with no exception, warning or log line, so the 0.6B half of a speech-rate A/B compared runs that never received the instruction. The 1.7B half did receive it and still reached only 140.6 and 126.3 wpm against matched no-instruction runs at 129.9 and 128.3 wpm. On the Base clone model, injected instruction ids left F0 nearly unchanged while the reference clip moved it, so tone control went through per-tone reference clips.</div>
+
+<p>While evaluating Qwen3-TTS for narration, I ran a small A/B to see whether an instruction could raise the speaking rate. It couldn't, I wrote that down, and speed control moved to post-processing. The next day a different experiment turned up a line of code that made half of that A/B meaningless: on the smaller model, the instruction never reached the model. The call returned normal audio, the transcript was perfect, and nothing in the measurements looked wrong.</p>
+
+<p>Before comparing settings of a control knob, show that the knob moves the output at all. Otherwise the comparison measures nothing.</p>
+
+<h2 id="the-a-b">The A/B</h2>
+
+<p>The goal was fast narration, around 230 words per minute. The setup was Qwen3-TTS's CustomVoice models through the <code>qwen_tts</code> 0.1.1 package on torch with the MPS backend, at two sizes: 0.6B and 1.7B. <code>generate_custom_voice</code> has no speed or rate parameter. Its only lever is <code>instruct</code>, a free-text instruction. I tried two instructions on both model sizes, one asking for roughly 230 wpm and one asking for auctioneer-fast delivery.</p>
+
+<p>Rate was measured over the voiced part of an 18-word sentence. The 0.6B model came in at 139.1 and 131.8 wpm for the two instructions, and the 1.7B at 140.6 and 126.3. The matched no-instruction runs on the same sentence came in at 129.9 wpm for the 0.6B and 128.3 for the 1.7B. The decision record summarised this as a gain of 0–8% over a 126–130 baseline; against the matched baselines, the largest change was 140.6 against 128.3, or +9.6%. Word error rate stayed at 0%. The decision record concluded that instruction could not get to 230 wpm and pointed to a post-processing time-stretch or the other engine's speed setting instead.</p>
+
+<p>The same record chose the 0.6B as the default model. Its peak memory footprint of 3.22 GiB fit a rule requiring 4 GiB of available memory, and the 1.7B's 5.6 GiB did not.</p>
+
+<h2 id="the-line-that-discarded-it">The line that discarded it</h2>
+
+<p>A voice-cloning smoke test the next day recorded this as a side finding. In <code>qwen_tts</code> 0.1.1, <code>generate_custom_voice</code> contains:</p>
+
+<pre><code>if self.model.tts_model_size in &quot;0b6&quot;: # for 0b6 model, instruct is not supported
+    instruct = None</code></pre>
+
+<p>The 0.6B CustomVoice checkpoint's config carries the size tag <code>0b6</code>. For that model the instruction becomes <code>None</code> before tokenisation and generation proceeds as if none had been passed. The 1.7B checkpoint carries a different tag, so its instructions went through.</p>
+
+<p>Nothing in the installed 0.1.1 package announces the drop. The branch raises no exception and emits no warning or log line. The wrapper file that holds the branch has no logging calls at all, and the two <code>warning_once</code> calls in the model file concern gradient checkpointing. The docstring describes <code>instruct</code> as optional, "If None, treated as empty (no instruction)", and says nothing about model size. Passing an instruction to the 0.6B model is accepted, has no effect, and returns perfectly good audio.</p>
+
+<p>So the two 0.6B "instructed" runs were really two more runs without an instruction. One of them landed at 139.1 wpm, above its matched no-instruction run at 129.9, with no instruction behind it.</p>
+
+<p>The pattern matches <a href="https://hexisteme.github.io/notes/why-my-correct-config-value-was-being-ignored.html">Why My Correct Config Value Was Being Ignored</a>: a correct value set in one place gets overruled before it reaches the code that uses it, and nothing throws.</p>
+
+<h2 id="what-the-a-b-still-supports">What the A/B still supports</h2>
+
+<p>The 0.6B half did not test the instruction's effect. The other half did receive the instruction, and the 1.7B runs reached 140.6 and 126.3 wpm. That pair still supports the narrow claim that these two prompts did not get the 1.7B anywhere near 230 wpm. It rests on one run per prompt, though, and the 0.6B pair shows that a run without any instruction on the same sentence can land at 139.1. The models differ, so this does not show the 1.7B instruction did nothing. It does show that no run in the A/B demonstrated the knob changing the output.</p>
+
+<p>Nothing in the A/B flagged the problem. There was no error, the WER was 0%, and the small rise in wpm looked like a weak effect when one input was in fact missing. The record looked like a finished experiment.</p>
+
+<p>Speed control went to a per-segment ffmpeg <code>atempo</code> stage that rejects factors outside 0.5–2.0. A calibration run set the factor: Qwen3's raw speech ran at about 131 wpm against an effective 183 for the existing engine, so matching it took factors of 1.41 to 1.76 depending on the speaker.</p>
+
+<h2 id="checking-the-knob-on-the-clone-model">Checking the knob on the clone model</h2>
+
+<p>The smoke test that found the line also asked the question the A/B had skipped, this time about tone on the clone model. Qwen3's Base model, which does the cloning, has no <code>instruct</code> argument on its public clone method, and issue #25 says Base does not support instruction. The smoke test passed instruction ids through a non-public path anyway and measured the result. With an "excited" instruction the clone came out at an F0 mean/standard deviation of 237/59 Hz and 6.80 syllables per second. With "calm" it came out at 234/56 Hz and 6.46. There was no error, and these single runs did not show meaningful tone separation.</p>
+
+<p>The reference clip, by contrast, moved the output a lot. Cloning Korean from a calm reference gave 221/52 Hz at 5.99 syllables/s, and an excited reference gave 271/86 Hz at 6.42. Into English, the same two references gave 221/42 and 217/41, so tone transfer across languages was weak.</p>
+
+<p>So tone control goes through a bank of per-tone reference clips, not instructions. On my own recordings the Qwen tone bank spread F0 by 23.3 Hz across five tones and rate by 1.94 syllables/s. Its rank correlations against my own five-tone reading were 0.7 for F0 and 0.6 for rate. With n=5, that shows direction only.</p>
+
+<p>The same check caught a knob that worked on one voice and not another. VoxCPM2's bracketed style prefix separated tones on the stand-in speaker, but on my voice the five tones spread F0 by only 7.3 Hz, with a rank correlation of -0.41. A knob checked on a stand-in has to be checked again on the configuration that ships.</p>
+
+<h2 id="the-instrument-needs-the-same-check">The instrument needs the same check</h2>
+
+<p>The Base model's built-in speaker encoder scored the clones at 0.987–0.994 cosine similarity and a different, male preset speaker at 0.946. The clones were above that control, but on a narrow scale. Re-measured with WavLM-SV, which belongs to neither TTS system, the different speaker scored 0.275 and the same speaker across other tone references scored 0.977–0.992. <a href="https://hexisteme.github.io/notes/the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a> makes a related point about checks: a check that flips on cue still has to be shown to react to the property it guards.</p>
+
+<h2 id="the-rule-i-take-from-it">The rule I take from it</h2>
+
+<p>Before running an A/B on a control knob:</p>
+
+<ul><li>Run the knob at its two extremes and measure a number that should move, such as wpm for speed or F0 for tone. If the extremes don't separate by more than repeat runs vary, stop.</li><li>For an optional argument, trace its path to the model input. A library can discard it without raising an error.</li><li>Calibrate the measuring instrument against a control known to differ.</li><li>Repeat the check on the model size, speaker and mode you will ship, not only the one you prototyped on.</li></ul>
+
+<h2 id="what-this-does-not-settle">What this does not settle</h2>
+
+<p>The clone numbers come from one run per combination with seed 7 fixed, and the speed A/B from one synthesis per setting, so they show direction only. The stand-in reference clips were generated by Qwen's own CustomVoice model, which gives Qwen Base a favourable distribution to reproduce. That bias is why the timbre-similarity ranking had to be measured again on my own recordings. The blind listening test on those recordings had one listener and 15 Korean clips. The Qwen tone bank got 2 of 5 tones right, against a chance level of 1 in 5. Serene, calm and warm were mixed up with each other, and my own reading has nearly the same F0 for those three, so part of that limit probably comes from the reference performance. That is an estimate, not a measurement.</p>
+
+<p>The dropped instruction is observed behaviour in <code>qwen_tts</code> 0.1.1. The package comment says instruction is not supported for the 0.6B model, and I did not test whether that checkpoint would respond if the wrapper passed an instruction through. Later releases may handle this differently. The 1.7B speed result still rests on two runs.</p>
+
+<h2>FAQ</h2>
+<h3>Where does qwen_tts drop the instruction?</h3>
+<p>In <code>qwen_tts</code> 0.1.1, <code>generate_custom_voice</code> checks <code>self.model.tts_model_size in "0b6"</code> and sets <code>instruct = None</code>. The 0.6B CustomVoice checkpoint carries the <code>0b6</code> size tag, so its instruction becomes None before tokenisation and generation proceeds as if none had been passed.</p>
+<h3>Does qwen_tts warn when it drops the instruction?</h3>
+<p>Not in the installed 0.1.1 package. The branch raises no exception and emits no warning or log line, and the docstring describes <code>instruct</code> as optional without mentioning model size. The call returns normal audio.</p>
+<h3>Was the conclusion that instruction cannot reach 230 wpm wrong?</h3>
+<p>The 0.6B half did not test the instruction's effect, because those runs never received the instruction. The 1.7B runs did receive it and reached 140.6 and 126.3 wpm against matched no-instruction runs at 129.9 and 128.3 wpm, which still supports the narrow claim for those two prompts, on one run per prompt.</p>
+<h3>How did tone control on the Qwen3 Base clone model behave?</h3>
+<p>Injected instruction ids gave nearly the same output for excited and calm (F0 237/59 Hz versus 234/56 Hz), while Korean clones from calm and excited reference clips came out at 221/52 Hz and 271/86 Hz. Tone control therefore goes through a bank of per-tone reference clips.</p>
+<h3>What should be checked before an A/B on a control knob?</h3>
+<p>Run the knob at its two extremes and measure a number that should move, such as wpm for speed or F0 for tone, trace an optional argument's path to the model input, calibrate the measuring instrument against a control known to differ, and repeat the check on the model size, speaker and mode you will ship.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./why-my-correct-config-value-was-being-ignored.html">Why My Correct Config Value Was Being Ignored</a></li>
+<li><a href="./the-negative-control-that-tested-the-wrong-field.html">The negative control that tested the wrong field</a></li>
+<li><a href="./the-ablation-had-four-arms-none-matched-what-shipped.html">The Ablation Had Four Arms. None Matched What Shipped.</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=qwen3-tts-silently-dropped-the-instruction">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
