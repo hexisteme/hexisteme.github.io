@@ -140,6 +140,52 @@
             display: block;
             margin-bottom: 3px;
         }
+        .settlement {
+            background: #FFF5EE;
+            border: 1px solid #FFE0D0;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+        .settlement-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #C97B5A;
+            margin-bottom: 4px;
+        }
+        .settlement-meta {
+            font-size: 12px;
+            color: #8B7B6E;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            word-break: keep-all;
+        }
+        .settlement-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .settlement-item {
+            font-size: 13px;
+            color: #2D2A26;
+            background: #fff;
+            border-radius: 10px;
+            padding: 8px 10px;
+            border: 1px solid #F5E4D7;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        .settlement-empty {
+            font-size: 13px;
+            color: #8B7B6E;
+            text-align: center;
+            padding: 10px 0;
+            line-height: 1.4;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px dashed #F5E4D7;
+        }
     </style>
 </head>
 <body>
@@ -149,8 +195,14 @@
         <p class="subtitle">정총무 · 카드 문자만 붙여도 자동 정산</p>
 
         <div id="restore-banner" class="restore">
-            🔁 아까 받은 초대가 저장되어 있어요 — 아래 버튼으로 이어서 합류하세요
+            🔁 아까 받은 정산 링크가 저장되어 있어요 — 아래 버튼으로 이어서 여세요
         </div>
+
+        <section id="settlement-section" class="settlement" style="display:none">
+            <div class="settlement-title">누가 누구에게 얼마</div>
+            <div id="settlement-meta" class="settlement-meta" style="display:none"></div>
+            <div id="settlement-list" class="settlement-list"></div>
+        </section>
 
         <div class="room">
             <div id="room-name" class="room-name">정총무 정산방</div>
@@ -178,14 +230,14 @@
 
         <p class="hint">
             앱이 없다면: 설치 후 <b>이 페이지로 돌아오면</b><br>
-            초대가 저장되어 있어 바로 이어집니다.
+            링크가 저장되어 있어 바로 이어집니다.
         </p>
         <p class="kakao-tip">
             카카오톡에서 앱이 열리지 않으면 오른쪽 위 ⋯ 메뉴 →<br>
             <b>'Safari로 열기'</b> 후 다시 시도해 주세요.
         </p>
         <p class="lang-en">
-            No app yet? Install, then return to this page — your invite is saved here.
+            No app yet? Install, then return to this page — your link is saved here.
         </p>
     </main>
 
@@ -236,6 +288,10 @@
 
         function renderRoom(payload) {
             if (!payload) return;
+            if (Array.isArray(payload.st)) {
+                const titleEl = document.querySelector('h1');
+                if (titleEl) titleEl.textContent = '정산 현황이 도착했어요';
+            }
             if (payload.tn) {
                 const safe = String(payload.tn).slice(0, 60);
                 document.getElementById('room-name').textContent = '‘' + safe + '’';
@@ -244,7 +300,10 @@
             const expenseCount = Array.isArray(payload.es) ? payload.es.length : 0;
             const parts = [];
             if (memberCount > 0) parts.push('멤버 ' + memberCount + '명');
-            if (expenseCount > 0) parts.push('지출 ' + expenseCount + '건');
+            if (expenseCount > 0) {
+                const hasValidN = typeof payload.n === 'number' && Number.isInteger(payload.n) && payload.n >= 0 && payload.n <= 1e11;
+                parts.push(hasValidN ? '총무 지출 ' + payload.n + '건 중 최근 ' + expenseCount + '건' : '지출 ' + expenseCount + '건');
+            }
             if (typeof payload.sd === 'number' && typeof payload.ed === 'number') {
                 const sd = new Date(payload.sd * 1000);
                 const ed = new Date(payload.ed * 1000);
@@ -253,6 +312,90 @@
             }
             if (parts.length > 0) {
                 document.getElementById('room-meta').textContent = parts.join(' · ');
+            }
+
+            const settlementSection = document.getElementById('settlement-section');
+            if (settlementSection) {
+                if (Array.isArray(payload.st)) {
+                    const metaEl = document.getElementById('settlement-meta');
+                    const listEl = document.getElementById('settlement-list');
+
+                    while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+                    metaEl.textContent = '';
+
+                    const metaParts = [];
+                    if (typeof payload.tot === 'number' && Number.isFinite(payload.tot) && payload.tot >= 0 && payload.tot <= 1e11) {
+                        metaParts.push('총 지출 ' + Math.round(payload.tot).toLocaleString('ko-KR') + '원');
+                    }
+                    if (typeof payload.n === 'number' && Number.isFinite(payload.n) && payload.n >= 0 && payload.n <= 1e11) {
+                        metaParts.push('총무 지출 ' + Math.round(payload.n).toLocaleString('ko-KR') + '건 기준');
+                    }
+                    if (typeof payload.gt === 'number' && Number.isFinite(payload.gt) && payload.gt >= 0 && payload.gt <= 4102444800) {
+                        const gtDate = new Date(payload.gt * 1000);
+                        const m = gtDate.getMonth() + 1;
+                        const d = gtDate.getDate();
+                        const hh = String(gtDate.getHours()).padStart(2, '0');
+                        const mm = String(gtDate.getMinutes()).padStart(2, '0');
+                        metaParts.push(`${m}월 ${d}일 ${hh}:${mm} 기준`);
+                    }
+
+                    if (metaParts.length > 0) {
+                        metaEl.textContent = metaParts.join(' · ');
+                        metaEl.style.display = 'block';
+                    } else {
+                        metaEl.style.display = 'none';
+                    }
+
+                    const ms = Array.isArray(payload.ms) ? payload.ms : [];
+                    const rawSt = payload.st.slice(0, 60);
+                    let validCount = 0;
+
+                    for (let i = 0; i < rawSt.length; i++) {
+                        const item = rawSt[i];
+                        if (!item || typeof item !== 'object') continue;
+                        if (typeof item.f !== 'string' && typeof item.f !== 'number') continue;
+                        if (typeof item.t !== 'string' && typeof item.t !== 'number') continue;
+                        const fStr = String(item.f).trim();
+                        const tStr = String(item.t).trim();
+                        if (fStr === '' || tStr === '') continue;
+                        const fIdx = Number(fStr);
+                        const tIdx = Number(tStr);
+                        if (!Number.isInteger(fIdx) || !Number.isInteger(tIdx)) continue;
+                        if (fIdx < 0 || fIdx >= ms.length || tIdx < 0 || tIdx >= ms.length) continue;
+
+                        const fromMember = ms[fIdx];
+                        const toMember = ms[tIdx];
+                        if (!fromMember || !toMember || typeof fromMember.n !== 'string' || typeof toMember.n !== 'string') continue;
+                        const fromName = fromMember.n.trim().slice(0, 30);
+                        const toName = toMember.n.trim().slice(0, 30);
+                        if (!fromName || !toName) continue;
+
+                        if (typeof item.a !== 'number' || !Number.isFinite(item.a) || item.a < 0 || item.a > 1e11) continue;
+
+                        const amountStr = Math.round(item.a).toLocaleString('ko-KR') + '원';
+                        const rowEl = document.createElement('div');
+                        rowEl.className = 'settlement-item';
+                        rowEl.textContent = `${fromName} → ${toName} ${amountStr}`;
+                        listEl.appendChild(rowEl);
+                        validCount++;
+                    }
+
+                    if (validCount === 0) {
+                        if (payload.st.length === 0) {
+                            const emptyEl = document.createElement('div');
+                            emptyEl.className = 'settlement-empty';
+                            emptyEl.textContent = '정산할 금액이 없어요 (모두 0원)';
+                            listEl.appendChild(emptyEl);
+                            settlementSection.style.display = 'block';
+                        } else {
+                            settlementSection.style.display = 'none';
+                        }
+                    } else {
+                        settlementSection.style.display = 'block';
+                    }
+                } else {
+                    settlementSection.style.display = 'none';
+                }
             }
         }
 
