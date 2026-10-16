@@ -24,7 +24,7 @@
 <body>
 <p class="back"><a href="../">← 너의 관상은</a></p>
 <h1>개인정보처리방침</h1>
-<p class="meta">최종 수정일: 2026-10-15 · Effective: 2026-10-15</p>
+<p class="meta">최종 수정일: 2026-10-16 · Effective: 2026-10-16</p>
 
 <p>
   너의 관상은(이하 "본 앱")는 계정 가입이 없고 자체 서버를 운영하지 않습니다.
@@ -51,9 +51,9 @@
       <td>기기에 저장 · 서버 전송 없음 · 기기 백업(iCloud 백업 포함)에 포함</td>
     </tr>
     <tr>
-      <td>얼굴 사진 분석(관상)</td>
+      <td>얼굴 정보(얼굴 사진과 그 사진에서 잰 눈·눈썹·코·입·얼굴선 위치와 비율) — 2-1항</td>
       <td>관상 풀이</td>
-      <td>기기 안에서 처리 · 외부 전송 없음</td>
+      <td>기기 안에서만 처리 · 저장하지 않음 · 외부 전송 없음</td>
     </tr>
     <tr>
       <td>생년월일시·양력/음력·출생지(사주 프로필)</td>
@@ -72,6 +72,26 @@
   <li>사진 앱 저장은 사용자가 직접 저장을 누를 때만, 추가 전용 권한으로 합니다. 사진 앱의 기존 사진은 읽지 않습니다.</li>
   <li>사진 공유는 사용자가 공유 버튼을 눌러 직접 고른 앱으로만 보냅니다.</li>
   <li>현상 완료 알림은 기기 안에서 예약되는 로컬 알림입니다.</li>
+  <li>매일 「오늘」 알림은 사용자가 앱 설정에서 직접 켤 때만 기기 안에서 예약되는 로컬 알림입니다.</li>
+  <li>해외 출생지는 앱에 들어 있는 도시 목록(GeoNames, CC BY 4.0)에서 고릅니다. 기기 위치 권한은 쓰지 않습니다.</li>
+</ul>
+
+<h3>2-1. 얼굴 정보(생체 정보)</h3>
+<ul>
+  <li><strong>무엇을:</strong> 관상을 볼 때 고른 얼굴 하나에서 눈·눈썹·코·입·얼굴선의 위치를 찾아 얼굴 비율을 잽니다(얼굴 기하 정보). 얼굴로 사람을 알아보거나 구별하지 않고, 얼굴 인식용 템플릿을 만들지 않습니다.</li>
+  <li><strong>언제:</strong> 동의 화면에서 [동의하고 분석하기] 또는 [동의하고 카메라 켜기]를 누른 뒤에만 잽니다. 동의는 그 한 번의 분석에만 쓰고, 다음 분석 때 다시 묻습니다. 사진에 얼굴이 여럿이면 사용자가 고른 얼굴만 잽니다.</li>
+  <li><strong>어디서:</strong> 기기 안(Apple Vision)에서만 처리합니다. 서버로 보내지 않으므로 개발자도 얼굴 사진이나 잰 값을 볼 수 없습니다. 팔거나 다른 사람·회사에 넘기지 않으며, 광고·마케팅·데이터 마이닝에 쓰지 않습니다(Google AdMob에도 넘기지 않습니다).</li>
+  <li><strong>공유:</strong> 사용자가 공유 버튼을 눌러 직접 보내는 풀이 카드에는 풀이 문장만 들어가고 얼굴 사진·잰 값은 들어가지 않습니다.</li>
+  <li><strong>다른 사람의 얼굴:</strong> 다른 사람 얼굴은 그 사람이 동의 안내를 직접 읽고 동의할 때만 넣어 주세요. 만 14세 미만(사는 나라가 더 높은 나이를 정했으면 그 나이 미만)이면 보호자가 안내를 읽고 동의한 뒤에 써 주세요.</li>
+  <li><strong>처리 근거(EEA·영국 등):</strong> 얼굴 정보는 사용자의 명시적 동의를 근거로 처리합니다(GDPR 제6조 1항 a호·제9조 2항 a호). 동의는 2-2항의 방법으로 언제든 거부하거나 철회할 수 있습니다.</li>
+</ul>
+
+<h3>2-2. 얼굴 정보 보관·파기 정책</h3>
+<ul>
+  <li><strong>보관 기간:</strong> 0일. 잰 값과 풀이는 기기 저장소에 쓰지 않고, 풀이를 보여 주는 화면(관상·관상 × 사주·사진 뒷면)을 보는 동안 앱 메모리에만 둡니다. 기기 백업에도 들어가지 않습니다. 단, 사용자가 공유 화면에서 [사진에 저장]을 직접 누르면 풀이 문장이 담긴 카드 그림이 사진 앱에 저장됩니다(얼굴 사진·잰 값은 들어가지 않습니다).</li>
+  <li><strong>파기 시점:</strong> 풀이 화면을 닫거나, 다른 사진을 고르거나, 앱이 종료되면 메모리에서 버립니다. 분석 중에 화면을 닫으면 늦게 나온 결과도 버립니다. 롤에 찍어 둔 사진 자체는 2항 「카메라로 찍은 사진(롤)」대로 남습니다.</li>
+  <li><strong>동의 철회·거부:</strong> 동의 화면에서 [취소]를 누르면 얼굴을 재지 않습니다. 분석 중이거나 풀이를 보는 중에 화면을 닫으면 그때까지의 값을 버립니다. 동의하지 않아도 카메라·네컷·사주처럼 얼굴이 필요 없는 기능은 그대로 쓸 수 있습니다.</li>
+  <li><strong>동의 기록:</strong> 얼굴 정보를 남기지 않는다는 약속을 지키기 위해 동의 기록을 따로 저장하지 않고, 분석할 때마다 다시 묻습니다. 다만 미션 스티커를 주려고 「관상을 한 번 봤다」는 표시(얼굴 정보 없음)만 기기 설정에 남습니다.</li>
 </ul>
 
 <h2>3. 제3자 서비스</h2>
@@ -95,13 +115,13 @@
 </p>
 
 <h2>5. 아동 개인정보</h2>
-<p>본 앱은 아동을 대상으로 하지 않으며, 개인정보를 서버로 수집하지 않습니다.</p>
+<p>본 앱은 아동을 대상으로 하지 않으며, 개인정보를 서버로 수집하지 않습니다. 만 14세 미만(사는 나라가 더 높은 나이를 정했으면 그 나이 미만)은 얼굴 분석 전에 보호자가 2-1항 안내를 읽고 동의해야 합니다.</p>
 
 <h2>6. 정책 변경</h2>
 <p>본 방침은 법령 또는 서비스 변경에 따라 개정될 수 있으며, 변경 시 본 페이지에 공지합니다.</p>
 
 <h2>7. 문의</h2>
-<p>개인정보 처리에 관한 문의: <a href="mailto:hexisteme@gmail.com">hexisteme@gmail.com</a></p>
+<p>운영자: hexisteme(개인 개발자) · 개인정보 처리에 관한 문의: <a href="mailto:hexisteme@gmail.com">hexisteme@gmail.com</a></p>
 
 <h2>Privacy Policy (English summary)</h2>
 <p>
@@ -110,7 +130,45 @@
   approximate location derived from your IP address, ad interactions and diagnostics.
   Tracking permission (App Tracking Transparency) is requested only when you first choose a rewarded ad, after a short explanation; every feature works without allowing it.
   In the EEA, UK, Switzerland and other regions that require it, consent is collected through Google's User Messaging Platform before ads load,
-  and can be changed at any time in Settings → "광고 개인정보 선택" (ad privacy choices). Contact: hexisteme@gmail.com
+  and can be changed at any time in Settings → "Ad privacy choices".
+</p>
+<p>
+  <strong>Face data.</strong> Face reading measures the positions and proportions of the eyes, brows, nose, mouth and jawline of one face you choose
+  (face geometry), only after you tap "Agree and analyze" or "Agree and turn on camera". Each consent covers that one analysis; the app asks again next time.
+  It runs only on your device, so not even the developer can see your face photo or measurements. It is never sent to a server, sold, shared,
+  or used for advertising, marketing or data mining (it is not passed to Google AdMob). It is not used to identify or recognize anyone,
+  and no face-recognition template is created. Share cards you send or save contain only the reading text, never your face photo or measurements.
+  In the EEA, UK and similar regions, face data is processed on the basis of your explicit consent (GDPR Art. 6(1)(a) and 9(2)(a)).
+</p>
+<p>
+  <strong>Retention and deletion.</strong> Retention period: zero. Measurements and readings are kept only in app memory while a screen showing the reading is open
+  (face reading, face × saju, photo back), are never written to storage or backups, and are discarded when you close that screen, pick another photo, or the app quits.
+  The only exception is a share card you choose to save with "Save to Photos", which holds the reading text only. Photos in your roll stay as described in section 2.
+  To refuse or withdraw consent, tap Cancel on the consent screen or close the screen at any time; the camera, photo strips and saju work without it.
+  The app keeps no record of your consent and asks before every analysis; it only remembers that a face reading was done once (no face data) to award a mission sticker.
+  Only add someone else's face if they read the notice themselves and agree; anyone under 14 (or the higher age set where they live) needs a parent or guardian
+  to read the notice and agree first.
+  Operator: hexisteme (independent developer). Contact: hexisteme@gmail.com
+</p>
+
+<h2>プライバシーポリシー(日本語の要約)</h2>
+<p>
+  「너의 관상은」(PhotoView)にはアカウント登録がなく、自前のサーバーも運営していません。写真・顔の情報・生年月日は端末の外に送らず、広告にも使いません。
+  本アプリは Google AdMob の広告で無料提供しており、AdMob SDK は端末識別子(IDFA はトラッキングを許可した場合のみ)、IP アドレスから推定したおおよその位置、広告の操作、診断情報を処理することがあります。
+  トラッキングの許可(App Tracking Transparency)は、リワード広告を初めて選んだときに短い説明のあとでだけ確認します。許可しなくてもすべての機能を使えます。
+  EEA・英国・スイスなど同意が必要な地域では、広告を読み込む前に Google の同意管理(UMP)で同意をいただき、設定の「広告のプライバシー設定」からいつでも変更できます。
+</p>
+<p>
+  <strong>顔の情報。</strong>人相を見るときは、選んだ顔ひとつの目・眉・鼻・口・輪郭の位置と比率を測ります。測るのは同意画面で「同意して分析する」または「同意してカメラをオン」を押したあとだけで、同意はその1回の分析にだけ使い、次回はまた確認します。
+  処理は端末の中だけで行うため、開発者も顔写真や測った値を見ることはできません。サーバーに送らず、売ったり第三者に渡したりせず、広告・マーケティング・データマイニングにも使いません(Google AdMob にも渡しません)。顔で人を識別することはなく、顔認識用のテンプレートも作りません。共有・保存するカードには読みの文章だけが入り、顔写真や測った値は入りません。
+  EEA・英国などでは、顔の情報はご本人の明示的な同意を根拠に処理します(GDPR 第6条1項a号・第9条2項a号)。
+</p>
+<p>
+  <strong>保管と破棄。</strong>保管期間はゼロです。測った値と読みは、読みを表示する画面(人相・人相×四柱推命・写真の裏面)を開いている間だけアプリのメモリに置き、端末の保存領域やバックアップには書き込みません。画面を閉じる、別の写真を選ぶ、アプリが終了するといった時点で破棄します。
+  例外は、ご自身で「写真に保存」を押した共有カードだけで、読みの文章のみが入ります。ロールに撮った写真そのものは2項のとおり残ります。
+  同意を断る・取り消すには、同意画面で「キャンセル」を押すか、いつでも画面を閉じてください。同意しなくても、カメラ・4コマ写真・四柱推命は使えます。同意の記録は残さず、分析のたびに確認します。ミッションのステッカーのために「人相を一度見た」という印(顔の情報なし)だけを端末の設定に残します。
+  ほかの人の顔は、本人が案内を読んで同意したときだけ入れてください。14歳未満(お住まいの国がより高い年齢を定めている場合はその年齢未満)の場合は、保護者が案内を読んで同意してから使ってください。
+  運営者: hexisteme(個人開発者) お問い合わせ: hexisteme@gmail.com
 </p>
 
 <footer>© 2026 hexisteme. 너의 관상은.</footer>
