@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What open-source MCP servers expose to an agent: a static census of 60 repositories — hexisteme</title>
+<meta name="description" content="A static census of 60 open-source MCP server repositories: invisible characters, tool descriptions that are not fixed strings and injection-shaped code, measured without running any of their code, plus two measurements that failed validation.">
+<link rel="canonical" href="https://hexisteme.github.io/research/mcp-server-census-v1/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="What open-source MCP servers expose to an agent: a static census of 60 repositories">
+<meta property="og:description" content="A static census of 60 open-source MCP server repositories: invisible characters, tool descriptions that are not fixed strings and injection-shaped code, measured without running any of their code, plus two measurements that failed validation.">
+<meta property="og:url" content="https://hexisteme.github.io/research/mcp-server-census-v1/">
+<meta property="og:site_name" content="hexisteme">
+<meta property="article:published_time" content="2026-10-21">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="What open-source MCP servers expose to an agent: a static census of 60 repositories">
+<meta name="twitter:description" content="A static census of 60 open-source MCP server repositories: invisible characters, tool descriptions that are not fixed strings and injection-shaped code, measured without running any of their code, plus two measurements that failed validation.">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "Report", "headline": "What open-source MCP servers expose to an agent: a static census of 60 repositories", "name": "What open-source MCP servers expose to an agent: a static census of 60 repositories", "description": "A static census of 60 open-source MCP server repositories: invisible characters, tool descriptions that are not fixed strings and injection-shaped code, measured without running any of their code, plus two measurements that failed validation.", "inLanguage": "en", "url": "https://hexisteme.github.io/research/mcp-server-census-v1/", "version": "1", "datePublished": "2026-10-21", "dateModified": "2026-10-21", "publisher": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "accountablePerson": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "creditText": "Produced by AI agents under the direction of hexisteme, who approved publication and takes responsibility for it: Claude (Anthropic) wrote the code and the report and ran the measurements; a separate Claude instance, OpenAI Codex and Google Gemini served as raters; Codex and Gemini reviewed drafts.", "license": "https://creativecommons.org/licenses/by/4.0/", "isAccessibleForFree": true}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>What open-source MCP servers expose to an agent: a static census of 60 repositories</h1>
+<p class="meta">Published by hexisteme · Version 1 · 2026-10-21</p>
+<div class="note"><p><em>This report was produced by AI agents working under the author's direction. "We" means the author and those agents; <a href="#about-this-work">About this work</a> says who did what.</em></p></div>
+
+<p>Connecting an MCP server to an agent approves two things at once: code that runs with your permissions, and text (tool names, descriptions and schemas) that goes straight into the model's context. We analysed 60 open-source repositories from the MCP server ecosystem statically, without installing, building or running them, and measured what we could measure reliably about both. Two of the measurements we planned did not survive validation. They are reported as method notes, together with the statistics of the failed validation.</p>
+
+<p>Every number below describes this sample, not MCP servers in general. Most rates are for the <strong>band sample</strong>, the 53 most-starred repositories in a fixed popularity band, and many count only the <strong>deployed surface</strong>, the code a repository ships without its tests, examples, bundled samples and vendored code. Section 1 defines both. Most sections end with the claims their numbers do not support.</p>
+
+<h2 id="summary">Summary</h2>
+
+<ul><li><strong>In these 60 repositories, high-severity invisible characters were rare, and every one we found was defensive.</strong> No Unicode tag characters (U+E0000–E007F) and no variation selectors supplement characters (U+E0100–E01EF) appeared in the 108,167 text files we scanned. That is not evidence that hidden text is absent from MCP servers in general. Bidirectional controls appeared 24 times, in 3 of the 60 repositories. Two raters judged all 24 independently and found none that hides text. Each was internationalisation code, a sanitiser that removes these controls, or a test of one of those. Zero-width characters and byte-order marks (283 occurrences) are low severity and were not judged.</li><li><strong>Some tool descriptions are not written out where the tool is registered.</strong> In 12 of the 42 band-sample repositories with extracted tool definitions (29%; 95% CI 17–44%), at least one tool description is a template, a variable or a function call rather than a string literal at that point. Across all 60 repositories, that is 16 of 48, and 55 of 3,118 extracted tool definitions.</li><li><strong>Unconfirmed injection-shaped code is common.</strong> In 31 of the 53 band-sample repositories (58%; 45–71%), at least one of nine static rules matches, on the deployed surface, a shape in which a value reaches an injection-prone call. A match is a candidate, not a vulnerability: we did not triage the candidates or check whether whoever calls a tool can control the value. The two most common shapes are a URL reaching a server-side request (23 of 39 TypeScript/JavaScript repositories) and a path reaching a filesystem call (20 of 39).</li><li><strong>Tool surfaces vary widely.</strong> A repository with extracted tool definitions has a median of 16 (interquartile range about 6 to 37), and the three largest account for 54% of all definitions.</li><li><strong>Two measurements failed validation, and we report no prevalence from either.</strong> Per-tool "lethal trifecta" capabilities could not be classified reliably. From metadata alone, 9 of 30 tools matched the reference labels. From handler code, 25 of 30 matched once, but only against labels we had settled ourselves, and the two raters did not agree on the definition well enough to publish. A lexical detector for instructions aimed at the model was right on 3 of the 12 texts it flagged.</li></ul>
+
+<h2 id="1-corpus">1. Corpus</h2>
+
+<p>All 60 repositories are public on GitHub and written mainly in TypeScript, JavaScript or Python. They came in by three routes:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: 1. Corpus" tabindex="0">
+<table>
+<thead><tr><th>Route</th><th>Repositories</th><th>How they were chosen</th></tr></thead>
+<tbody>
+<tr><td>Popularity band, 2026-10-21</td><td>42</td><td>The most-starred repositories in the band, taken in star order down to 1,400 stars (1,400 to 2,985 stars); the only exclusion was repositories already in the corpus</td></tr>
+<tr><td>Popularity band, 2026-10-20</td><td>11</td><td>Among the 30 most-starred results of an earlier search with the same topic, languages and 3,000-star maximum, restricted to repositories pushed within 90 days: those with GitHub private vulnerability reporting enabled and a recognised licence, as candidates for an audit</td></tr>
+<tr><td>Purposive, 2026-10-17 to 2026-10-19</td><td>7</td><td>Chosen by hand for a separate code audit</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The band is a GitHub search: topic <code>mcp-server</code>, primary language TypeScript, JavaScript or Python, pushed within the previous 365 days, 100 to 3,000 stars, not a fork, not archived. We call the first two routes together the <strong>band sample</strong> (53 repositories). All 11 repositories from 2026-10-20 were among the results of the 2026-10-21 search, above its cut-off, so the band sample is the 53 most-starred repositories in the band on 2026-10-21, with ties broken by the search's order. The private-reporting condition decided when those 11 entered the corpus, not whether they are in the band sample. The 7 purposive repositories were not drawn from any frame, so wherever they could change a rate, we also give the rate for the band sample. Section 5 uses the band sample only. Being in the corpus says nothing about a repository's security.</p>
+
+<p>Intervals are Wilson 95% binomial intervals. They show the uncertainty a count of that size would carry in a random sample. None of these repositories was sampled at random, so the intervals are not bounds for MCP servers in general.</p>
+
+<p>Every repository is pinned to the commit we cloned. Nothing was installed, built or run, and text inside the repositories was treated as data, never as instructions. The measurements in Sections 2 to 5 ran on 2026-10-21. Those in Section 6 ran earlier the same day, on the first 18 repositories.</p>
+
+<p><strong>The code that ships.</strong> Several results are given for the deployed surface: every path except tests, mocks and fixtures, examples, bundled sample, demo and playground directories, dependency and vendored directories, build output, and TypeScript declaration files.</p>
+
+<h2 id="2-what-a-server-registers">2. What a server registers</h2>
+
+<p>We extract tool definitions statically from the common registration styles: <code>server.tool(...)</code>, <code>registerTool(...)</code>, <code>addTool(...)</code>, tool descriptor objects and thin local wrappers in TypeScript and JavaScript, and tool decorators and <code>Tool(...)</code> descriptors in Python. Only the deployed surface counts.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 2: 2. What a server registers" tabindex="0">
+<table>
+<thead><tr><th></th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Repositories with at least one extracted tool definition</td><td>48 of 60 (42 of 53 in the band sample)</td></tr>
+<tr><td>Tool definitions</td><td>3,118</td></tr>
+<tr><td>Names that resolve to a literal</td><td>3,026 (97%)</td></tr>
+<tr><td>Distinct names among those, counted within each repository</td><td>2,940, so 86 names repeat (2.8%)</td></tr>
+<tr><td>Tools per repository: median (interquartile range)</td><td>16 (about 6 to 37); band sample 15 (6 to 32)</td></tr>
+<tr><td>Share held by the three largest repositories</td><td>54%</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The other 12 repositories have no definition the extractor finds. Among the first 18 repositories, the 4 such cases are a client, a proxy, and two servers that define their tools in a manifest or under computed names. The 8 among the 42 added later were not inspected.</p>
+
+<p>We corrected the deployed-surface rule once, after the first pass, which had counted bundled sample applications as shipped code. Examples were already excluded, so we excluded bundled sample, demo and playground directories as well. The correction removed definitions and added none (9,453 before, 3,118 after). The invisible-character counts in Section 3 cover every file and do not depend on this rule.</p>
+
+<p>Not supported by this: tool counts as counts of distinct capabilities, or of tools registered at runtime. 69% of definitions are descriptor objects, and we did not confirm one by one that each is registered. A name can repeat within a repository because one tool was counted twice, for example in a generated catalogue and where it is registered, or because two servers in one repository use the same name. The 2.8% of repeated names therefore does not measure double counting, and double counting under different or unresolved names would not show up in it.</p>
+
+<h2 id="3-invisible-characters">3. Invisible characters</h2>
+
+<p>Three published findings motivate this check. Tag characters can carry a whole sentence that most interfaces do not display but language models read (Rehberger, 2024). Bidirectional controls can make source text display in a different order from the order in which it is stored and parsed (Boucher and Anderson, 2021). And instructions to the model can be hidden in a tool description, where the model reads them and the user does not (Invariant Labs, 2025). Characters of this kind in what a server sends to a model would be invisible to a reviewer reading the same text.</p>
+
+<p>We scanned every text file in every repository (108,167 files), not only tool descriptions, skipping only dependency, virtual-environment, build-output, vendored and <code>.git</code> directories. That includes the agent configuration files (AGENTS.md, CLAUDE.md, .cursorrules and similar) found in 34 of the repositories. Binary files (4,418) were skipped, and 20 symbolic links were not followed. An occurrence is a run of adjacent invisible characters.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 3: 3. Invisible characters" tabindex="0">
+<table>
+<thead><tr><th>Kind</th><th>Occurrences</th><th>Repositories (Wilson 95%)</th></tr></thead>
+<tbody>
+<tr><td>Tag characters, U+E0000–E007F</td><td>0</td><td>0 of 60 (upper bound 6%); band sample 0 of 53 (upper bound 7%)</td></tr>
+<tr><td>Variation selectors supplement, U+E0100–E01EF</td><td>0</td><td>0 of 60</td></tr>
+<tr><td>Bidirectional controls, U+202A–U+202E and U+2066–U+2069</td><td>24</td><td>3 of 60 (2–14%); band sample 3 of 53 (2–15%)</td></tr>
+<tr><td>Zero-width characters and byte-order marks inside a file (low severity, not judged)</td><td>283</td><td>15 of 60</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>All 24 bidirectional controls were judged by two raters, a Claude subagent with a fresh context and Gemini, blind to each other. The brief asked one question per occurrence: is this an attempt to hide text from a human reviewer, or to make text render differently from what a model reads? It also described the legitimate uses we expected and told the raters not to defer to those expectations. It told them to answer no, and say what they would need, when the context was too thin to decide; neither rater did so. The raters agreed on all 24, and neither marked any as hiding text. The 24 are every high-severity occurrence in the corpus, not a sample, and they sit on 12 source lines, so we give no interval for this result. Cohen's κ cannot be computed here, because both raters gave the same answer, no, for every occurrence.</p>
+
+<p>The 24 occurrences fell into three groups:</p>
+
+<ol><li><strong>Isolation in internationalised messages (2).</strong> Isolate characters wrapped around an interpolated value, so that a right-to-left value cannot reorder the sentence around it. Isolates exist for this: they allow "the embedding of strongly directional text without unduly affecting the bidirectional order of its surroundings" (Unicode Standard Annex #9). These were the only 2 occurrences on the deployed surface, both in 1 repository (1 of 60; 0–9%).</li><li><strong>A sanitiser that strips bidirectional controls (6).</strong> Its source contains the raw characters it removes.</li><li><strong>Tests (16)</strong> of isolation output, of the sanitiser, and of message files that must not contain bidirectional controls, including deliberately hostile input strings.</li></ol>
+
+<p>None of the 24 was in an agent configuration file.</p>
+
+<p>Not supported by this: that MCP servers contain no hidden instructions. Zero tag characters in 60 repositories is not a proof of absence. Even if these repositories were a random sample, it would only put the repository-level rate below about 6%.</p>
+
+<p>For anyone building such a scanner: in this sample, every high-severity hit was code that handles these characters on purpose, or a test of that code. Expect alerts on defenders and review each in context, such as an isolate pair around an interpolated value, a character list in a sanitiser or a test fixture. Exempting such files or patterns wholesale would also exempt an attacker who imitates them.</p>
+
+<h2 id="4-tool-descriptions-that-are-not-fixed-strings">4. Tool descriptions that are not fixed strings</h2>
+
+<p>A description written as a literal at the registration site is the text a reviewer of the source sees. A description built when the tool is registered, from a template, a variable or a function call, can differ between the text someone approved and the text a later run sends, with no change to any literal. Invariant Labs (2025) calls the attack on this surface a rug pull: "a malicious server can change the tool description after the client has already approved it." We measured the source, not what servers send.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 4: 4. Tool descriptions that are not fixed strings" tabindex="0">
+<table>
+<thead><tr><th></th><th>All 60</th><th>Band sample</th></tr></thead>
+<tbody>
+<tr><td>Repositories with at least one non-literal description</td><td>16 of 48 with extracted definitions (33%; 22–47%)</td><td>12 of 42 (29%; 17–44%)</td></tr>
+<tr><td>Tool definitions with a non-literal description</td><td>55 of 3,118 (1.8%)</td><td>46 of 2,792 (1.6%)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Not supported by this: that these descriptions do change at runtime. This is a syntactic property at the registration site, and a variable can hold a constant defined elsewhere. Nor does a literal guarantee a fixed description: a server can still change a definition after registering it, and tools registered in styles the extractor does not cover are not counted.</p>
+
+<h2 id="5-injection-shaped-sinks">5. Injection-shaped sinks</h2>
+
+<p>Nine semgrep rules, seven for TypeScript/JavaScript and two for Python, were written during earlier audit work and frozen before this run. Each matches a code shape in which a value reaches an injection-prone sink. A match is a <strong>candidate</strong>: whether whoever calls the tool can influence the value is not established. Candidates on the deployed surface, band sample:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 5: 5. Injection-shaped sinks" tabindex="0">
+<table>
+<thead><tr><th>Candidate shape</th><th>Repositories with at least one / applicable</th><th>Wilson 95%</th></tr></thead>
+<tbody>
+<tr><td>URL reaches a server-side request</td><td>23 / 39</td><td>43–73%</td></tr>
+<tr><td>Path reaches a filesystem call</td><td>20 / 39</td><td>36–66%</td></tr>
+<tr><td>Interpolated string reaches a shell-backed exec</td><td>10 / 39</td><td>15–41%</td></tr>
+<tr><td>Interpolated query text reaches a database driver</td><td>7 / 39</td><td>9–33%</td></tr>
+<tr><td>Command assembled in a variable reaches a shell</td><td>6 / 39</td><td>7–30%</td></tr>
+<tr><td>Value passed to a command-line tool without an option separator</td><td>3 / 39</td><td>3–20%</td></tr>
+<tr><td>Interpolated value compiled as JavaScript</td><td>3 / 39</td><td>3–20%</td></tr>
+<tr><td>Incomplete escaping of a generated literal (Python)</td><td>6 / 36</td><td>8–32%</td></tr>
+<tr><td>Inline code assembled for another interpreter (Python)</td><td>3 / 36</td><td>3–22%</td></tr>
+<tr><td><strong>At least one of the nine</strong></td><td><strong>31 / 53</strong></td><td><strong>45–71%</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>"Applicable" means at least one file in the rule's language was scanned: 39 repositories for each TypeScript/JavaScript rule, 36 for each Python rule and all 53 for the combined row. Per repository, deployed-surface candidates have a median of 2 (interquartile range 0 to 23).</p>
+
+<p>The rules were developed on the first 18 repositories of the corpus, 11 of them in the band sample, and 9 of those 11 have at least one candidate. The other 42 are all in the band sample and were never seen during rule development: 22 of 42 have at least one candidate (52%; 38–67%), and the three most common shapes keep their order.</p>
+
+<p>We report repositories, not candidate counts. Counting every candidate in all 60 repositories, a single repository holds at least half of the candidates for 5 of the 9 rules, so totals would mostly describe a few repositories.</p>
+
+<p>Not supported by this: what share of MCP servers is exploitable, how precise the rules are, or how these numbers compare with studies that confirm exploitability by running the code. We did not triage the candidates for this report.</p>
+
+<h2 id="6-method-notes-two-measurements-that-failed-validation">6. Method notes: two measurements that failed validation</h2>
+
+<p>Both were measured on the first 18 repositories (11 from the band sample, 7 purposive), before the corpus grew to 60. The 42 repositories added later were not read for either measurement.</p>
+
+<h3 id="6-1-per-tool-lethal-trifecta-capabilities">6.1 Per-tool "lethal trifecta" capabilities</h3>
+
+<p><strong>Question.</strong> For each tool, does its handler give the model access to private data (P), bring third-party content into the model's context (U), or send model-influenced data across the user's boundary (E)? A tool or server with all three has what Willison (2025) calls the lethal trifecta: "access to your private data", "exposure to untrusted content" and "the ability to externally communicate". The goal was a per-tool prevalence, with ground truth taken from what the handler code does.</p>
+
+<p><strong>Protocol.</strong> Each round drew a fresh sample of 30 tools with literal names, spread across repositories with a fixed seed. The predicted {P, U, E} set had to match the reference exactly on at least 24 of the 30 (80%). A capability was publishable only if the two raters reached Cohen's κ of at least 0.6 on it. Two LLM raters from different model families labelled each tool from its handler code, blind to each other and to the classifier. The classifier's developer settled disagreements from the code before scoring. Before each sample was drawn, the classifier was hashed. After scoring, that sample became development data, and the next round drew a new one. Rounds 2 and 3 drew new tools from the same 9 repositories as the development data, so even a pass would have shown generalisation only to new tools in those repositories.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 6: 6.1 Per-tool &quot;lethal trifecta&quot; capabilities" tabindex="0">
+<table>
+<thead><tr><th>Round</th><th>Classifier input</th><th>Raters</th><th>κ (P / U / E)</th><th>Exact match</th><th>Outcome</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Names, descriptions, schemas</td><td>Claude, Gemini</td><td>0.93 / 0.81 / 1.00</td><td>9/30 = 30%</td><td>Fail</td></tr>
+<tr><td>2</td><td>Handler code, call tracing up to 5 levels</td><td>Claude, OpenAI Codex</td><td>0.00 / 0.81 / 0.33</td><td>25/30 = 83%</td><td>Accuracy passed, withheld on κ</td></tr>
+<tr><td>3</td><td>Round 2 plus five fixes; boundary rules added to the brief</td><td>Claude, Gemini</td><td>0.52 / 0.24 / 0.79</td><td>22/30 = 73%</td><td>Fail</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Counts are given without intervals: the gate was set on the count, and tools from the same repository are not independent.</p>
+
+<p>How much the settlement mattered: in round 2 the raters' label sets agreed exactly on 9 of 30 tools, and the settlement followed the Claude rater on 15 of the 21 disagreements and the Codex rater on 6. In round 3 it settled 10 disagreements, 9 of them the Claude rater's way. Scored against each rater's raw labels instead of the settled ones, with the Claude rater first, round 2 reaches 23/30 and 12/30 (computed after the fact), and round 3 reaches 23/30 and 19/30 (preregistered). Round 2's pass therefore depended on how we settled disagreements. Round 3's failure did not.</p>
+
+<p><strong>What we learned.</strong></p>
+
+<ul><li><strong>The metadata classifier missed external communication.</strong> In round 1, it caught one of the six tools that the raters, reading the handler code, found to send data out. For example, one tool described only as producing an artefact uploaded the model-supplied input to a third-party service to produce it.</li><li><strong>Finding the handler was not the hard part.</strong> The code classifier found the handler for 30 of 30 tools in round 2 and 29 of 30 in round 3. Its remaining errors came from what it concluded about the handler, such as dispatch it did not follow, responses it modelled wrongly and a scope rule it applied too widely. The rest of the failure came from the labels.</li><li><strong>The definition did not hold across raters.</strong> κ for P ranged from 0.00 to 0.93 depending on the rater pair and the wording of the brief. The disagreements came from questions the definition leaves open: whether reading an API key from the environment is private-data access, whether a GET to a fixed, operator-configured host is external communication, whether a response from a keyed public-data API is private. Writing round 2's answers into the brief as rules moved the disagreement instead of removing it.</li></ul>
+
+<p>Reporting rule, stated after these results were seen: when a measurement fails its preregistered validation, we publish the statistics of that validation, and no prevalence, absence, recall or deployment-safety claim based on it.</p>
+
+<p>We publish no per-tool or per-server capability counts. A server-level union would come from the same unvalidated classifier.</p>
+
+<h3 id="6-2-instructions-aimed-at-the-model-in-tool-text">6.2 Instructions aimed at the model, in tool text</h3>
+
+<p><strong>Question.</strong> How often do tool descriptions, the descriptions inside tool schemas, and agent configuration files instruct the calling model to force a call to another tool (X, tool text only), hide something from the user (H), go to sensitive paths or credentials (S), or ignore other instructions (O)? We call each non-empty description or schema description a <strong>tool text</strong>. Tool names were not scanned. The detector was deterministic and lexical. It was built from category definitions, synthetic sentences and the published tool-poisoning proofs of concept (Invariant Labs, 2025), and never from the corpus.</p>
+
+<p><strong>Protocol.</strong> The detector's source was hashed before its single run over the 4,659 tool texts of 1,586 tool definitions and over 41 agent configuration files. These were extracted before the correction described in Section 2. Every flag was judged, without sampling, by two blind raters (Claude and Gemini). The gate was precision of at least 70%.</p>
+
+<p><strong>Result.</strong> 12 flags: 9 for forcing another tool call (X), 2 for hiding (H), 1 for sensitive paths (S) and 0 for ignoring instructions (O). Of these, 9 were in tool text and 3 in configuration files. The raters agreed on all 12 (κ = 1.00). Precision was 3 of 12 (25%), below the gate. Every flag was judged, so this is the detector's precision on this corpus, not an estimate. The three correct flags were ordinary workflow guidance: advice on choosing between this tool and a named sibling, or on calling another tool first to get exact names. None of the 9 flagged tool texts came from tools whose descriptions the detector's developer had seen during 6.1.</p>
+
+<p><strong>Why it failed.</strong> In servers whose subject is other code, "function" and "tool" usually mean the code under analysis, not an MCP tool. Naming another tool as workflow context is not an instruction to call it. "Before calling …" mostly describes where the tool itself fits. "Expose" appears in secure-coding guidance. A feature description that names a sensitive path is not an instruction to go there. The detector used vocabulary to approximate the difference between a tool describing itself, describing a workflow and instructing the model, and the approximation was right a quarter of the time. This is a result about this detector, not about lexical detection in general.</p>
+
+<p><strong>Secondary audit, not a recall estimate.</strong> Among 274 unflagged tool texts that contain imperative vocabulary, a random 30 contained 1 instruction after settlement. The Claude rater's raw labels found 2 and the Gemini rater's 1, and the one text they disagreed on was settled by the detector's developer as not an instruction. The audit was preregistered as a secondary analysis. We first deferred it when the gate failed, which departed from the protocol, and completed it after deciding to stop the measurement. It cannot be turned into recall or prevalence, because texts without that vocabulary, and configuration files, were outside the audited stratum.</p>
+
+<p>Reporting rule, stated after these results were seen: when a measurement fails its preregistered validation, we publish the statistics of that validation, and no prevalence, absence, recall or deployment-safety claim based on it.</p>
+
+<h2 id="7-what-deployers-can-do-with-this">7. What deployers can do with this</h2>
+
+<p>These are general practices. The counts show where this sample gives them weight; they do not show that a practice prevents any particular attack.</p>
+
+<ol><li><strong>Pin what you approve.</strong> Record a hash of each tool's name, description and schema when you approve a server, and ask again when any of them changes. This matters most where the source does not show the text directly. In 12 of 42 band-sample repositories with extracted tool definitions, at least one description is not a literal where the tool is registered (Section 4).</li><li><strong>Judge what a tool can send out from its handler, not its description.</strong> Section 6.1 has a case where the description mentioned only the artefact a tool produces, and the handler uploaded the input to a third-party service to produce it.</li><li><strong>Scan what a server sends to the model, and review hits in context.</strong> Every high-severity invisible character in this sample was internationalisation code, a sanitiser, or a test of one (Section 3), so expect a scanner to flag defenders, and review them rather than exempting them wholesale.</li><li><strong>Contain the common sink shapes.</strong> URL-to-request and path-to-filesystem candidates appear in about half of the band sample's TypeScript/JavaScript repositories (Section 5). Limiting a server's network egress and its filesystem scope addresses both shapes, whichever candidates turn out to be real.</li></ol>
+
+<h2 id="8-limitations">8. Limitations</h2>
+
+<ul><li><strong>Sampling frame.</strong> One GitHub topic and one popularity band, entered by three routes. The band sample is the most-starred end of the band and not a random sample, so intervals are for scale only (Section 1). Nothing here describes less popular servers, closed-source servers or hosted remote servers.</li><li><strong>Static only.</strong> Repository code was never installed, built or run, and no server from the corpus was contacted. The network was used only to search GitHub, clone the repositories and call the raters' models. Registration styles outside the extractor are missed, 92 extracted tool names did not resolve to a literal, and descriptor objects were not confirmed one by one, so a repository with extracted tool definitions is not necessarily one that registers tools at runtime.</li><li><strong>Scanner defaults.</strong> semgrep skips <code>test/</code> and <code>tests/</code> but scans <code>__tests__/</code>, <code>spec/</code> and <code>examples/</code>, so candidates off the deployed surface are undercounted. Build and release scripts count as shipped code.</li><li><strong>In-sample rules.</strong> The sink rules were developed on 18 of the repositories, including the 11 band repositories chosen among those with private vulnerability reporting, so their candidate rate mixes that choice with rule development. Section 5 reports the other 42 separately.</li><li><strong>One correction after the first look</strong> (Section 2), reported with its before-and-after numbers.</li><li><strong>Raters.</strong> The raters are LLMs, not human security reviewers, and their briefs described the legitimate patterns we expected. In Section 6.1, disagreements were settled by the classifier's developer, a Claude session, which is the same model family as one rater in every round, and the settlement mostly followed that rater. Section 6.1 reports raw-label scores to bound this.</li><li><strong>Aggregates only.</strong> No per-repository results are published.</li></ul>
+
+<h2 id="9-reproducibility">9. Reproducibility</h2>
+
+<p>The accuracy and precision gates of Section 6 were committed to the design document on 2026-10-20, before either measurement ran. The selection rule for the 42 repositories added on 2026-10-21 was committed before the search ran, the protocol of Section 6.2 before the detector was built, and the sink-rule set, with file hashes and reporting units, before the scan. Round-specific protocol details in Section 6.1 (samples, raters, the κ threshold) were written before that round's labels were read, but committed together with its results. Classifier and detector sources were hashed before they were run on evaluation data. Repositories are pinned to their clone-time commits. Tool version: semgrep 1.181.0. Preregistration records, rule hashes and pinned commits are kept with the measurement code.</p>
+
+<p>Not released with this version: the measurement code, the rule files, the list of repositories and the per-repository results. The selection rule in Section 1 lets anyone draw a comparable band sample, but not reproduce these numbers exactly, because star counts and repository contents change. The aggregate tables in this report are its published data.</p>
+
+<h2 id="about-this-work">About this work</h2>
+
+<p><strong>Who did what.</strong> Claude (Anthropic), working as a coding agent under the author's direction, wrote the preregistrations, the measurement code and this report, ran the measurements, and settled the raters' disagreements. Each judged measurement used two raters, blind to each other: a separate Claude instance with a fresh context, and Google Gemini or OpenAI Codex. Codex and Gemini also reviewed drafts of this report. The author set the goal of the work, decided the corpus size, approved the reporting rule for failed measurements and approved publication, and takes responsibility for the published text. The work followed the project's safety rules: no code from the repositories was installed, built or run, and no repository is named. Before publication, a script recomputed every number in this report from the raw measurement files; that checks arithmetic and transcription, not the measurements themselves.</p>
+
+<p><strong>Scope.</strong> This report names no repository and contains no vulnerability details. It does not represent the views of any employer or organisation.</p>
+
+<p><strong>Corrections.</strong> Open an issue in <a href="https://github.com/hexisteme/hexisteme.github.io/issues">this site's public repository</a>. Please do not post vulnerability details in a public issue; open one asking for a private channel instead. Corrections will be listed here with their dates.</p>
+
+<p><strong>Licence.</strong> This report is licensed under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Quoted passages remain under their own terms.</p>
+
+<p><strong>Version history.</strong> Version 1: first publication.</p>
+
+<p><strong>Cite as.</strong> hexisteme (2026). <em>What open-source MCP servers expose to an agent: a static census of 60 repositories</em>, version 1. <a href="https://hexisteme.github.io/research/mcp-server-census-v1/">https://hexisteme.github.io/research/mcp-server-census-v1/</a></p>
+
+<h2 id="references">References</h2>
+
+<ul><li>Boucher, N. and Anderson, R. (2021). <em>Trojan Source: Invisible Vulnerabilities</em>. arXiv:2111.00169. <a href="https://arxiv.org/abs/2111.00169">https://arxiv.org/abs/2111.00169</a></li><li>Invariant Labs (2025, April 1). <em>MCP Security Notification: Tool Poisoning Attacks</em>. <a href="https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks">https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks</a></li><li>Rehberger, J. (2024, January 14). <em>ASCII Smuggler Tool: Crafting Invisible Text and Decoding Hidden Codes</em>. Embrace The Red. <a href="https://embracethered.com/blog/posts/2024/hiding-and-finding-text-with-unicode-tags/">https://embracethered.com/blog/posts/2024/hiding-and-finding-text-with-unicode-tags/</a></li><li>Unicode Consortium. <em>Unicode Standard Annex #9: Unicode Bidirectional Algorithm</em> (revision 52). <a href="https://www.unicode.org/reports/tr9/">https://www.unicode.org/reports/tr9/</a></li><li>Willison, S. (2025, June 16). <em>The lethal trifecta for AI agents: private data, untrusted content, and external communication</em>. <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/</a></li></ul>
+<div class="foot"><a href="/">← hexisteme</a> · <a href="/notes/">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
