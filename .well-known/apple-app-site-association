@@ -13,6 +13,16 @@
             "/": "/jeongmu/join/",
             "?": { "d": "?*" },
             "comment": "GH Pages 301 trailing-slash 변형 대응 (2026-07-13 감사 C2-4)"
+          },
+          {
+            "/": "/jeongmu/party",
+            "?": { "c": "?*" },
+            "comment": "정총무 여러 폰 게임 초대 — c 쿼리 파라미터로 4자리 입장 코드 (2026-10-21)"
+          },
+          {
+            "/": "/jeongmu/party/",
+            "?": { "c": "?*" },
+            "comment": "GH Pages 301 trailing-slash 변형 대응"
           }
         ]
       }
