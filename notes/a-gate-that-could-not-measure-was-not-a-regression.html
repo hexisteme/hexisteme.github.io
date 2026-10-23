@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>My dev.to Gate Couldn&#x27;t Measure, and the Suite Called It a Regression — hexisteme notes</title>
+<meta name="description" content="My gate suite read almost every non-zero exit as REGRESSION, so a dev.to check that never completed its live measurement told me a fix had broken. I gave &quot;couldn&#x27;t measure&quot; its own verdict and a suite-wide exit code, and kept a gate that actually finds a bad state as loud as before.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/a-gate-that-could-not-measure-was-not-a-regression.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="My dev.to Gate Couldn&#x27;t Measure, and the Suite Called It a Regression">
+<meta property="og:description" content="My gate suite read almost every non-zero exit as REGRESSION, so a dev.to check that never completed its live measurement told me a fix had broken. I gave &quot;couldn&#x27;t measure&quot; its own verdict and a suite-wide exit code, and kept a gate that actually finds a bad state as loud as before.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/a-gate-that-could-not-measure-was-not-a-regression.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/a-gate-that-could-not-measure-was-not-a-regression.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-10-23">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="My dev.to Gate Couldn&#x27;t Measure, and the Suite Called It a Regression">
+<meta name="twitter:description" content="My gate suite read almost every non-zero exit as REGRESSION, so a dev.to check that never completed its live measurement told me a fix had broken. I gave &quot;couldn&#x27;t measure&quot; its own verdict and a suite-wide exit code, and kept a gate that actually finds a bad state as loud as before.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/a-gate-that-could-not-measure-was-not-a-regression.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My dev.to Gate Couldn't Measure, and the Suite Called It a Regression", "datePublished": "2026-10-23", "dateModified": "2026-10-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Separating a check that could not measure from a check that found a regression in a gate-suite runner's exit-code protocol, after a live dev.to gate that never completed its measurement was reported as a regression.", "image": "https://hexisteme.github.io/notes/og/a-gate-that-could-not-measure-was-not-a-regression.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a gate that couldn't read its data show up as a regression?", "acceptedAnswer": {"@type": "Answer", "text": "The suite runner mapped every non-zero exit other than its own timeout code, 124, to REGRESSION when no human block was declared. The gate exited 1 when it could not read live dev.to data, so the runner reported it the same way as exit 2, which meant the gate had found a real reversal."}}, {"@type": "Question", "name": "How can you tell a scheduled run couldn't measure when the log stores only verdicts?", "acceptedAnswer": {"@type": "Answer", "text": "Reason from side effects and from what else could have run. This gate writes its cache only right after a successful live fetch and reuses it for 24 hours. A manual run at 13:32 UTC, without the refetch flag, found no reusable cache, so the 00:19 UTC run had not fetched successfully; reusing the previous day's cache would have reproduced that day's PASS, not a REGRESSION. The likeliest reading is that the 00:19 run failed before it had any data."}}, {"@type": "Question", "name": "Why use exit code 3 for unmeasurable instead of 1?", "acceptedAnswer": {"@type": "Answer", "text": "In this suite 1 already means a real failure for other gates, such as EXIT_MISSING_TURN in check_reader_turn.py, and Python exits 1 on an uncaught exception. Seven other gates already declared EXIT_UNMEASURABLE = 3, so the outlier was aligned to them, and a guard test now fails if any gate declares a different value."}}, {"@type": "Question", "name": "Doesn't a separate UNMEASURABLE verdict let a broken gate hide?", "acceptedAnswer": {"@type": "Answer", "text": "It makes the suite quieter on measurement gaps on purpose, so UNMEASURABLE sorts just below REGRESSION and CRASHED, the suite report still prints the tail of the gate's output, and a human-block declaration cannot convert it. A gate that must hard-fail when it cannot measure should not use exit 3."}}, {"@type": "Question", "name": "What does the fix not prove?", "acceptedAnswer": {"@type": "Answer", "text": "The 00:19 diagnosis is an inference, and the transient cause (DNS, a rate limit, a timeout) is not pinned. If that failure was an exception the gate doesn't catch, it exited 1 and would still read REGRESSION after the fix. The drift log keeps no exit codes for its earlier entries, so some of those REGRESSION verdicts may have been real reversals."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>My dev.to Gate Couldn&#x27;t Measure, and the Suite Called It a Regression</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-10-23</p>
+<div class="note">My gate suite read almost every non-zero exit as REGRESSION, so a live dev.to check that never completed its measurement at 00:19 UTC reported that a fix had broken, while the live data was strongly aligned. I added an <code>UNMEASURABLE</code> verdict for exit 3, moved the one outlier gate from 1 to 3, and kept exit 2, a real finding, as a regression. With no exit code in the log, a cache side effect and the list of what runs the gate were what pointed to a run that never measured.</div>
+
+<p>On October 23 the daily drift report for my gate suite contained this line (translated from Korean):</p>
+
+<pre><code>check_offer_subject_alignment.py: PASS → REGRESSION  ← a fix you&#x27;d made broke again.</code></pre>
+
+<p>That note is the loudest thing the drift watcher can say. It is reserved for the case where something I had already fixed has stopped working. The same gate had printed it on October 18, gone back to PASS on October 21, and printed it again on the 23rd. Before that day's fix, the drift log already held ten verdict changes for this one gate, going back to September 7.</p>
+
+<p>When I opened it, the live data the gate checks was nowhere near the failure it guards against. What had failed was the gate's ability to look. The suite had no verdict for that, so it used the loudest one it had.</p>
+
+<p><em>The two Stop hooks behind this note are on GitHub under MIT: <a href="https://github.com/hexisteme/hard-gate-hooks">hexisteme/hard-gate-hooks</a>. They ship with their tests and a read-only scanner that prints what they did on <strong>your</strong> machine, not mine — including the case where it tells you they aren't worth wiring up yet. No email, no signup.</em></p>
+
+<h2 id="what-the-gate-checks">What the gate checks</h2>
+
+<p>The gate is one of 22 scripts in a suite I run over my publishing pipeline. This one checks, against live data, that a link I put in some dev.to posts sits on the posts it belongs on (the ones tagged <code>agents</code>) rather than drifting onto unrelated ones. It reads <code>articles/me/published</code>, then makes one <code>comments?a_id=</code> call per commented article: about 100 live API calls per run. A launchd job runs the suite once a day; on October 23 the run landed at 00:19 UTC.</p>
+
+<p>The gate ends with one of three exit codes:</p>
+
+<ul><li><code>0</code> ALIGNED: the link sits where it should</li><li><code>2</code> REVERSED: the link has drifted onto the wrong posts, which is a real finding</li><li><code>1</code> UNMEASURABLE: it could not read the live data</li></ul>
+
+<p>Inside the gate those three meanings are distinct. The runner only saw two of them.</p>
+
+<h2 id="the-runner-knew-one-kind-of-non-zero">The runner knew one kind of non-zero</h2>
+
+<p>The suite runner turns each gate's exit code into a verdict. Before the fix, the decision was this (comments mine):</p>
+
+<pre><code>def judge_gate_outcome(exit_code, declared_reason, output=&quot;&quot;, expect=None):
+    if exit_code == 0:
+        return STALE_BLOCK if declared_reason else PASS
+    if exit_code == 124:
+        return CRASHED          # the runner&#x27;s own timeout
+    if not declared_reason:
+        return REGRESSION       # any other undeclared non-zero lands here
+    if expect and expect not in output:
+        return REGRESSION
+    return BLOCKED</code></pre>
+
+<p><code>declared_reason</code> comes from a file, <code>gate_human_blocks.json</code>, where I can declare that a gate is red because it is waiting on a person. A declared gate that fails reads BLOCKED instead of REGRESSION, and a declared gate that passes reads STALE_BLOCK, so exemptions can't outlive their reason. This gate had no declaration. Exit 1 and exit 2 went down the same branch: "I couldn't read dev.to at 00:19" and "the link has drifted onto the wrong posts" both came out as REGRESSION, and the watcher put its broken-fix note on both.</p>
+
+<h2 id="how-i-worked-out-that-the-00-19-run-never-measured">How I worked out that the 00:19 run never measured</h2>
+
+<p>The drift log stores verdicts only. It keeps neither the exit code nor the stderr of each scheduled run, so I could not look up what happened at 00:19. I had to reason from a side effect.</p>
+
+<p>The gate caches its last successful live measurement and reuses it for 24 hours. It writes the cache only right after a successful fetch. If loading the API key or the fetch raises an error it expects, such as a network error or a timeout, it prints <code>UNMEASURABLE</code> to stderr and exits 1 before the write. Any other exception in that span also exits 1, without that line, and also before the write.</p>
+
+<p>At 13:32 UTC I ran the gate by hand, without the flag that forces a refetch. It reported its data as 0.0 hours old: it had found no cache young enough to reuse and had fetched everything live. As far as my session logs and the scheduler list show, nothing else had run the gate in between. The daily launchd job is the only scheduler that calls it, and no session of mine had run it since the previous day's scheduled run. That leaves two ways the 00:19 run could have produced a verdict from data:</p>
+
+<ul><li>It fetched live successfully, whatever it found. Then it would have written a cache about 13 hours old by 13:32, and the afternoon run would have reused it instead of fetching. It didn't.</li><li>It reused an older cache. Any cache still young enough at 00:19 had to come from the previous day's scheduled run, and the verdict is computed from the cached data alone. That data had produced PASS the day before, so reusing it would have produced PASS again, not REGRESSION.</li></ul>
+
+<p>Neither fits. What fits is a run that failed somewhere before the cache write, before it had any data. The fetch from dev.to is the only network step on that path, so the likeliest reading is that the gate could not read dev.to at 00:19. The logs can't tell me which error it was, or whether the gate caught it.</p>
+
+<p>Here is what the afternoon run measured:</p>
+
+<ul><li>76.5% (26 of 34) of <code>agents</code> posts carry the link, against 32.0% (32 of 100) of the other posts</li><li>a second, comment-based measure pointed the same way: 58.8% against 34.0%</li></ul>
+
+<p>That is the alignment the gate exists to protect, by a wide margin. At 00:19 the gate never got to look, and the suite reported that as the gate finding a problem.</p>
+
+<h2 id="why-exit-1-couldn-t-become-unmeasurable">Why exit 1 couldn't become "unmeasurable"</h2>
+
+<p>The obvious patch is one line in the runner: read exit 1 as unmeasurable. That would have broken other gates. Exit codes are a protocol between the gates and the runner, and in this suite 1 already meant something else. <code>check_reader_turn.py</code>, for one, returns <code>EXIT_MISSING_TURN = 1</code> when it finds a real defect. Remapping 1 suite-wide would have quietly downgraded that gate's real failures. Python also exits 1 on an uncaught exception, so 1 is what a crashing gate produces by default.</p>
+
+<p>The suite already had a convention. It just wasn't written down where the runner could enforce it. Seven other gates declared <code>EXIT_UNMEASURABLE = 3</code>. This gate declared the same constant with a different value, 1, and it was the only one that did.</p>
+
+<h2 id="the-fix">The fix</h2>
+
+<p>Three small changes:</p>
+
+<ul><li><strong>The runner</strong> documents <code>EXIT_UNMEASURABLE = 3</code> as the suite-wide convention and returns a new verdict, UNMEASURABLE, for exit 3. A human-block declaration does not turn it into BLOCKED. A measurement gap is not a failure waiting on a person, and letting a declaration absorb it would hide a dark gate behind a reason written for something else. Exit 2 still returns REGRESSION, because a gate that found a bad state should still alarm.</li><li><strong>The drift watcher</strong> reports a transition into UNMEASURABLE with its own note ("couldn't measure at all; neither a pass nor a regression; check live access and rate limits") and never with the broken-fix note. In both the suite report and the watcher, UNMEASURABLE sorts just below REGRESSION and CRASHED, and the suite report still prints the tail of the gate's output for it, as it does for those two.</li><li><strong>The gate</strong> changes its <code>EXIT_UNMEASURABLE</code> from 1 to 3, joining the other seven.</li></ul>
+
+<p>The runner now reads:</p>
+
+<pre><code>EXIT_UNMEASURABLE = 3  # suite-wide: &quot;I could not measure&quot;, not &quot;I found a problem&quot;
+
+def judge_gate_outcome(exit_code, declared_reason, output=&quot;&quot;, expect=None):
+    if exit_code == 0:
+        return STALE_BLOCK if declared_reason else PASS
+    if exit_code == 124:
+        return CRASHED
+    if exit_code == EXIT_UNMEASURABLE:
+        return UNMEASURABLE     # a declared human block does not convert this
+    if not declared_reason:
+        return REGRESSION
+    if expect and expect not in output:
+        return REGRESSION
+    return BLOCKED</code></pre>
+
+<p>Three tests keep it from drifting back:</p>
+
+<ul><li>the verdict table gets rows for exit 3 with and without a declared reason, and both must be UNMEASURABLE</li><li>a guard test walks every gate the runner discovers and fails if any of them declares <code>EXIT_UNMEASURABLE</code> with a value other than 3, which is the exact drift that caused this</li><li>a watcher test asserts that a PASS → UNMEASURABLE transition is worded as a measurement problem and carries no broken-fix wording</li></ul>
+
+<p>The guard test is short:</p>
+
+<pre><code>def test_every_gate_declaring_unmeasurable_uses_the_shared_exit_code():
+    offenders = []
+    for gate in discover_gate_scripts(REPO_TOOLS):
+        text = gate.read_text(encoding=&quot;utf-8&quot;)
+        m = re.search(r&quot;^EXIT_UNMEASURABLE\s*=\s*(\d+)&quot;, text, re.MULTILINE)
+        if m and m.group(1) != &quot;3&quot;:
+            offenders.append(f&quot;{gate.name}={m.group(1)}&quot;)
+    assert not offenders</code></pre>
+
+<p>The tools test suite passed, 113 tests. I re-ran the drift watcher. It recorded REGRESSION → PASS for the gate and the false alarm cleared.</p>
+
+<h2 id="a-check-has-three-outcomes-not-two">A check has three outcomes, not two</h2>
+
+<p>A check can look and find everything fine, look and find a problem, or fail to look at all. A runner that only has words for the first two folds the third into one of them.</p>
+
+<p>Fold it into the first and a check that cannot run reports something that looks like a result. In <a href="https://hexisteme.github.io/notes/a-measurement-that-never-ran-became-a-verdict.html">A Measurement That Never Ran Became a Verdict</a>, every read failed and the script still printed a normal-looking verdict built entirely out of failed reads; part of that fix was a guard that refuses to turn a failed read into a zero. In <a href="https://hexisteme.github.io/notes/scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a>, a nightly job's step failed on its first scheduled run while the job's own heartbeat kept reporting healthy.</p>
+
+<p>Fold it into the second and you get what I had: a gate that cries regression on every transient outage. An alarm that is wrong often enough gets read as noise, and a real reversal printed on the same line, with the same note, gets read the same way. The exit code is also where <a href="https://hexisteme.github.io/notes/exit-zero-empty-stdout-the-quota-died-on-stderr.html">Exit 0, Empty stdout: the Quota Died on stderr</a> goes wrong, from the other side. There, a CLI worker hit its usage cap and exited 0 anyway, so a dispatcher that only checks the exit code would log a completed task. In that case the process sent the wrong code. In my suite the gate sent the code it meant, and the runner read it with the wrong dictionary.</p>
+
+<p>Test runners already draw this line. pytest has a separate exit code for "no tests were collected", distinct from the one for failing tests: a run that tested nothing is not reported as a run where tests failed. A gate suite needs the same vocabulary. The measurement gap gets a verdict loud enough to see, because the gate went dark and someone should check live access, and quiet enough not to pass for a regression.</p>
+
+<h2 id="applying-this-to-your-own-gates">Applying this to your own gates</h2>
+
+<ul><li>Pick one exit code for "could not measure" and document it in the runner, not only in each gate. Avoid 1: Python exits 1 on an uncaught exception, so a crashing gate would read as unmeasurable.</li><li>Give the runner a verdict for it that is neither PASS nor your regression verdict, and sort it near the top of the report so a dark gate is still seen.</li><li>Don't let exemption mechanisms such as human-block declarations or skip lists absorb it.</li><li>Keep "found a bad state" on its own code, and keep it loud.</li><li>Test the convention across every gate the runner discovers, not just the one that broke.</li><li>Record the exit code and the stderr tail next to each scheduled verdict. My drift log doesn't, which is why the diagnosis above rests on a cache side effect instead of a log line.</li></ul>
+
+<h2 id="what-this-does-not-prove">What this does not prove</h2>
+
+<ul><li>The 00:19 diagnosis is inferred from the cache and from what runs the gate. The drift log keeps verdicts only, so the specific cause (DNS, a rate limit, a timeout) is not pinned.</li><li>If the 00:19 failure was an exception the gate doesn't catch, it exited 1 without printing <code>UNMEASURABLE</code>, and the same failure would still read REGRESSION after this fix. Only the errors the gate catches now become UNMEASURABLE.</li><li>The cache argument covers the October 23 run alone. I have no exit codes for the earlier entries in the drift log, and some of those REGRESSION verdicts may have been real reversals.</li><li>The suite is now quieter on measurement gaps, on purpose. A gate that is chronically unmeasurable shows UNMEASURABLE instead of REGRESSION: still visible, but it no longer screams. A gate that should hard-fail when it cannot measure must not use exit 3.</li><li>The guard test reads only the declared <code>EXIT_UNMEASURABLE</code> constant. A gate that used 3 for a real failure without declaring that constant would now be read as unmeasurable, and the test would not notice. A grep of the current gates found none that does, but nothing stops a future one.</li></ul>
+
+<h2>FAQ</h2>
+<h3>Why did a gate that couldn&#x27;t read its data show up as a regression?</h3>
+<p>The suite runner mapped every non-zero exit other than its own timeout code, 124, to REGRESSION when no human block was declared. The gate exited 1 when it could not read live dev.to data, so the runner reported it the same way as exit 2, which meant the gate had found a real reversal.</p>
+<h3>How can you tell a scheduled run couldn&#x27;t measure when the log stores only verdicts?</h3>
+<p>Reason from side effects and from what else could have run. This gate writes its cache only right after a successful live fetch and reuses it for 24 hours. A manual run at 13:32 UTC, without the refetch flag, found no reusable cache, so the 00:19 UTC run had not fetched successfully; reusing the previous day's cache would have reproduced that day's PASS, not a REGRESSION. The likeliest reading is that the 00:19 run failed before it had any data.</p>
+<h3>Why use exit code 3 for unmeasurable instead of 1?</h3>
+<p>In this suite 1 already means a real failure for other gates, such as EXIT_MISSING_TURN in check_reader_turn.py, and Python exits 1 on an uncaught exception. Seven other gates already declared EXIT_UNMEASURABLE = 3, so the outlier was aligned to them, and a guard test now fails if any gate declares a different value.</p>
+<h3>Doesn&#x27;t a separate UNMEASURABLE verdict let a broken gate hide?</h3>
+<p>It makes the suite quieter on measurement gaps on purpose, so UNMEASURABLE sorts just below REGRESSION and CRASHED, the suite report still prints the tail of the gate's output, and a human-block declaration cannot convert it. A gate that must hard-fail when it cannot measure should not use exit 3.</p>
+<h3>What does the fix not prove?</h3>
+<p>The 00:19 diagnosis is an inference, and the transient cause (DNS, a rate limit, a timeout) is not pinned. If that failure was an exception the gate doesn't catch, it exited 1 and would still read REGRESSION after the fix. The drift log keeps no exit codes for its earlier entries, so some of those REGRESSION verdicts may have been real reversals.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./a-measurement-that-never-ran-became-a-verdict.html">A Measurement That Never Ran Became a Verdict: A Second Automated Chrome Answered for the First</a></li>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></li>
+<li><a href="./exit-zero-empty-stdout-the-quota-died-on-stderr.html">Exit 0, Empty stdout: the Quota Died on stderr</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=a-gate-that-could-not-measure-was-not-a-regression">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
