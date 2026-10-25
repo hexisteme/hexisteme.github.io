@@ -286,6 +286,49 @@
             }
         }
 
+        // ── 릴레이 (실시간 반영) ──────────────────────────────────────────
+        //  링크 fragment `#rid=<22자>&rk=<43자>` — 서버로 전송되지 않는 방 코드·AES-GCM 키.
+        //  릴레이는 암호화 스냅샷만 보관하고, 복호화는 이 페이지(브라우저)에서만 한다.
+        //  블롭 = nonce(12) ‖ ciphertext ‖ tag(16), AAD = rid, 평문 = raw DEFLATE(payload JSON).
+        //  실패하면 링크에 내장된 payload 로 그대로 동작한다.
+        const RELAY_BASE = 'https://jeongmu-relay.haedall.workers.dev';   // null = 기능 꺼짐
+
+        function relayBase() {
+            return location.hostname === 'localhost' ? 'http://localhost:8799' : RELAY_BASE;
+        }
+
+        function parseRelayHash() {
+            const m = /^#?rid=([A-Za-z0-9_-]{22})&rk=([A-Za-z0-9_-]{43})$/.exec(location.hash);
+            if (!m) return null;
+            try {
+                const rid = b64urlToBytes(m[1]), key = b64urlToBytes(m[2]);
+                if (rid.length !== 16 || key.length !== 32) return null;
+                return { rid, key, fragment: 'rid=' + m[1] + '&rk=' + m[2], ridStr: m[1] };
+            } catch (e) {
+                return null;
+            }
+        }
+
+        /// 릴레이에서 최신 스냅샷을 받아 복호화. 성공 시 payload JSON 바이트, 실패 시 null.
+        async function relayFetchPlainBytes(relay) {
+            const base = relayBase();
+            if (!base || !crypto.subtle || typeof DecompressionStream === 'undefined') return null;
+            try {
+                const res = await fetch(base + '/v1/rooms/' + relay.ridStr, { cache: 'no-store' });
+                if (res.status !== 200) return null;
+                const blob = new Uint8Array(await res.arrayBuffer());
+                if (blob.length < 29 || blob.length > 24 * 1024) return null;
+                const key = await crypto.subtle.importKey('raw', relay.key, 'AES-GCM', false, ['decrypt']);
+                const packed = new Uint8Array(await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: blob.slice(0, 12), additionalData: relay.rid }, key, blob.slice(12)));
+                const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+                const plain = new Uint8Array(await new Response(stream).arrayBuffer());
+                return plain.length <= 262144 ? plain : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
         function renderRoom(payload) {
             if (!payload) return;
             if (Array.isArray(payload.st)) {
@@ -420,10 +463,11 @@
             const LS_TS = 'jeongmu_invite_ts';
             const SEVEN_DAYS = 7 * 24 * 3600 * 1000;
 
+            const relay = parseRelayHash();   // 비컨이 URL 을 정리하기 전에 읽는다 (fragment 도 지워진다)
             const params = new URLSearchParams(window.location.search);
             const compressed = params.get('c');
             let plain = params.get('d');
-            sendAnonymousBeacon(Boolean(compressed || plain));
+            sendAnonymousBeacon(Boolean(compressed || plain || relay));
 
             if (!plain && compressed) {
                 plain = await inflateToPlain(compressed);
@@ -435,7 +479,7 @@
                     localStorage.setItem(LS_D, plain);
                     localStorage.setItem(LS_TS, String(Date.now()));
                 } catch (e) {}
-            } else if (!compressed) {
+            } else if (!compressed && !relay) {
                 // 쿼리 없이 재방문 (설치 후 복귀) — 7일 이내 저장분 복구
                 try {
                     const saved = localStorage.getItem(LS_D);
@@ -447,11 +491,29 @@
                 } catch (e) {}
             }
 
+            // 릴레이가 켜져 있고 링크에 방 코드가 있으면 총무의 최신 스냅샷으로 교체 (내장본이 더 새것이면 유지)
+            let payload = plain ? jsonFromPlain(plain) : null;
+            if (relay) {
+                const bytes = await relayFetchPlainBytes(relay);
+                let fresh = null;
+                try { fresh = bytes ? JSON.parse(new TextDecoder('utf-8').decode(bytes)) : null; } catch (e) {}
+                const embeddedGt = payload && typeof payload.gt === 'number' ? payload.gt : 0;
+                if (fresh && typeof fresh.tn === 'string' && (typeof fresh.gt !== 'number' || fresh.gt >= embeddedGt)) {
+                    plain = bytesToB64url(bytes);
+                    payload = fresh;
+                    try {
+                        localStorage.setItem(LS_D, plain);
+                        localStorage.setItem(LS_TS, String(Date.now()));
+                    } catch (e) {}
+                }
+            }
+
             if (!plain) return;   // 압축 해제 실패(구형 브라우저) → 스토어 버튼만 노출
             const openApp = document.getElementById('open-app');
-            openApp.href = 'jeongmu://join?d=' + encodeURIComponent(plain);
+            // 방 코드·키를 스킴 링크에도 실어 앱이 입장 시 릴레이 갱신을 이어받게 한다 (구버전 앱은 무시).
+            openApp.href = 'jeongmu://join?d=' + encodeURIComponent(plain) + (relay ? '#' + relay.fragment : '');
             openApp.style.display = 'block';
-            renderRoom(jsonFromPlain(plain));
+            renderRoom(payload);
         })();
     </script>
 </body>
