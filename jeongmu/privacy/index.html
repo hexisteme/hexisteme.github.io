@@ -24,7 +24,7 @@
 <body>
 <p class="back"><a href="../">← 정총무</a></p>
 <h1>개인정보처리방침</h1>
-<p class="meta">최종 수정일: 2026-10-25 · Effective: 2026-10-25 (앱 1.5.0부터)</p>
+<p class="meta">최종 수정일: 2026-10-29 · Effective: 2026-10-29 (앱 1.6.0부터 — 하루 일기, 정산방 삭제 시 서버 사본 삭제)</p>
 
 <p>
   정총무(이하 "본 앱")는 계정 가입이 없습니다. 정산방·지출·사진·위치는 사용자의 기기에 저장됩니다.
@@ -68,6 +68,11 @@
       <td>기기에 저장 · 공유 링크와 서버에 넣지 않음</td>
     </tr>
     <tr>
+      <td>하루 일기(사용자가 쓴 글)</td>
+      <td>추억 카드</td>
+      <td>기기에 저장 · 공유 링크와 서버에 넣지 않음</td>
+    </tr>
+    <tr>
       <td>지출 위치(좌표)</td>
       <td>동선 지도</td>
       <td>기기에 저장 · 공유 링크와 서버에 넣지 않음</td>
@@ -94,7 +99,7 @@
     링크를 가진 사람은 누구나 내용을 볼 수 있으니, 함께 정산하는 사람에게만 보내 주세요.</li>
   <li><strong>서버에 남는 것:</strong> 무작위 방 코드, 암호화된 사본, 버전 번호, 마지막 변경 시각, 총무 폰만 가진 쓰기 토큰의 해시, 방별 읽기·쓰기 횟수 제한에 쓰는 요청 시각(IP 주소 없이, 1시간이 지나면 정리). 계정·기기 식별자는 없습니다.</li>
   <li><strong>남용 방지:</strong> 새 방을 만든 요청의 IP 주소를 횟수 제한에 쓰려고 약 1시간 보관한 뒤 지웁니다. 서버 프로그램은 접속 기록(IP 주소·브라우저 정보)을 남기지 않습니다. Cloudflare는 망 운영·보안을 위해 자체 정책에 따라 요청 정보를 처리할 수 있습니다(<a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare 개인정보처리방침</a>).</li>
-  <li><strong>보관 기간:</strong> 마지막 변경 후 365일이 지나면 자동으로 지웁니다. 더 일찍 지우려면 7항 주소로 방 코드(링크의 <code>rid=</code> 값, 열쇠인 <code>rk=</code> 값은 빼고)를 보내 주세요.</li>
+  <li><strong>보관 기간:</strong> 마지막 변경 후 365일이 지나면 자동으로 지웁니다. 총무가 앱에서 정산방을 지우면 서버 사본도 바로 지웁니다(그때 인터넷에 연결되지 않았으면 다시 시도하지 않고 365일 뒤 자동으로 지워집니다). 더 일찍 지우려면 8항 주소로 방 코드(링크의 <code>rid=</code> 값, 열쇠인 <code>rk=</code> 값은 빼고)를 보내 주세요.</li>
   <li><strong>서버 없이 만든 링크:</strong> 방 코드가 생기기 전(첫 업로드 전이나 첫 업로드에 실패했을 때)에는 정산 내용을 압축해 링크 주소 안에 담습니다. 이 링크는 암호화되어 있지 않으며, 웹 브라우저로 열면 링크 주소가 웹 페이지를 호스팅하는 GitHub Pages로 전송됩니다(<a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub 개인정보처리방침</a>).</li>
   <li><strong>웹 페이지:</strong> 앱이 없는 친구가 링크를 열면 hexisteme.github.io의 웹 페이지가 서버에서 사본을 받아 브라우저 안에서 복호화해 보여 줍니다. 다음에 받은 링크가 잘려도 다시 보여 줄 수 있도록 마지막으로 연 정산 내용을 그 브라우저의 저장소(localStorage)에 남기며, 브라우저의 사이트 데이터 지우기로 지울 수 있습니다. 이 페이지도 4.2항의 익명 통계를 보냅니다.</li>
 </ul>
@@ -110,8 +115,8 @@
 
 <h3>4.2 TelemetryDeck (익명 사용 통계)</h3>
 <p>
-  앱을 고치는 데 쓰려고 어떤 기능을 썼는지(예: 정산방 만들기, 정산 완료, 공유, 게임)와 멤버 수·지출 건수 같은 수치, 통화·분류, 앱·OS 버전, 기기 종류를 보냅니다.
-  이름·지출 제목·사진·위치는 보내지 않습니다. 사용자 식별자는 기기에서 해시 처리되어 운영자가 개인을 알아볼 수 없습니다.
+  앱을 고치는 데 쓰려고 어떤 기능을 썼는지(예: 정산방 만들기, 정산 완료, 공유, 게임, 일기 저장)와 멤버 수·지출 건수 같은 수치, 통화·분류, 앱·OS 버전, 기기 종류를 보냅니다.
+  이름·지출 제목·일기 내용·사진·위치는 보내지 않습니다. 사용자 식별자는 기기에서 해시 처리되어 운영자가 개인을 알아볼 수 없습니다.
   TelemetryDeck의 정보 처리: <a href="https://telemetrydeck.com/privacy/" target="_blank" rel="noopener">https://telemetrydeck.com/privacy/</a>
 </p>
 
@@ -137,7 +142,7 @@
 <h2>5. 데이터 보관 및 삭제</h2>
 <p>
   정산방은 앱에서 지울 수 있고, 앱을 삭제하면 기기에 저장된 데이터가 지워집니다. 단, 총무 폰의 쓰기 토큰(내용 없는 무작위 값)은 iOS 키체인에 저장돼 앱을 지운 뒤에도 남을 수 있습니다.
-  릴레이 서버의 암호화된 사본은 3항의 보관 기간에 따라 지웁니다.
+  총무가 앱에서 정산방을 지우면 릴레이 서버의 암호화된 사본도 지웁니다. 지우지 못한 사본은 3항의 보관 기간에 따라 지웁니다. 친구 기기에 받아 둔 정산방은 친구가 그 기기에서 지워야 합니다.
 </p>
 
 <h2>6. 아동 개인정보</h2>
@@ -157,16 +162,16 @@
   <strong>Sharing a room.</strong> When the organizer shares a room, the app encrypts a snapshot (room name, dates, budget, member names, the 5 most recent expenses with title, amount, currency, payer, date and split, the expense count and total, and the settlement result) on the device with AES-256-GCM and stores it on the operator's relay server (Cloudflare Workers).
   Places, photos, coordinates, receipts and payment details are never included. The decryption key exists only in the part of the share link after <code>#</code> and on the organizer's and friends' devices, and is never sent to the server, so neither the operator nor Cloudflare can read it. Anyone holding the link can read it, so share it only with the people you split with.
   The server keeps a random room code, the encrypted snapshot, a revision number, the last-update time and a hash of the organizer's write token. It keeps the IP address of a request that creates a room for about one hour to limit abuse, keeps per-room request times (without IP addresses) for rate limiting, and keeps no access logs.
-  Snapshots are deleted automatically 365 days after their last update; to delete one sooner, email the room code (the <code>rid=</code> value of the link, without the <code>rk=</code> key).
+  When the organizer deletes the room in the app, the app also deletes the snapshot from the server (if the phone is offline at that moment, this is not retried). Snapshots are deleted automatically 365 days after their last update; to delete one sooner, email the room code (the <code>rid=</code> value of the link, without the <code>rk=</code> key).
   Links created before the room has a code (before the first upload, or if it failed) carry the unencrypted, compressed room data in the link itself; opening such a link in a browser sends it to GitHub Pages, which hosts the web page.
   The web page keeps the last room it opened in that browser's local storage so it can show it again if a later link is cut off; clearing the browser's site data removes it.
 </p>
 <p>
-  <strong>On-device processing.</strong> Receipt photos are read on the device (Apple Vision), and a card-payment message you copy is read from the clipboard only when you return to the add-expense screen with newly copied text; neither leaves the device. Expense locations are taken once, only while you use the app and only if you allow it, and stay on the device. Nearby games use the local network to connect phones directly, without a server. Reminders are local notifications.
+  <strong>On-device processing.</strong> Receipt photos are read on the device (Apple Vision), and a card-payment message you copy is read from the clipboard only when you return to the add-expense screen with newly copied text; neither leaves the device. Expense locations are taken once, only while you use the app and only if you allow it, and stay on the device. Nearby games use the local network to connect phones directly, without a server. Reminders are local notifications. Diary entries stay on the device.
 </p>
 <p>
   <strong>Third parties.</strong> Google AdMob shows non-personalized ads and may process device information, approximate location derived from the IP address, ad interactions and diagnostics.
-  TelemetryDeck receives anonymous usage signals (which features were used, counts such as members and expenses, currency, category, app and OS version), never names, expense titles, photos or locations.
+  TelemetryDeck receives anonymous usage signals (which features were used, counts such as members and expenses, currency, category, app and OS version), but never names, expense titles, diary text, photos or locations.
   Sentry receives crash and error reports, failed network requests (including the relay room code) and sampled performance data; names and settlement content are not sent on purpose, but an error description that contains app data may include it.
   Maps and place search use Apple MapKit (search text and the visible map area go to Apple). When saved exchange rates are stale, the app fetches rates from open.er-api.com, which receives the IP address but no user data.
   Payment details you add for members (bank account, payment-app handles) stay on the device and go only into payment requests you share yourself.
@@ -181,16 +186,16 @@
   <strong>ルームの共有。</strong>幹事がルームを共有すると、ルーム名・期間・予算・メンバー名、直近5件の支出(内容・金額・通貨・支払者・日付・分け方)、支出の件数と合計、精算結果を端末で AES-256-GCM により暗号化し、運営者のリレーサーバー(Cloudflare Workers)に保管します。場所・写真・座標・レシート・送金情報は含めません。
   復号の鍵は共有リンクの <code>#</code> より後ろと幹事・友だちの端末にだけあり、サーバーには送られないため、運営者も Cloudflare も内容を読めません。リンクを持つ人は内容を見られるので、一緒に精算する人にだけ送ってください。
   サーバーに残るのはランダムなルームコード、暗号化された写し、版番号、最終更新時刻、幹事の書き込みトークンのハッシュです。ルームを作るリクエストの IP アドレスは乱用防止のため約1時間だけ保持し、回数制限のためルームごとのリクエスト時刻(IP なし)を残しますが、アクセス記録は残しません。
-  写しは最終更新から365日で自動的に削除します。早めに削除したい場合は、ルームコード(リンクの <code>rid=</code> の値、鍵の <code>rk=</code> は除く)をメールで送ってください。
+  幹事がアプリでルームを削除すると、サーバーの写しも削除します(そのときオフラインなら再試行しません)。写しは最終更新から365日で自動的に削除します。早めに削除したい場合は、ルームコード(リンクの <code>rid=</code> の値、鍵の <code>rk=</code> は除く)をメールで送ってください。
   ルームコードができる前(最初のアップロード前や失敗時)のリンクには、暗号化していない圧縮データが入り、ブラウザで開くとリンクのアドレスがウェブページをホストする GitHub Pages に送られます。
   ウェブページは、あとで届いたリンクが切れていても表示できるよう、最後に開いた精算内容をそのブラウザのローカルストレージに残します。ブラウザのサイトデータを消すと削除されます。
 </p>
 <p>
-  <strong>端末内の処理。</strong>レシート写真は端末内(Apple Vision)で読み取り、コピーしたカード決済メッセージは支出追加画面に戻ったとき新しくコピーされた内容がある場合だけクリップボードから読みます。どちらも端末の外に送りません。支出の位置はアプリ使用中に許可した場合だけ1回取得し、端末に保存します。近くの友だちとのゲームはローカルネットワークで端末どうしを直接つなぎます。通知は端末内のローカル通知です。
+  <strong>端末内の処理。</strong>レシート写真は端末内(Apple Vision)で読み取り、コピーしたカード決済メッセージは支出追加画面に戻ったとき新しくコピーされた内容がある場合だけクリップボードから読みます。どちらも端末の外に送りません。支出の位置はアプリ使用中に許可した場合だけ1回取得し、端末に保存します。近くの友だちとのゲームはローカルネットワークで端末どうしを直接つなぎます。通知は端末内のローカル通知です。日記は端末に保存します。
 </p>
 <p>
   <strong>第三者サービス。</strong>Google AdMob はパーソナライズされない広告を表示し、端末情報、IP アドレスから推定したおおよその位置、広告の操作、診断情報を処理することがあります。
-  TelemetryDeck には匿名の利用統計(使った機能、メンバー数・支出件数などの数値、通貨・分類、アプリ・OS のバージョン)を送り、名前・支出の内容・写真・位置は送りません。
+  TelemetryDeck には匿名の利用統計(使った機能、メンバー数・支出件数などの数値、通貨・分類、アプリ・OS のバージョン)を送り、名前・支出の内容・日記の内容・写真・位置は送りません。
   Sentry にはクラッシュ・エラー報告、失敗したネットワークリクエスト(リレーのルームコードを含む)、一部の性能測定を送ります。名前・精算内容を意図して送ることはありませんが、エラーの説明にアプリのデータが含まれる場合は一緒に送られることがあります。
   地図と場所検索は Apple MapKit を使います(検索語と表示中の地図の範囲が Apple に送られます)。保存した為替レートが古いときは open.er-api.com から最新のレートを受け取り、そのサーバーは IP アドレスを受け取りますが、ユーザー情報は送りません。
   メンバーの送金情報(口座、送金アプリの ID)は端末に保存し、ご自身で共有する送金依頼の文面にだけ入ります。
@@ -205,16 +210,16 @@
   <strong>分享房间。</strong>组织者分享房间时，应用会在设备上用 AES-256-GCM 加密房间名称、日期、预算、成员名称、最近 5 笔支出(内容、金额、币种、付款人、日期、分摊方式)、支出笔数与合计以及结算结果，并保存在运营者的中继服务器(Cloudflare Workers)上。地点、照片、坐标、收据和收款信息不会包含在内。
   解密密钥只存在于分享链接 <code>#</code> 之后的部分以及管账人和好友的设备上，不会发送到服务器，因此运营者和 Cloudflare 都无法读取内容。持有链接的人可以查看内容，请只发给一起分账的人。
   服务器只保存随机房间码、加密副本、版本号、最后更新时间和组织者写入令牌的哈希值。创建房间的请求 IP 地址仅为防止滥用保留约 1 小时，并为限制频率保存每个房间的请求时间(不含 IP)，不保存访问记录。
-  副本在最后更新 365 天后自动删除；如需提前删除，请通过邮件发送房间码(链接中 <code>rid=</code> 的值，不含密钥 <code>rk=</code>)。
+  组织者在应用中删除房间时，也会删除服务器上的副本(当时离线则不再重试)。副本在最后更新 365 天后自动删除；如需提前删除，请通过邮件发送房间码(链接中 <code>rid=</code> 的值，不含密钥 <code>rk=</code>)。
   房间码生成之前(首次上传前或上传失败时)的链接，会把未加密的压缩数据直接放在链接里；在浏览器中打开时，链接地址会发送给托管网页的 GitHub Pages。
   网页会把最后打开的结算内容保存在该浏览器的本地存储中，以便之后收到的链接被截断时仍能显示；清除浏览器网站数据即可删除。
 </p>
 <p>
-  <strong>设备内处理。</strong>收据照片在设备内(Apple Vision)识别；复制的刷卡短信仅在您带着新复制的内容回到添加支出页面时从剪贴板读取。两者都不会离开设备。支出位置仅在使用应用时且经您允许后获取一次，并保存在设备上。附近好友游戏通过本地网络让手机直接连接，不经过服务器。提醒为设备内的本地通知。
+  <strong>设备内处理。</strong>收据照片在设备内(Apple Vision)识别；复制的刷卡短信仅在您带着新复制的内容回到添加支出页面时从剪贴板读取。两者都不会离开设备。支出位置仅在使用应用时且经您允许后获取一次，并保存在设备上。附近好友游戏通过本地网络让手机直接连接，不经过服务器。提醒为设备内的本地通知。日记保存在设备上。
 </p>
 <p>
   <strong>第三方服务。</strong>Google AdMob 展示非个性化广告，可能处理设备信息、根据 IP 地址推算的大致位置、广告互动和诊断信息。
-  TelemetryDeck 接收匿名使用统计(使用了哪些功能、成员数和支出笔数等数值、币种、分类、应用和系统版本)，不包含名称、支出内容、照片或位置。
+  TelemetryDeck 接收匿名使用统计(使用了哪些功能、成员数和支出笔数等数值、币种、分类、应用和系统版本)，不包含名称、支出内容、日记内容、照片或位置。
   Sentry 接收崩溃和错误报告、失败的网络请求(包括中继房间码)及部分性能数据；不会特意发送名称和结算内容，但错误说明中含有应用数据时可能一并发送。
   地图和地点搜索使用 Apple MapKit(搜索词和当前地图范围会发送给 Apple)。保存的汇率过旧时，应用会从 open.er-api.com 获取最新汇率，该服务器会收到 IP 地址，但不含用户信息。
   成员的收款信息(银行账户、支付应用账号)保存在设备上，只会出现在您自己分享的收款请求文字中。
