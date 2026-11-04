@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>The Python Reader I Measured Never Opened 34,557 Files. 310 Tests Still Needed Them. — hexisteme notes</title>
+<meta name="description" content="A storage cleanup moved 34,557 files one reader never opened, failed 310 tests beyond baseline, and was rolled back; the retry&#x27;s delete has not run yet.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/one-readers-read-set-was-not-every-reader.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Python Reader I Measured Never Opened 34,557 Files. 310 Tests Still Needed Them.">
+<meta property="og:description" content="A storage cleanup moved 34,557 files one reader never opened, failed 310 tests beyond baseline, and was rolled back; the retry&#x27;s delete has not run yet.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/one-readers-read-set-was-not-every-reader.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/one-readers-read-set-was-not-every-reader.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-04">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Python Reader I Measured Never Opened 34,557 Files. 310 Tests Still Needed Them.">
+<meta name="twitter:description" content="A storage cleanup moved 34,557 files one reader never opened, failed 310 tests beyond baseline, and was rolled back; the retry&#x27;s delete has not run yet.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/one-readers-read-set-was-not-every-reader.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The Python Reader I Measured Never Opened 34,557 Files. 310 Tests Still Needed Them.", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Why a delete list computed from one reader's read set broke other readers, how a move-only quarantine kept the rollback cheap, and what recording real reads turned up in a retry that has not yet deleted anything.", "image": "https://hexisteme.github.io/notes/og/one-readers-read-set-was-not-every-reader.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did quarantining files one reader never opened break tests?", "acceptedAnswer": {"@type": "Answer", "text": "That reader's read set described only that reader. Publish replay, re-judging blocked batches and joining past provenance reopen old capture bodies, so the full suite showed 310 failures beyond its sealed baseline, with ValueError: YouTube page body unavailable 312 times and FileNotFoundError on runs/*.html."}}, {"@type": "Question", "name": "Why did an audit hook show 0 raw reads for a validator that does open files?", "acceptedAnswer": {"@type": "Answer", "text": "One module reads with os.open(name, dir_fd=parent_fd). The audit open event carries the relative name 'capture.html', so matching on absolute paths misses it, which I verified on Python 3.13.0 with a small script. An os.open wrapper plus fcntl F_GETPATH recovered the full path."}}, {"@type": "Question", "name": "What did quarantining instead of deleting actually buy?", "acceptedAnswer": {"@type": "Answer", "text": "All 34,580 quarantined files moved back with 0 missing, and re-running the 908 failed tests showed 0 failures beyond the baseline. Recovery cost a rename and no re-crawl. The record does not explain why 34,580 differs from the 34,557 first reported."}}, {"@type": "Question", "name": "How was the pin list for the retry built?", "acceptedAnswer": {"@type": "Answer", "text": "By actually running the readers and recording what they open, instead of reading the code. The pins were validator 21,867 (raw 1,898), queue replay 4,160 (raw 26), backlog in-progress 3,355, publish-waiting 58 and full suite 498 (raw 15)."}}, {"@type": "Question", "name": "Is the cleanup finished?", "acceptedAnswer": {"@type": "Answer", "text": "No. On 2026-11-04 the budget gate showed 49.1GiB of 140GiB with 41.0GiB in quarantine awaiting deletion, those quarantined bytes excluded from the budget. Three of four nightly runs ended restored with collection state stayed busy, the storage gate went PASS -> REGRESSION and is unresolved, and nothing has reached the 7-day delete."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>The Python Reader I Measured Never Opened 34,557 Files. 310 Tests Still Needed Them.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-04</p>
+<div class="note">A storage cleanup quarantined 34,557 HTML files the collection-state validator never opened, and the full test suite then showed 310 failures beyond its baseline because publish replay and other readers reopen old capture bodies. Moving instead of deleting made the rollback a rename; the retry builds its pin list by running the readers and recording what they open, but on 2026-11-04 three of four nightly runs had ended <code>restored</code>, the storage gate was red, and no deletion had run.</div>
+
+<p>On 2026-10-31 I quarantined 34,557 HTML files in a content-collection system because the reader I had measured never opened them. The collection round that ran next finished complete and a re-trace passed. Then I compared the full test suite to its sealed baseline and found 310 failures beyond it.</p>
+
+<p>All of the files went back the same day, and that was cheap only because I had moved them instead of deleting them. The retry that came after is still in progress. As of 2026-11-04 its storage gate is red, three of its four nightly runs ended <code>restored</code>, and the step that actually deletes anything has never run.</p>
+
+<h2 id="132-8gib-and-no-alarm">132.8GiB and no alarm</h2>
+
+<p>The system's <code>report/</code> directory had grown to 132.8GiB with no alarm. Jobs running every 15 minutes left a new folder each round, and nothing cleaned up after them.</p>
+
+<p>The first pass was a reference-based pruner. It keeps anything cited in the database, the state or the source, and it sits under a budget gate of 140GiB. It took the directory from 132.8 to 115.1GiB by reclaiming 556 unreferenced units (10.7GiB) and cutting a 9.86GB SQLite file to 2.30GB. Collection runs were still 57.4GiB, and almost all of that was referenced, so a reference check had nothing left to take.</p>
+
+<h2 id="measuring-one-reader">Measuring one reader</h2>
+
+<p>The second attempt ran the same day, 16:50 to 17:40 KST, and started from a plain question: isn't this data unnecessary once it's on the blog? The numbers seemed to say yes.</p>
+
+<ul><li>Of 60,492 tasks, 626 (1%) had published.</li><li>Of 46,643 collected HTML files (52.4GiB), the collection-state validator opened 1,920 (2.2GiB).</li><li>The rest were the same ~2,100 videos re-fetched every 15 minutes, 33,434 history entries of them.</li></ul>
+
+<p>So the candidate set became HTML older than 7 days that the validator doesn't open: 34,557 files, 37.8GiB. At 07:52Z a release tool moved them to quarantine. Moved, not deleted. Afterward the collection round finished complete and a re-trace passed.</p>
+
+<p>Both results were accurate, and neither covered the code that was about to fail. I've written before about <a href="https://hexisteme.github.io/notes/verification-tools-dont-report-their-blind-spots.html">checks that report accurately on what they examined and say nothing about what they could not see</a>. This was another case of it.</p>
+
+<h2 id="the-full-suite-disagreed">The full suite disagreed</h2>
+
+<p>Comparing the full test suite to the sealed baseline (v20, 31 failures) showed 310 failures beyond the baseline. The causes were <code>ValueError: YouTube page body unavailable</code>, 312 times, and <code>FileNotFoundError</code> on <code>runs/*.html</code>.</p>
+
+<p>Publish replay, re-judging blocked batches and joining past provenance all reopen old capture bodies. None of those appeared in what I had measured, because I had measured one reader.</p>
+
+<p>That was the error. A read set tells you what one program opened. I took its complement and treated it as the files nobody needs, when the complement only describes the validator. One reader's read set was not every reader's, and a delete list has to be computed against all of them.</p>
+
+<h2 id="recovery-cost-a-rename">Recovery cost a rename</h2>
+
+<p>I moved all 34,580 quarantined files back, 0 missing, and re-ran the 908 failed tests: 0 failures beyond the baseline. Then I removed the tool, its launchd job, the gate branch and the line in the agent instructions, and locked the lesson with a regression test: a superseded capture cited only by history keeps its whole unit.</p>
+
+<p>Because the move was a quarantine, recovery cost a rename and no re-crawl. The wrong candidate list would have been the same mistake either way. The quarantine changed what it cost to find out.</p>
+
+<p>My record has two counts that don't line up with the earlier ones, and it explains neither. The rollback moved 34,580 files against the 34,557 I had quarantined, and the re-run covered 908 failed tests against 310 failures beyond the baseline. The results I relied on were the 0 missing and the 0 beyond baseline.</p>
+
+<h2 id="third-attempt-pins-from-running-the-readers">Third attempt: pins from running the readers</h2>
+
+<p>The third attempt ran 19:30 to 20:40 KST and began with an approved change of policy:</p>
+
+<ul><li>Delete raw HTML for finished items and keep only receipts.</li><li>Keep raw for in-progress items.</li><li>Give up regenerating old published posts from raw.</li></ul>
+
+<p>The last item is a real loss, accepted on purpose.</p>
+
+<p>I also found the operational reader behind the second failure. Two blocked publishes traced to publication queue replay, which reopens raw files for finished posts: 26 raw files, up to 28 days old. "Finished" did not mean "never read again", so the policy alone could not define the delete list.</p>
+
+<p>The pin list, the files that have to stay, was built by actually running the readers and recording what they open, instead of reading the code. The recorder had two traps of its own.</p>
+
+<h3 id="trap-one-the-read-that-didn-t-match">Trap one: the read that didn't match</h3>
+
+<p>Path reads were captured with an audit hook. One module reads like this:</p>
+
+<pre><code>os.open(name, dir_fd=parent_fd)</code></pre>
+
+<p>With the audit hook alone, the collection-state validator appeared to read 0 raw files. That is the same validator I had measured opening 1,920 files that afternoon. I checked the reason on Python 3.13.0 with a small script: the audit <code>open</code> event carries the relative name <code>'capture.html'</code>, so matching on absolute paths misses it.</p>
+
+<p>The fix was an <code>os.open</code> wrapper plus <code>fcntl</code> <code>F_GETPATH</code> to recover the full path. In the final list the validator's pins include 1,898 raw files.</p>
+
+<h3 id="trap-two-reads-collected-at-exit">Trap two: reads collected at exit</h3>
+
+<p>Collecting test read records in <code>atexit</code> lost the main pytest process's reads entirely. The regression test for this uses a script ending in <code>os._exit(1)</code>. My record stops at the symptom and the test. I haven't confirmed the exact path by which those records went missing, so I won't guess at it here.</p>
+
+<p>Both traps undercounted, and in this design an undercount is the dangerous direction: every read the recorder misses is one fewer pin and one more candidate for deletion.</p>
+
+<h3 id="the-list-that-came-out">The list that came out</h3>
+
+<div class="table-scroll" role="region" aria-label="Table 1: The list that came out" tabindex="0">
+<table>
+<thead><tr><th>Reader</th><th>Pins</th><th>Of which raw</th></tr></thead>
+<tbody>
+<tr><td>Collection-state validator</td><td>21,867</td><td>1,898</td></tr>
+<tr><td>Publication queue replay</td><td>4,160</td><td>26</td></tr>
+<tr><td>Backlog in-progress</td><td>3,355</td><td>not broken out</td></tr>
+<tr><td>Publish-waiting</td><td>58</td><td>not broken out</td></tr>
+<tr><td>Full test suite</td><td>498</td><td>15</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>I applied it as one batch: 32,955 files, 36.6GiB, moved to a quarantine directory in 123 seconds. The self-check passed, and the publish planner passed for both pending publishes after quarantine.</p>
+
+<h2 id="what-runs-now">What runs now</h2>
+
+<ul><li>A tripwire job runs every 15 minutes and watches logs for reads of missing files.</li><li>A nightly release job recomputes pins, restores any held file that became pinned, deletes batches past 7 days, quarantines new candidates and self-checks.</li><li>The storage gate fails on a stopped, refused or restored job, and on any tripwire restore within 7 days.</li><li>Bytes in quarantine are excluded from the budget and shown separately.</li></ul>
+
+<h2 id="what-i-d-carry-into-another-cleanup">What I'd carry into another cleanup</h2>
+
+<p>This comes from one system, so treat it as what I would try first:</p>
+
+<ul><li>Move before you delete, on a fixed timer, so a wrong list costs a rename.</li><li>Compute candidates against every reader you can run, and count the test suite as a reader. Mine held 15 raw pins of its own, and it was the check that caught the failure.</li><li>Before trusting a recorder's zero, run it against a reader whose count you already have.</li><li>Compare the whole suite to a baseline after the move. The checks closest to the change passed here.</li></ul>
+
+<h2 id="where-it-stands-on-2026-11-04">Where it stands on 2026-11-04</h2>
+
+<p>The budget gate prints <code>report/</code> at 49.1GiB of 140GiB, with 41.0GiB in quarantine awaiting deletion. The first number looks like success, but quarantined bytes are excluded from it, and those 41.0GiB have not been reclaimed.</p>
+
+<p>The tripwire showed <code>tripped []</code> in the checks I read on 2026-11-04.</p>
+
+<p>The nightly job is where it isn't working. Of four runs since the first batch:</p>
+
+<ul><li>2026-10-31, 20:20Z: ended <code>restored</code></li><li>2026-11-01: ended <code>restored</code></li><li>2026-11-02: held</li><li>2026-11-03: ended <code>restored</code></li></ul>
+
+<p>All three <code>restored</code> runs carry the same error: <code>pin source collection failed: CaptureReleaseError: collection state stayed busy</code>. That turned the storage gate red today, PASS -&gt; REGRESSION. The gate is doing what I built it to do, since it fails on a restored job. The failure underneath is not resolved at the time of writing.</p>
+
+<p>Nothing has reached the 7-day delete yet. The expired lists are empty in all receipts, so the deletion step has not run for real. Everything that has gone right so far was a move, and a move can be undone. The step that can't be undone is still ahead of me.</p>
+
+<p>The limits I'm carrying into that step:</p>
+
+<ul><li>I don't know why collection state stayed busy on three of four runs.</li><li>The pin list covers the readers I ran. A reader I haven't listed, or a path those runs didn't take, isn't in it, which is the second attempt's mistake made smaller.</li><li>After a real delete the tripwire can still report a read of a missing file, but there will be no quarantined copy left to restore.</li></ul>
+
+<p>The next thing to check is the first nightly run with a non-empty expired list, and what the tripwire reports after it.</p>
+
+<h2>FAQ</h2>
+<h3>Why did quarantining files one reader never opened break tests?</h3>
+<p>That reader's read set described only that reader. Publish replay, re-judging blocked batches and joining past provenance reopen old capture bodies, so the full suite showed 310 failures beyond its sealed baseline, with ValueError: YouTube page body unavailable 312 times and FileNotFoundError on runs/*.html.</p>
+<h3>Why did an audit hook show 0 raw reads for a validator that does open files?</h3>
+<p>One module reads with os.open(name, dir_fd=parent_fd). The audit open event carries the relative name 'capture.html', so matching on absolute paths misses it, which I verified on Python 3.13.0 with a small script. An os.open wrapper plus fcntl F_GETPATH recovered the full path.</p>
+<h3>What did quarantining instead of deleting actually buy?</h3>
+<p>All 34,580 quarantined files moved back with 0 missing, and re-running the 908 failed tests showed 0 failures beyond the baseline. Recovery cost a rename and no re-crawl. The record does not explain why 34,580 differs from the 34,557 first reported.</p>
+<h3>How was the pin list for the retry built?</h3>
+<p>By actually running the readers and recording what they open, instead of reading the code. The pins were validator 21,867 (raw 1,898), queue replay 4,160 (raw 26), backlog in-progress 3,355, publish-waiting 58 and full suite 498 (raw 15).</p>
+<h3>Is the cleanup finished?</h3>
+<p>No. On 2026-11-04 the budget gate showed 49.1GiB of 140GiB with 41.0GiB in quarantine awaiting deletion, those quarantined bytes excluded from the budget. Three of four nightly runs ended restored with collection state stayed busy, the storage gate went PASS -&gt; REGRESSION and is unresolved, and nothing has reached the 7-day delete.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./exclusion-lists-rot-define-populations-structurally.html">Exclusion Lists Managed by Name Always Rot. Mark the Population Instead.</a></li>
+<li><a href="./when-you-delete-a-rule-hunt-the-quiet-tests.html">When You Delete a Rule, Hunt the Tests That Went Quiet</a></li>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Your verification tool reports what it saw, never where it didn&#x27;t look</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=one-readers-read-set-was-not-every-reader">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
