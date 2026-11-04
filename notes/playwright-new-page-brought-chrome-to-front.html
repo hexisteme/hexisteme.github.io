@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Playwright&#x27;s new_page() Pulled Chrome to the Front. A Background Tab Alone Didn&#x27;t Fix It. — hexisteme notes</title>
+<meta name="description" content="On a Mac, Playwright&#x27;s new_page() brought a headed Chrome to the front, so I opened tabs through CDP and hid the browser with a launch wrapper.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/playwright-new-page-brought-chrome-to-front.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Playwright&#x27;s new_page() Pulled Chrome to the Front. A Background Tab Alone Didn&#x27;t Fix It.">
+<meta property="og:description" content="On a Mac, Playwright&#x27;s new_page() brought a headed Chrome to the front, so I opened tabs through CDP and hid the browser with a launch wrapper.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/playwright-new-page-brought-chrome-to-front.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/playwright-new-page-brought-chrome-to-front.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-04">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Playwright&#x27;s new_page() Pulled Chrome to the Front. A Background Tab Alone Didn&#x27;t Fix It.">
+<meta name="twitter:description" content="On a Mac, Playwright&#x27;s new_page() brought a headed Chrome to the front, so I opened tabs through CDP and hid the browser with a launch wrapper.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/playwright-new-page-brought-chrome-to-front.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Playwright's new_page() Pulled Chrome to the Front. A Background Tab Alone Didn't Fix It.", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Keeping always-on headed Playwright browsers from taking the screen on a Mac, using background CDP tabs and a launch wrapper that re-hides the browser.", "image": "https://hexisteme.github.io/notes/og/playwright-new-page-brought-chrome-to-front.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does Playwright's new_page() take focus on a headed browser?", "acceptedAnswer": {"@type": "Answer", "text": "In a probe on my Mac, context.new_page() brought the headed browser to the front and took the focus. The probe measured the effect, and I didn't check the reason."}}, {"@type": "Question", "name": "How do I open a Playwright tab in the background without taking focus?", "acceptedAnswer": {"@type": "Answer", "text": "I replaced new_page() with a wrapper that sends the CDP call Target.createTarget with background set to true through a browser-level CDP session, inside expect_page() so the caller still gets a Playwright page back. Focus stayed where it was, but this call does un-hide a hidden browser."}}, {"@type": "Question", "name": "Why didn't open -j or open -g keep Chrome out of the way on macOS?", "acceptedAnswer": {"@type": "Answer", "text": "open -j had no effect because Chrome shows itself when it opens its first window. A relaunched Google Chrome with an existing profile came to the front even with open -g. I didn't check why, so the wrapper hides the browser after launch instead of depending on the flag."}}, {"@type": "Question", "name": "How does the wrapper hide the browser and still let a person use it?", "acceptedAnswer": {"@type": "Answer", "text": "For the first 20 seconds after launch it hides unconditionally. After that, every 2 seconds, it hides only when the browser is not the frontmost app, so switching to it with Cmd+Tab or the Dock keeps it visible. The hide is NSRunningApplication.hide through the JXA ObjC bridge, which is not an Apple Event, so there's no automation permission prompt."}}, {"@type": "Question", "name": "What would show this fix is wrong?", "acceptedAnswer": {"@type": "Answer", "text": "Either browser coming to the front with no human switching to it, or a hidden browser producing empty screenshots or timeouts. The evidence so far is one hour, 3 runs and one Mac, and that hour's record shows neither the 09:20 stats job nor the job that calls bring_to_front() on purpose."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Playwright&#x27;s new_page() Pulled Chrome to the Front. A Background Tab Alone Didn&#x27;t Fix It.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-04</p>
+<div class="note">On a Mac, Playwright's <code>context.new_page()</code> brought a headed browser to the front, so I opened tabs through CDP <code>Target.createTarget</code> with <code>background: true</code>. That call un-hides a hidden browser, so a launch wrapper also re-hides it whenever it isn't the frontmost app, and a one-hour watch of 3 publish runs saw neither browser come to the front.</div>
+
+<p>A blog publishing job ran every 15 minutes on the Mac I work on, and each run opened a browser tab through Playwright. Any of those runs could pull the browser over the app I was using. A stats job at 09:20 could do the same. I have no count of how many runs actually took the screen.</p>
+
+<p>The browsers themselves made this hard to avoid. There were two, both headed and always on, both driven over CDP by scheduled jobs: Chrome for Testing on port 9333 and Google Chrome on port 9334. launchd kept both alive with KeepAlive, so closing one didn't help. It relaunched within 30 seconds and its window came to the front. On October 30, at 18:54 and 21:05, both browsers exited normally (exit 0) and relaunched. My notes record the exit code and not the reason.</p>
+
+<p>That made two separate ways onto my screen: a job opening a tab, and a browser coming back after an exit. The fix has one layer for each, and the second layer is needed because the first one un-hides the browser.</p>
+
+<p>Everything here is Mac-only. <code>open</code>, launchd and <code>NSRunningApplication</code> are macOS pieces, and every result below comes from one Mac. The tab layer is Playwright and CDP, but I only ran it there too.</p>
+
+<h2 id="what-i-measured">What I measured</h2>
+
+<p>The first row comes from a probe on October 29.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: What I measured" tabindex="0">
+<table>
+<thead><tr><th>What ran</th><th>What happened</th></tr></thead>
+<tbody>
+<tr><td><code>context.new_page()</code> on a headed browser</td><td>The browser came to the front and took the focus</td></tr>
+<tr><td>CDP <code>Target.createTarget</code> with <code>background: true</code></td><td>Focus stayed where it was, but a hidden browser got un-hidden</td></tr>
+<tr><td><code>open -j</code>, which launches hidden</td><td>No effect, because Chrome shows itself when it opens its first window</td></tr>
+<tr><td><code>open -g</code> on a relaunched Google Chrome with an existing profile</td><td>The browser came to the front anyway</td></tr>
+<tr><td><code>bring_to_front()</code> in one other job</td><td>Called on purpose, because that job needs the clipboard</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The two <code>open</code> rows ruled out a launch flag as the whole answer. <code>-g</code> is the flag meant to keep a launched app in the background, and it didn't hold for that relaunch. I can't say whether the existing profile is the cause or only the condition I saw it in, because I didn't check why.</p>
+
+<p>The second row shaped the design. <code>background: true</code> solves the focus problem, and a background tab by itself leaves a hidden browser visible again.</p>
+
+<p>The last row was never a bug. That job pulls the browser forward deliberately, and I decided to leave it that way.</p>
+
+<h2 id="layer-one-open-tabs-behind-the-app">Layer one: open tabs behind the app</h2>
+
+<p><code>BackgroundTabs</code> replaces <code>new_page()</code> with the CDP call and hands everything else to the real context.</p>
+
+<pre><code>class BackgroundTabs:
+    def __init__(self, context):
+        self._context = context
+        self._cdp = None
+
+    def new_page(self):
+        if self._cdp is None:
+            self._cdp = self._context.browser.new_browser_cdp_session()
+        with self._context.expect_page() as opened:
+            self._cdp.send(&#x27;Target.createTarget&#x27;, {&#x27;url&#x27;: &#x27;about:blank&#x27;, &#x27;background&#x27;: True})
+        return opened.value
+
+    def __getattr__(self, name):
+        return getattr(self._context, name)</code></pre>
+
+<p>Reading it from the top:</p>
+
+<ul><li>The CDP session is browser-level. It's created on the first tab and reused after that.</li><li><code>expect_page()</code> wraps the send, so the caller gets a Playwright page back, the same kind of object <code>new_page()</code> returns.</li><li>The tab starts at <code>about:blank</code>, so the caller still has to navigate it.</li><li><code>__getattr__</code> forwards every other attribute to the wrapped context.</li></ul>
+
+<p>I wrapped the context instead of editing the browser module because a deployment review pins that module's bytes. Session pages and the re-login tab go through the wrapper too, since any path left on <code>new_page()</code> would still take the focus.</p>
+
+<p>If your browser isn't hidden and you only mind the focus change on new tabs, this layer is all my table calls for. It does nothing for the relaunch path.</p>
+
+<h2 id="layer-two-a-launch-wrapper-that-keeps-hiding">Layer two: a launch wrapper that keeps hiding</h2>
+
+<p>launchd started each browser through a shell wrapper. This is its launch line:</p>
+
+<pre><code>open -n -g -a &quot;$APP&quot; --args --user-data-dir=... --remote-debugging-port=... --remote-debugging-address=127.0.0.1</code></pre>
+
+<p><code>-g</code> stays on that line, but the wrapper doesn't depend on it. What keeps the browser out of the way is a hide loop that starts after launch:</p>
+
+<ul><li>For the first 20 seconds, it hides unconditionally.</li><li>After that, every 2 seconds, it hides only when the browser is not the frontmost app.</li></ul>
+
+<p>The frontmost check is what leaves me a way in. If I switch to the browser with Cmd+Tab or the Dock, it's frontmost, so the loop leaves it visible. By the same rule, a browser un-hidden by a background tab is visible but not frontmost, so the next pass hides it again. That's how the two layers fit together.</p>
+
+<p>The hide is <code>NSRunningApplication.hide</code>, called through the JXA ObjC bridge with <code>osascript -l JavaScript</code>. It's not an Apple Event, so there's no automation permission prompt.</p>
+
+<p>The rest of the wrapper keeps launchd's view of the process correct:</p>
+
+<ul><li>The shell waits until the browser exits, so launchd sees the browser's exit and restarts it.</li><li>If launchd ends the shell, the browser ends too.</li><li>If a browser with the same profile is already running, the shell waits on that one rather than starting another.</li></ul>
+
+<h2 id="what-i-checked">What I checked</h2>
+
+<ul><li>A one-hour watch from 18:57 to 19:57 covered 3 publish runs. Tabs opened in the background each time, and either browser came to the front 0 times.</li><li>On 2 temporary profiles, screenshots, typing and clicking inside the page all worked while the browser was hidden. When the wrapper got a TERM, the browser stopped with it.</li><li>On the real browser, I simulated Cmd+Q with a TERM. The relaunch came up with hidden=true and active=false, the frontmost app stayed where it was, and the login persisted.</li></ul>
+
+<p>Each path to the screen maps to a different check:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 2: What I checked" tabindex="0">
+<table>
+<thead><tr><th>Path to the screen</th><th>Layer that handles it</th><th>Check</th></tr></thead>
+<tbody>
+<tr><td>A job opens a tab</td><td><code>BackgroundTabs</code></td><td>One-hour watch</td></tr>
+<tr><td>A browser relaunches</td><td>Launch wrapper</td><td>Simulated Cmd+Q on the real browser</td></tr>
+<tr><td>A background tab un-hides a hidden browser</td><td>Hide loop</td><td>No direct measurement, only the rule</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The temporary-profile check sits outside that table. It's there because a hidden browser is only useful if the jobs can still work in its pages.</p>
+
+<h2 id="what-this-doesn-t-show">What this doesn't show</h2>
+
+<p>The evidence is one hour, 3 runs and one Mac. The publishing job was paused at 21:37 that evening by my decision, so this hour is the only watch on record. Some specific gaps follow from that:</p>
+
+<ul><li>A 15-minute schedule should fit more than 3 runs into an hour. My record says 3 and doesn't say why.</li><li>The stats job ran at 09:20, outside the watch, so the watch says nothing about it.</li><li>The watch counted browsers coming to the front. It didn't measure how long a browser stays visible between a background tab un-hiding it and the next hide pass.</li><li>By the frontmost rule, a browser pulled forward by the <code>bring_to_front()</code> job would stay there, the same as if I had switched to it. I have no measurement of that case. It would also trip the falsifier below as written, so any such event has to be checked against that job first.</li><li>I don't know why the browsers exited on October 30, or why that relaunch ignored <code>-g</code>.</li></ul>
+
+<p>The falsifier is specific: either browser comes to the front with no human switching to it, or a hidden browser produces empty screenshots or timeouts. Before calling this settled I'd want a longer watch that includes a 09:20 stats run and a run of the <code>bring_to_front()</code> job, because nothing in that hour's record shows either one.</p>
+
+<h2>FAQ</h2>
+<h3>Does Playwright&#x27;s new_page() take focus on a headed browser?</h3>
+<p>In a probe on my Mac, context.new_page() brought the headed browser to the front and took the focus. The probe measured the effect, and I didn't check the reason.</p>
+<h3>How do I open a Playwright tab in the background without taking focus?</h3>
+<p>I replaced new_page() with a wrapper that sends the CDP call Target.createTarget with background set to true through a browser-level CDP session, inside expect_page() so the caller still gets a Playwright page back. Focus stayed where it was, but this call does un-hide a hidden browser.</p>
+<h3>Why didn&#x27;t open -j or open -g keep Chrome out of the way on macOS?</h3>
+<p>open -j had no effect because Chrome shows itself when it opens its first window. A relaunched Google Chrome with an existing profile came to the front even with open -g. I didn't check why, so the wrapper hides the browser after launch instead of depending on the flag.</p>
+<h3>How does the wrapper hide the browser and still let a person use it?</h3>
+<p>For the first 20 seconds after launch it hides unconditionally. After that, every 2 seconds, it hides only when the browser is not the frontmost app, so switching to it with Cmd+Tab or the Dock keeps it visible. The hide is NSRunningApplication.hide through the JXA ObjC bridge, which is not an Apple Event, so there's no automation permission prompt.</p>
+<h3>What would show this fix is wrong?</h3>
+<p>Either browser coming to the front with no human switching to it, or a hidden browser producing empty screenshots or timeouts. The evidence so far is one hour, 3 runs and one Mac, and that hour's record shows neither the 09:20 stats job nor the job that calls bring_to_front() on purpose.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./scrape-by-reading-your-open-browser-tab.html">When a Site Blocks Your Scraper, Read the Browser Tab You Already Have Open</a></li>
+<li><a href="./a-measurement-that-never-ran-became-a-verdict.html">A Measurement That Never Ran Became a Verdict: A Second Automated Chrome Answered for the First</a></li>
+<li><a href="./cron-launchd-unified-dashboard.html">Aggregating cron and launchd Into One Dashboard — Without Migrating Either</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=playwright-new-page-brought-chrome-to-front">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
