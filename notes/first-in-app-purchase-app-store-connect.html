@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Your First In-App Purchase Has to Ride With an App Version in App Store Connect — hexisteme notes</title>
+<meta name="description" content="My release scripts submit only the version, so a first in-app purchase took a web step: two traps, the order that worked, and API checks of the result.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/first-in-app-purchase-app-store-connect.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Your First In-App Purchase Has to Ride With an App Version in App Store Connect">
+<meta property="og:description" content="My release scripts submit only the version, so a first in-app purchase took a web step: two traps, the order that worked, and API checks of the result.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/first-in-app-purchase-app-store-connect.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/first-in-app-purchase-app-store-connect.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-04">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your First In-App Purchase Has to Ride With an App Version in App Store Connect">
+<meta name="twitter:description" content="My release scripts submit only the version, so a first in-app purchase took a web step: two traps, the order that worked, and API checks of the result.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/first-in-app-purchase-app-store-connect.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your First In-App Purchase Has to Ride With an App Version in App Store Connect", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Submitting an app's first in-app purchase together with a new app version in App Store Connect, using the API for setup and verification and the web flow for the submission draft.", "image": "https://hexisteme.github.io/notes/og/first-in-app-purchase-app-store-connect.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I submit my first in-app purchase without a new app version?", "acceptedAnswer": {"@type": "Answer", "text": "Apple's help page says no: \"If you're submitting your first In-App Purchase, you must submit it with a new version of your app.\" The App Store Connect product screen says the same in its own wording. Apple's API page says later purchases can go through the API endpoints without an app binary submission, so this applies only to the first."}}, {"@type": "Question", "name": "Can the App Store Connect API submit a first in-app purchase?", "acceptedAnswer": {"@type": "Answer", "text": "Apple's API page \"Managing In-App Purchases\" says no: \"Submit your first In-App Purchase together with an app binary submission through appstoreconnect.apple.com. The review-submission API calls below don’t apply to that first submission.\" I followed that and never sent those calls for a first purchase, so I have no observed API error to report."}}, {"@type": "Question", "name": "Why does Add for Review on the in-app purchase screen seem to do nothing?", "acceptedAnswer": {"@type": "Answer", "text": "I hit two causes. The button opens a menu with \"iOS submission draft (1)\" and \"Create new submission\", and nothing happens unless you choose the existing draft. Before that, the \"submission draft\" dialog from the version screen covered the product button, so my first click returned OK with no effect. After I closed the dialog and clicked again, the menu appeared."}}, {"@type": "Question", "name": "How do I confirm the version and the purchase went into the same submission?", "acceptedAnswer": {"@type": "Answer", "text": "The draft dialog must show 2 items ready before you press Submit for Review. Afterward, GET /v1/reviewSubmissions?filter[app]=<appId> should show state WAITING_FOR_REVIEW, GET /v1/reviewSubmissions/{id}/items should return 2 items, and GET /v2/inAppPurchases/{id} should show WAITING_FOR_REVIEW. In the items response the version item has an appStoreVersion relationship and the product item shows no relationship."}}, {"@type": "Question", "name": "Why did App Store Connect warn me about content rights on my first app?", "acceptedAnswer": {"@type": "Answer", "text": "contentRightsDeclaration is an app-level value, so a version metadata push doesn't fill it. Apps that have already shipped have it set, so you only hit the warning on a first app. In the order that worked, PATCH /v1/apps/{app} sets it before the web step."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Your First In-App Purchase Has to Ride With an App Version in App Store Connect</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-04</p>
+<div class="note">My release automation submits the version, so an app's first in-app purchase would have been left behind, and Apple's docs say that first purchase goes in with an app binary submission through the website. I did the setup through the API, used the web flow to put version and product in one submission draft past two traps, and confirmed 2 items at <code>WAITING_FOR_REVIEW</code>; the review outcome is not in my record.</div>
+
+<p>On October 29 I went to submit the 1.0 of one of my apps, and that version carried the app's first in-app purchase, a non-consumable product. My normal release path submits the version, so on this release it would have left the product behind. I did the setup through the API, got both items into a single submission through a short web flow with two traps in it, and then checked the result through the API.</p>
+
+<p>My record ends at <code>WAITING_FOR_REVIEW</code> for both items, so I can't tell you how the review went.</p>
+
+<h2 id="what-apple-says">What Apple says</h2>
+
+<p>Apple's help page <a href="https://developer.apple.com/help/app-store-connect/configure-in-app-purchase-settings/overview-for-configuring-in-app-purchases/">Overview for configuring In-App Purchases</a> states the rule directly:</p>
+
+<blockquote><p>If you're submitting your first In-App Purchase, you must submit it with a new version of your app.</p></blockquote>
+
+<p>The product screen in App Store Connect shows its own wording of the same rule: "Your first In-App Purchase must be submitted with a new app version".</p>
+
+<p>The rule is about the first one, so everything below applies only to the first.</p>
+
+<p>The API page <a href="https://developer.apple.com/documentation/appstoreconnectapi/managing-in-app-purchases">Managing In-App Purchases</a> settles the automation question in an Important note:</p>
+
+<blockquote><p>Submit your first In-App Purchase together with an app binary submission through appstoreconnect.apple.com. The review-submission API calls below don’t apply to that first submission. For subsequent In-App Purchases, submit using the API endpoints below without an associated app binary submission.</p></blockquote>
+
+<p>So the documented route for a first purchase is the website. The API flow the note points to for later purchases is <code>POST /v1/reviewSubmissions</code>, a <code>reviewSubmissionItems</code> item with an <code>inAppPurchaseVersion</code> relationship, then <code>submitted: true</code>. The same page marks <code>POST /v1/inAppPurchaseSubmissions</code> deprecated as of 4.4.1 and sends new integrations to that review submissions workflow.</p>
+
+<p>I followed the note and never sent those calls for a first purchase, so I have no API error to show you. One warning about how I checked: when I read the page through a scraper on November 4, the markdown had dropped the Important note, and I nearly wrote that Apple's API docs didn't mention the first purchase. The page's raw doc data has it. If a claim hangs on an Apple doc page, read the note boxes on the page itself.</p>
+
+<h2 id="why-my-automation-didn-t-carry-the-product">Why my automation didn't carry the product</h2>
+
+<p>My normal release path is <code>fastlane submit_review</code> and a 3-step <code>reviewSubmissions</code> script. Both submit the version. If I had used either one here, the purchase would not have gone in. A version approved without its product leaves one of two endings: a buy button that gets rejected, or a product waiting for the next version. I didn't run it that way, so those are the outcomes I was steering around and not something I observed.</p>
+
+<p>One read also failed in a way that is easy to over-interpret. I asked the items endpoint to include the product:</p>
+
+<pre><code>GET /v1/reviewSubmissions/{id}/items?include=inAppPurchaseV2
+-&gt; 400 &#x27;inAppPurchaseV2&#x27; is not a valid relationship name</code></pre>
+
+<p>That 400 says the name is not accepted on this read. It says nothing about submitting a first purchase, and I don't use it as evidence for that. Apple's note is the evidence. It does mean this <code>include</code> can't show you the product inside a submission, which comes back when you verify the result.</p>
+
+<h2 id="two-traps-in-the-web-flow">Two traps in the web flow</h2>
+
+<p>Both traps involve the Add for Review button, which appears on the version screen and on the product screen.</p>
+
+<h3 id="the-product-button-opens-a-menu">The product button opens a menu</h3>
+
+<p>Add for Review on the product screen doesn't add the product directly. It opens a menu with two entries:</p>
+
+<ul><li>"iOS submission draft (1)"</li><li>"Create new submission"</li></ul>
+
+<p>Nothing happens unless you choose the existing draft. "Create new submission" would split the product from the version, which is the separation Apple's rule says not to make, so I did not take that entry.</p>
+
+<h3 id="the-draft-dialog-covers-the-product-button">The draft dialog covers the product button</h3>
+
+<p>Add for Review on the version screen first opens a "submission draft" dialog, and that dialog covers the Add for Review button on the product screen. My first click on the product button returned OK and had no effect, because the dialog was covering it. After I closed the dialog and clicked again, the menu appeared, and a MutationObserver caught its text.</p>
+
+<p>I didn't check why a click on a covered button comes back OK. The practical result is that the OK told me nothing about whether the menu had opened.</p>
+
+<h2 id="a-warning-you-can-clear-ahead-of-time">A warning you can clear ahead of time</h2>
+
+<p>After the version's Add for Review, a warning said content rights info must be set in app info. <code>contentRightsDeclaration</code> is an app-level value, so a version metadata push doesn't fill it. Apps that have already shipped have it set, so you only hit this on a first app. It takes one API call, so I list it with the API work below, where it gets done before the web step starts.</p>
+
+<h2 id="the-order-that-worked">The order that worked</h2>
+
+<p>The rule I kept: do everything the API can do first. That shrinks the web part to making the draft, putting the product in the draft, confirming two items, and submitting.</p>
+
+<p>The API part uses key auth with a JWT of at most 1200 seconds. I wrote about that JWT expiry hard cap in <a href="https://hexisteme.github.io/notes/app-store-connect-api-hard-limits.html">Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</a>. The calls:</p>
+
+<ul><li>Attach the build: <code>PATCH /v1/appStoreVersions/{ver}/relationships/build</code> with <code>{data:{type:"builds",id}}</code>, which returns 204.</li><li>Set the release type: <code>PATCH /v1/appStoreVersions/{ver}</code> with <code>releaseType</code> as <code>MANUAL</code> or <code>AFTER_APPROVAL</code>.</li><li>Set content rights: <code>PATCH /v1/apps/{app}</code> with <code>contentRightsDeclaration</code> as <code>DOES_NOT_USE_THIRD_PARTY_CONTENT</code> or <code>USES_THIRD_PARTY_CONTENT</code>.</li><li>Check the product: <code>GET /v2/inAppPurchases/{id}</code> should return <code>READY_TO_SUBMIT</code>. By this point the review screenshot, notes, price, and localizations were done.</li></ul>
+
+<p>Then the web part, in this order:</p>
+
+<ul><li>On the version screen, press Add for Review and keep the attached build. A "submission draft" appears.</li><li>Close that dialog.</li><li>On the product screen, press Add for Review, the button outside any dialog.</li><li>In the menu, pick the iOS submission draft, not Create new submission.</li><li>The draft dialog must show 2 items ready, the version and the product. Press Submit for Review, and the screen reports "2 items submitted".</li></ul>
+
+<p>The version goes first so the product's menu has an existing draft to choose. The close step is there because leaving the dialog open is what made my first click do nothing.</p>
+
+<h2 id="confirming-it-through-the-api">Confirming it through the API</h2>
+
+<p>A successful click is not evidence. I had just seen one return OK and change nothing, so I check the item count on screen and through the API, and I don't submit a draft without the product. After submitting, I ran these reads:</p>
+
+<pre><code>GET /v1/reviewSubmissions?filter[app]=&lt;appId&gt;  -&gt; state WAITING_FOR_REVIEW
+GET /v1/reviewSubmissions/{id}/items           -&gt; 2 items
+GET /v2/inAppPurchases/{id}                    -&gt; WAITING_FOR_REVIEW</code></pre>
+
+<p>In the items response, the version item has an <code>appStoreVersion</code> relationship and the product item shows no relationship. So the product's item doesn't identify itself as a purchase there, and the <code>include</code> from earlier returns a 400. The count comes from that response and the product's state comes from its own endpoint, so I run all of these reads.</p>
+
+<p>If you set <code>releaseType</code> to <code>MANUAL</code>, a person presses release after approval.</p>
+
+<h2 id="what-i-haven-t-established">What I haven't established</h2>
+
+<ul><li>The review outcome. My record stops at <code>WAITING_FOR_REVIEW</code> for both items, so nothing here shows that this submission passes review.</li><li>Other product types. I only ran the non-consumable case, on one app.</li><li>Why the screens behave this way. I recorded what they did on October 29 and didn't look into how they work.</li></ul>
+
+<p>This procedure is the one I know works up to the review queue. The next thing to check is how the review ends, and whether a first subscription needs the same path, which I haven't run.</p>
+
+<h2>FAQ</h2>
+<h3>Can I submit my first in-app purchase without a new app version?</h3>
+<p>Apple's help page says no: "If you're submitting your first In-App Purchase, you must submit it with a new version of your app." The App Store Connect product screen says the same in its own wording. Apple's API page says later purchases can go through the API endpoints without an app binary submission, so this applies only to the first.</p>
+<h3>Can the App Store Connect API submit a first in-app purchase?</h3>
+<p>Apple's API page "Managing In-App Purchases" says no: "Submit your first In-App Purchase together with an app binary submission through appstoreconnect.apple.com. The review-submission API calls below don’t apply to that first submission." I followed that and never sent those calls for a first purchase, so I have no observed API error to report.</p>
+<h3>Why does Add for Review on the in-app purchase screen seem to do nothing?</h3>
+<p>I hit two causes. The button opens a menu with "iOS submission draft (1)" and "Create new submission", and nothing happens unless you choose the existing draft. Before that, the "submission draft" dialog from the version screen covered the product button, so my first click returned OK with no effect. After I closed the dialog and clicked again, the menu appeared.</p>
+<h3>How do I confirm the version and the purchase went into the same submission?</h3>
+<p>The draft dialog must show 2 items ready before you press Submit for Review. Afterward, GET /v1/reviewSubmissions?filter[app]=&lt;appId&gt; should show state WAITING_FOR_REVIEW, GET /v1/reviewSubmissions/{id}/items should return 2 items, and GET /v2/inAppPurchases/{id} should show WAITING_FOR_REVIEW. In the items response the version item has an appStoreVersion relationship and the product item shows no relationship.</p>
+<h3>Why did App Store Connect warn me about content rights on my first app?</h3>
+<p>contentRightsDeclaration is an app-level value, so a version metadata push doesn't fill it. Apps that have already shipped have it set, so you only hit the warning on a first app. In the order that worked, PATCH /v1/apps/{app} sets it before the web step.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./app-store-connect-api-hard-limits.html">Three App Store Connect API Hard Limits That Only Bite at a Fast Release Cadence</a></li>
+<li><a href="./error-inside-http-200-poisoned-the-cache.html">An Error Inside HTTP 200 Poisoned My Cache: Why response.ok Is Not a Success Check</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=first-in-app-purchase-app-store-connect">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
