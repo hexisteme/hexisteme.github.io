@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>My Weekly AI Audit Filed 25 Reports. No Automation Acted on a Grade. — hexisteme notes</title>
+<meta name="description" content="My weekly LLM audit filed 25 reports. I found no automation acting on a grade, one read on record, and a sampler that dropped message text.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/weekly-ai-audit-25-reports-no-consumer.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="My Weekly AI Audit Filed 25 Reports. No Automation Acted on a Grade.">
+<meta property="og:description" content="My weekly LLM audit filed 25 reports. I found no automation acting on a grade, one read on record, and a sampler that dropped message text.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/weekly-ai-audit-25-reports-no-consumer.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/weekly-ai-audit-25-reports-no-consumer.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-04">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="My Weekly AI Audit Filed 25 Reports. No Automation Acted on a Grade.">
+<meta name="twitter:description" content="My weekly LLM audit filed 25 reports. I found no automation acting on a grade, one read on record, and a sampler that dropped message text.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/weekly-ai-audit-25-reports-no-consumer.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "My Weekly AI Audit Filed 25 Reports. No Automation Acted on a Grade.", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Deciding to stop a scheduled LLM audit after checking what consumed its reports and what input it was grading.", "image": "https://hexisteme.github.io/notes/og/weekly-ai-audit-25-reports-no-consumer.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do you check whether a scheduled report is being used?", "acceptedAnswer": {"@type": "Answer", "text": "I searched the code for anything that read the report directory and checked my dashboard's read timestamps. The first search missed the dashboard, which summarizes and displays the reports, so the claim I can keep is that I found no automation acting on a grade. It can't cover a person reading the popup, because open -e leaves no read record."}}, {"@type": "Question", "name": "Why did the audit's conversation samples show so little?", "acceptedAnswer": {"@type": "Answer", "text": "render_samples keeps only the block type names when a message's content is a list of blocks, so a text block and a tool call become text | tool_use. The November 2 report said only 1 of its 3 samples showed content."}}, {"@type": "Question", "name": "Why stop the job instead of fixing the sampler?", "acceptedAnswer": {"@type": "Answer", "text": "I could find nothing that acted on the grades, so better input would only improve a report with no automation behind it. The corrected plan offered a monthly run with a fixed sampler, and the choice came down to whether I had ever read the Monday window and acted on it. I approved the recommended stop."}}, {"@type": "Question", "name": "What did stopping the audit cost?", "acceptedAnswer": {"@type": "Answer", "text": "The weekly series ended on November 2. extract_signals(since) has no end-time argument, so the existing extractor cannot replay a bounded past week. The scripts and the 25 reports stay, and a manual run with a 30-day window stays available."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>My Weekly AI Audit Filed 25 Reports. No Automation Acted on a Grade.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-04</p>
+<div class="note">A weekly LLM usage audit filed 25 reports before I stopped it. I found no automation acting on a grade, my dashboard had 1 read record, only <code>2 / 4</code> model families were answering, and <code>render_samples</code> dropped the text from list-based messages. I kept the code and reports and wrote down what stopping costs.</div>
+
+<p>On November 2 I stopped a scheduled job that had tried to grade how I use my AI tooling every Monday at 06:00 since May. It had filed 25 reports by then. I looked for anything that acted on those grades and found no automation that did.</p>
+
+<p>The job ran <code>cross_family_audit.py 7 --sample 3</code> from launchd. It scanned every record in Claude Code session files modified within 7 days, sampled 3 sessions, and asked several model families to grade 5 capabilities as low, medium or high. The capabilities included task routing, multi-agent synthesis and async federation, which in plain terms means how much work runs unattended. I had added the job on May 15 as the first prescription for a low async federation grade.</p>
+
+<p>The report went to a dated Markdown file. The last step of the job was <code>/usr/bin/open -e "$OUT"</code>, so a text editor window opened on my Mac every Monday at 06:00. The final run used a prompt of 3,381 characters, 1 Anthropic Opus call with max_tokens 2000, and 1 Ollama cloud call.</p>
+
+<h2 id="what-the-decision-record-found">What the decision record found</h2>
+
+<p>The audit came up as one decision in the same cleanup that retired my LLM council. Before changing anything I wrote down what the job did.</p>
+
+<ul><li>Consumers: I searched my scripts, hooks, skills, rules and agents, plus the py, sh, json and yaml files across the fleet, for anything that read the report directory. The record says 0 pieces of code did. That was too strong, and the review of this post caught it. My dashboard registers the report directory, summarizes each report from its head, and can show one in the browser. What I can still say is narrower: I found no automation that used a grade.</li><li>Reads: the dashboard keeps read timestamps, and 1 of the 25 reports has one, the report dated July 13. A morning brief on September 21 listed the job as unread.</li><li>Coverage: the script is named for comparing model families, and 4 were configured. The reports from May 18 through June 8 each say <code>0 / 4</code> and hold no grades, only a note that no family was available and that SDKs and API keys needed setup. June 15 says <code>2 / 4</code>. June 22 says <code>1 / 4</code>, and that one answer was a connection error counted as a response. Everything from June 29 to November 2 says <code>2 / 4</code>, with Anthropic and Ollama answering.</li><li>Cadence: my design note said monthly with a 30-day window. The schedule said weekly with a 7-day window.</li><li>Description: the dashboard card called it a code quality audit that finds rule violations and dead code, and it listed a dependency on a server the job had stopped using after October 28. The job graded usage capabilities.</li></ul>
+
+<h2 id="the-audit-graded-samples-with-the-text-removed">The audit graded samples with the text removed</h2>
+
+<p>The sample was meant to show the reviewers real conversations. <code>sample_conversations</code> keeps the last 3 sessions its file traversal reached, which are not guaranteed to be the newest, and the first 5 records of each. <code>render_samples</code> turns those records into prompt text:</p>
+
+<pre><code>if isinstance(content, list):
+    content = &quot; | &quot;.join(
+        str(b.get(&quot;type&quot;) if isinstance(b, dict) else b)
+        for b in content
+    )
+content = str(content)[:200]</code></pre>
+
+<p>When a message's content is a list of blocks, this keeps the block type names and drops the text, so a text block and a tool call reach the reviewer as <code>text | tool_use</code>. Content stored as a plain string survives, cut at 200 characters.</p>
+
+<p>The November 2 report says as much in its opening lines. The Anthropic reviewer started with a premise: of the 3 conversation samples, only 1 showed content, and the other 2 were metadata (<code>/clear</code>, mode, attachment), so the assessment rested mostly on aggregate signals. The tool had described its own input problem, and no automation was there to act on it. That was the last report it wrote.</p>
+
+<h2 id="the-grades-moved-for-reasons-the-input-could-not-see">The grades moved for reasons the input could not see</h2>
+
+<p>Here is the Anthropic reviewer's summary table for the last three reports:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: The grades moved for reasons the input could not see" tabindex="0">
+<table>
+<thead><tr><th>Capability</th><th>October 19</th><th>October 26</th><th>November 2</th></tr></thead>
+<tbody>
+<tr><td>Multi-agent synthesis</td><td>low</td><td>low</td><td>medium</td></tr>
+<tr><td>Async federation</td><td>medium</td><td>low</td><td>medium</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The October 26 report justified its low async grade by saying sessions had async work but there was no schedule-based operating signal. That report was written by a launchd job, and several launchd jobs were running. The extractor does not inspect launchd state, so launchd reached the reviewers only through text that mentioned it, such as a conversation sample.</p>
+
+<p>On November 2 the same capability went up. The Ollama family graded it high and cited a conversation sample containing a launchd setup for unattended runs on Sunday at 20:00. The Anthropic reviewer gave it medium and cited the launchd design it saw. Multi-agent synthesis split in that report too: medium from Anthropic, low from Ollama.</p>
+
+<p>I read that as the grade following whichever conversation landed in the sample. That is an inference from the citations. I did not diff the weekly inputs, and the grades were never compared against an outside measure, so I can't say which grade was right in any given week.</p>
+
+<h2 id="why-i-stopped-it-instead-of-fixing-it">Why I stopped it instead of fixing it</h2>
+
+<p>My first draft was short: stop the schedule and keep the code and reports. The alternative was to fix <code>render_samples</code> and add the two missing keys. I rejected that because I could find nothing that acted on the grades, so better input would only improve a report with no automation behind it.</p>
+
+<p>This decision was one of the 4 in the blind A/B I wrote up in <a href="https://hexisteme.github.io/notes/council-retired-after-blind-ab.html">I Retired My LLM Council After It Lost a Blind A/B 4 to 0</a>. Two verifiers agreed on these corrections to my draft:</p>
+
+<ul><li>It said Google and OpenAI were missing keys and packages. The packages were installed. Only the keys were missing.</li><li><code>open -e</code> leaves no read record, the dashboard surface policy only surfaces failures, and the September 21 brief had named the job as a follow-up input. So my read count could not show whether a person used that window. Only I could answer that.</li><li>Stopping ends the weekly series. <code>extract_signals(since)</code> has no end-time argument, so the existing extractor cannot replay a bounded past week.</li><li>The morning brief script imports this audit module, so the module has to stay even with the schedule gone.</li><li>A monthly run without the popup had not been evaluated.</li></ul>
+
+<p>The second correction changed what I could claim. The read count covers the dashboard. "Nobody read them" was an assumption from a record that could not have seen the popup.</p>
+
+<p>The corrected plan had 2 options: stop and archive, or reduce to monthly with a 30-day window and fix <code>render_samples</code>. It put the choice on one question to me: had I ever read that Monday window and acted on it? If not, stop. I approved the recommended stop.</p>
+
+<h2 id="what-changed">What changed</h2>
+
+<ul><li><code>launchctl bootout</code> removed the job, and <code>launchctl list | grep -c code-audit</code> returned 0. The plist went to a backup directory.</li><li>All scripts and the 25 reports stay, about 100KB, with no expiry.</li><li>The dashboard card is marked retired, with a corrected description and the stale dependency removed.</li><li>I deleted the job's secret file. I did not revoke the key, because the morning brief uses the same one.</li><li>The morning brief ran on November 3 and November 4, and launchd shows its last exit status as 0.</li></ul>
+
+<p>The restart condition is written down: when I need a usage diagnosis, fix <code>render_samples</code> and re-register the job monthly. A manual run with a 30-day window stays available.</p>
+
+<h2 id="what-this-does-not-show">What this does not show</h2>
+
+<p>"No automation" is the result of searches made for this decision and this post, and a search can miss a reader, as the first one did. It says nothing about me reading the popup on a given Monday, and I cannot reconstruct that now. The one timestamp is what the dashboard recorded, which leaves out any read that happened through the popup.</p>
+
+<p>I also can't call the audit worthless. Its grades were never compared against an outside measure, so I don't know how good or bad they were. My claim is narrower: across 25 reports, I found no automation acting on a grade, the dashboard has 1 read, and the input had a defect the last report described.</p>
+
+<p>Stopping has its own cost. The series ended on November 2, so there is no before and after for this decision, and restarting the existing extractor would not backfill the gap on its own. If I restart the job, its first run would have repaired samples, so those grades would not be comparable with the old ones either.</p>
+
+<h2>FAQ</h2>
+<h3>How do you check whether a scheduled report is being used?</h3>
+<p>I searched the code for anything that read the report directory and checked my dashboard's read timestamps. The first search missed the dashboard, which summarizes and displays the reports, so the claim I can keep is that I found no automation acting on a grade. It can't cover a person reading the popup, because <code>open -e</code> leaves no read record.</p>
+<h3>Why did the audit&#x27;s conversation samples show so little?</h3>
+<p><code>render_samples</code> keeps only the block type names when a message's content is a list of blocks, so a text block and a tool call become <code>text | tool_use</code>. The November 2 report said only 1 of its 3 samples showed content.</p>
+<h3>Why stop the job instead of fixing the sampler?</h3>
+<p>I could find nothing that acted on the grades, so better input would only improve a report with no automation behind it. The corrected plan offered a monthly run with a fixed sampler, and the choice came down to whether I had ever read the Monday window and acted on it. I approved the recommended stop.</p>
+<h3>What did stopping the audit cost?</h3>
+<p>The weekly series ended on November 2. <code>extract_signals(since)</code> has no end-time argument, so the existing extractor cannot replay a bounded past week. The scripts and the 25 reports stay, and a manual run with a 30-day window stays available.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./your-checker-returned-zero-check-its-aperture.html">Your Checker Returned Zero. Four Times, Mine Was Just Looking at Less.</a></li>
+<li><a href="./scheduled-step-failed-heartbeat-stayed-green.html">The Scheduled Step Failed on Night One. The Heartbeat Stayed Green.</a></li>
+<li><a href="./telemetry-stayed-green-while-work-moved-to-codex.html">Our LLM Telemetry Stayed Green While the Work Moved to Codex</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=weekly-ai-audit-25-reports-no-consumer">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
