@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>I Retired My LLM Council After It Lost a Blind A/B 4 to 0 — hexisteme notes</title>
+<meta name="description" content="I pre-registered a blind A/B between my 8-persona LLM council and one critique subagent; the council lost all 4 decisions, and the winner cost more.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/council-retired-after-blind-ab.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="I Retired My LLM Council After It Lost a Blind A/B 4 to 0">
+<meta property="og:description" content="I pre-registered a blind A/B between my 8-persona LLM council and one critique subagent; the council lost all 4 decisions, and the winner cost more.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/council-retired-after-blind-ab.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/council-retired-after-blind-ab.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-04">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="I Retired My LLM Council After It Lost a Blind A/B 4 to 0">
+<meta name="twitter:description" content="I pre-registered a blind A/B between my 8-persona LLM council and one critique subagent; the council lost all 4 decisions, and the winner cost more.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/council-retired-after-blind-ab.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "I Retired My LLM Council After It Lost a Blind A/B 4 to 0", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Running a pre-registered blind A/B between an LLM persona council and a single critique subagent, including a judge change and an early stop recorded as deviations from the protocol.", "image": "https://hexisteme.github.io/notes/og/council-retired-after-blind-ab.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do you blind an LLM council against a single subagent?", "acceptedAnswer": {"@type": "Answer", "text": "Both raw outputs went through the same sonnet extractor, which kept at most 5 items, removed persona names and style, and reduced each item to one line of claim and one line of check. The lists were randomly labeled X and Y, the seed was stored in the ledger, and the mapping was revealed only after scoring."}}, {"@type": "Question", "name": "Why was the judge replaced after the experiment started?", "acceptedAnswer": {"@type": "Answer", "text": "I was the original judge, but the first decision's items were infrastructure facts I could not judge without reading code, and Claude had read that decision's raw output, so it was not blind. On October 28, with zero scores recorded, two verifiers that never see raw output or the mapping took over: Codex and a fresh sonnet subagent. The amendment came after seeing a first Codex result (X n=3, Y n=3), which is disclosed, and the decision rule did not change."}}, {"@type": "Question", "name": "Why stop at 4 decisions when the target was 10?", "acceptedAnswer": {"@type": "Answer", "text": "Keep was already unreachable by the third decision, and at 0-4 the council's ceiling was 6/10, which only meant hold and extend to n=20. If the arms were equal, 6 straight wins has probability 1/64, about 1.6%. Stopping after seeing results is still a deviation from the pre-registration, it is recorded as one, and the ledger's tally tool still says incomplete."}}, {"@type": "Question", "name": "Was the winning arm cheaper than the council?", "acceptedAnswer": {"@type": "Answer", "text": "No. The critique pass took 234 to 448 seconds per decision against 56.4 to 95.5 for the council. On the first decision, the only round with a council token count, it used 131,676 tokens against the council's 13,076."}}, {"@type": "Question", "name": "Does this show LLM councils don't work?", "acceptedAnswer": {"@type": "Answer", "text": "No. n=4 is not a statistical claim about councils in general. All four decisions were one person's infrastructure decisions, both arms used the same model grade, and the council ran at default depth and quick on later runs. Why the critique pass did better was not tested."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>I Retired My LLM Council After It Lost a Blind A/B 4 to 0</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-04</p>
+<div class="note">I pre-registered a blind A/B between my 8-persona LLM council and one fresh-context critique subagent, and the council went 0 wins, 4 losses on real decisions. I replaced the judge after the experiment started and stopped at n=4 of a planned 10, recorded both, and kept the slower, heavier arm.</div>
+
+<p>On November 3 I shut down an LLM council I had built myself: launchd jobs booted out, MCP server unregistered, hooks removed. The reason was a pre-registered blind A/B against one fresh-context subagent, which ended 0 wins, 4 losses and 0 ties for the council across four real decisions.</p>
+
+<p>The score is the short part. Most of what I want on record is the procedure: how the two arms were blinded, why I replaced the judge after the experiment had started and what I disclosed about that, how I stopped at 4 of a planned 10 and logged it as a deviation, and the fact that the winning arm was the more expensive one. n=4 says little about councils in general, and I'll mark where it stops.</p>
+
+<h2 id="what-was-being-tested">What was being tested</h2>
+
+<p>The server ran 8 historical-figure personas, all on claude-sonnet-5. The "debate" was one call writing claims and rebuttals together, and the problem statement was cut to 400 characters. I also had a second home-built council layer, but the A/B tested only the 8-persona server.</p>
+
+<p>A re-evaluation on October 27 had already removed most of its reasons to exist. Multi-angle generation, task decomposition and arithmetic support were now absorbed by current frontier models and by Claude Code's built-in subagents and workflows. Two older results pointed the same way:</p>
+
+<ul><li>A blind review on May 25 scored a single Opus run 5.92 out of 7, against 3.41 for council quick and 2.91 for council deep.</li><li>A cross-vendor utility audit on August 22 sorted about 60 cases where a check changed a decision. It classified about 85% under fresh context, an adversarial brief and independent execution, and about 1 case as specific to a model family, which was access to a capability and not a verification finding. The audit had no matched control, so this was a classification and not a proven cause.</li></ul>
+
+<p>One result pointed the other way. A human blind review on June 21 found 3-4 of 6 questions in the council's draft critique valid, so the critique function itself was alive. That was the one function left to test, so the experiment asked one thing: does the council's critique of a draft produce more valid points than an independent critique pass?</p>
+
+<p>Codex reviewed the plan twice independently and agreed with it. A third vendor was out of quota and did not review it.</p>
+
+<h2 id="the-design-fixed-on-october-27">The design, fixed on October 27</h2>
+
+<ul><li>Sample: real load-bearing decisions only, no invented test problems. Target n=10, deadline December 31.</li><li>Input, identical for both arms: the question, Claude's draft (conclusion, evidence, assumptions) and evidence file paths. No self-assessment and no reasoning trace.</li><li>Arm A: the council at default depth, all personas on claude-sonnet-5.</li><li>Arm B: one fresh-context subagent on sonnet. Same model grade, to remove a capability confound.</li></ul>
+
+<p>Arm B's brief asked for "the most plausible ways this draft is wrong, up to 5, each one line of claim + one line of how to check. Do not write what you agree with."</p>
+
+<p>The decision rule, excluding ties:</p>
+
+<ul><li>Council wins 8/10 or more: keep it and promote it to arm A of the critique pass.</li><li>Council wins 6-7/10: hold and extend to n=20.</li><li>Council wins 5/10 or fewer: retire the server.</li><li>Secondary rule: even if the council wins, do not keep it if its wrong rate is 2x arm B or worse.</li></ul>
+
+<h2 id="how-the-blinding-worked">How the blinding worked</h2>
+
+<p>A council output carries persona names and a debating style, so it can't be scored blind as it stands. Both raw outputs went through the same sonnet extractor, which kept at most 5 items, removed persona names and style, and reduced each item to one line of claim and one line of check.</p>
+
+<p>The two lists were then randomly assigned the labels X and Y, with the seed stored in the ledger. The mapping was revealed only after scoring.</p>
+
+<p>Each list came out at 5 items. I have no figure for what that cap removed from either arm's raw output.</p>
+
+<h2 id="replacing-the-judge-after-the-experiment-started">Replacing the judge after the experiment started</h2>
+
+<p>The original judge was me, alone. I had ruled out LLM judges because an earlier experiment put LLM-judge agreement at a kappa of about 0.</p>
+
+<p>The first decision, D1, broke that plan. Its items were infrastructure facts, launchd and the like, and I could not judge them without reading code. My scoring would have turned into gut feel or into following an LLM anyway. Claude could not take over either, because it had read D1's raw output before normalization and was not blind.</p>
+
+<p>So I amended the protocol on October 28. Zero scores were recorded at that point, but the timing was not clean, and the amendment says so: it came after seeing a first Codex verification result for D1, X n=3 and Y n=3. The X/Y mapping was still undisclosed to me. The decision rule did not change.</p>
+
+<p>The new judges were two verifiers that never see raw output or the mapping: Codex in read-only mode and a fresh sonnet subagent. They got the same brief and ran the check commands. Each item received one of three labels:</p>
+
+<ul><li><code>n</code>: true and not covered by the draft</li><li><code>k</code>: true and already covered by the draft</li><li><code>w</code>: the core factual assertion is wrong</li></ul>
+
+<p>An item is confirmed only where both verifiers agree. Disagreements are undecided, and they leave both the win count and the wrong-rate denominator.</p>
+
+<p>This reversed the no-LLM-judges rule I had started with, so the amendment carries its own falsifier: if pooled Cohen kappa is below 0.4 after 10 decisions, the experiment ends as unjudgeable.</p>
+
+<h2 id="results">Results</h2>
+
+<p>These are confirmed items only. A is the council and B is the critique pass.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: Results" tabindex="0">
+<table>
+<thead><tr><th>Decision</th><th>Topic</th><th>A new</th><th>A wrong</th><th>A undecided</th><th>B new</th><th>B wrong</th><th>B undecided</th><th>Verifier agreement</th></tr></thead>
+<tbody>
+<tr><td>D1, October 28</td><td>retire file bus + wake job</td><td>1</td><td>0</td><td>4</td><td>3</td><td>0</td><td>1</td><td>0.5</td></tr>
+<tr><td>D2, October 28</td><td>move two scheduled jobs off the council's env</td><td>2</td><td>1</td><td>2</td><td>5</td><td>0</td><td>0</td><td>0.8</td></tr>
+<tr><td>D3, November 2</td><td>drop a weekly audit job</td><td>2</td><td>1</td><td>0</td><td>4</td><td>0</td><td>1</td><td>0.9</td></tr>
+<tr><td>D4, November 3</td><td>adopt settings from a biweekly scan</td><td>1</td><td>2</td><td>1</td><td>4</td><td>0</td><td>1</td><td>0.9</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>B won every round. The wrong rate over confirmed items was 4/13 = 0.31 for the council and 0/17 = 0 for the critique pass.</p>
+
+<p>Pooled kappa ended at 0.599, excluding abstentions. It was 0.107 on D1 alone, 0.346 after D2 and 0.534 after D3, so it started under the 0.4 line and climbed over it. The falsifier did not trigger, with one qualification: it was written for 10 decisions and I stopped at 4, so 0.599 is a reading at n=4 and the checkpoint the protocol named was never reached.</p>
+
+<p>Here is what confirmed items looked like:</p>
+
+<ul><li>Arm B on D2, confirmed new: the draft's check, that an output file exists, can't catch a failed migration, because the job writes an error string into the file. Running it once would also overwrite that day's existing output, since the file name is date-fixed and written without an existence check.</li><li>Arm B on D4, confirmed new: the draft assumed unattended runs ignore Claude Code settings. One scheduled job actually ran Claude with skip-permissions.</li><li>Arm A on D2, confirmed wrong: that a path on the external SSD was a worse new single point of failure.</li><li>Arm A on D4, confirmed wrong, two items: that a 71% figure had no source in the question or the draft, and that the figure was unconfirmed.</li></ul>
+
+<p>D1 is the weakest round. 4 of the council's 5 items stayed undecided and verifier agreement was 0.5, so that loss rests on few confirmed items. It doesn't change the outcome band: had D1 gone to the council, its ceiling would have been 7/10, still short of keep.</p>
+
+<p>Why the critique pass did better, I did not test. The design compares two arms and can't say which part of the council lost the points.</p>
+
+<h2 id="the-winner-cost-more">The winner cost more</h2>
+
+<div class="table-scroll" role="region" aria-label="Table 2: The winner cost more" tabindex="0">
+<table>
+<thead><tr><th>Decision</th><th>A time (s)</th><th>B time (s)</th><th>B tokens</th></tr></thead>
+<tbody>
+<tr><td>D1</td><td>95.5</td><td>388</td><td>131,676</td></tr>
+<tr><td>D2</td><td>56.4</td><td>254</td><td>118,593</td></tr>
+<tr><td>D3</td><td>60.1</td><td>234</td><td>130,127</td></tr>
+<tr><td>D4</td><td>64.3</td><td>448</td><td>138,861</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Arm B was slower in every round. The council's token count exists only for D1: 13,076, API metered, against 131,676 for arm B. A's tokens were not reported on the later quick runs, so I have no token comparison for D2 through D4. The arm I kept is the slower and heavier one, and the win was not cheap.</p>
+
+<p>The experiment's own machinery sat on top of that. Normalization and verification added about 94-105k and 124-152k tokens per round, plus one Codex run.</p>
+
+<h2 id="stopping-at-n-4">Stopping at n=4</h2>
+
+<p>On November 3, after seeing the results, I stopped at n=4, before the target of 10 and before the deadline. That is a deviation from the pre-registration and it is recorded as one. The decision rule itself did not change.</p>
+
+<p>The reasoning:</p>
+
+<ul><li>"Keep" (8/10 or more) was already unreachable at D3.</li><li>At 0-4, winning all 6 remaining decisions gives 6/10, which is "hold, extend to n=20". That was the ceiling.</li><li>If the arms were equal (p=0.5), 6 straight wins has probability 1/64, about 1.6%.</li></ul>
+
+<p>The rule had not produced "retire" by itself. The retirement at n=4 was my decision, made with the results in hand, and that arithmetic is the justification I wrote down.</p>
+
+<p>The ledger's tally tool still says incomplete, because n is below 10. The written early-stop section is the record of why.</p>
+
+<h2 id="other-recorded-deviations">Other recorded deviations</h2>
+
+<ul><li>On D3, Claude's grep during a brief exposure check surfaced parts of three items.</li><li>On D4, the arm B subagent's read of a local config file went outside the intended access.</li></ul>
+
+<p>Verifiers' access to forbidden paths was audited, but unevenly: Codex's logs were grepped, while the sonnet subagent self-reported. I wrote about why a reviewer's reach matters more than what its prompt leaves out in <a href="https://hexisteme.github.io/notes/an-empty-prompt-is-not-a-blind-review.html">An Empty Prompt Is Not a Blind Review</a>.</p>
+
+<h2 id="after-the-result">After the result</h2>
+
+<p>The server was retired on November 3 with final backups taken, and the repository was kept. Retirement also turned up something unrelated to the A/B: the backup job had been silently skipping since October 2, because it looked for a Docker container that wasn't running. The last dump was from October 1.</p>
+
+<p>I kept the independent critique procedure and the pre-call controls and ledger.</p>
+
+<h2 id="what-this-does-not-show">What this does not show</h2>
+
+<ul><li>n=4 is not a statistical claim about councils in general.</li><li>All four decisions were one person's infrastructure decisions.</li><li>Both arms used the same model grade, so this says nothing about councils that mix models.</li><li>Arm A ran at default depth, and "quick" on later runs, so it doesn't cover a deeper council setting.</li><li>I did not check whether the server's 400-character cut applied to the input in these runs. If it did, "same input" is weaker than it reads.</li></ul>
+
+<p>The retirement has its own falsifier. If a critique pass misses 2 or more defects on important decisions that later surface, and the council is reproduced catching them on the same input, I reconsider.</p>
+
+<h2>FAQ</h2>
+<h3>How do you blind an LLM council against a single subagent?</h3>
+<p>Both raw outputs went through the same sonnet extractor, which kept at most 5 items, removed persona names and style, and reduced each item to one line of claim and one line of check. The lists were randomly labeled X and Y, the seed was stored in the ledger, and the mapping was revealed only after scoring.</p>
+<h3>Why was the judge replaced after the experiment started?</h3>
+<p>I was the original judge, but the first decision's items were infrastructure facts I could not judge without reading code, and Claude had read that decision's raw output, so it was not blind. On October 28, with zero scores recorded, two verifiers that never see raw output or the mapping took over: Codex and a fresh sonnet subagent. The amendment came after seeing a first Codex result (X n=3, Y n=3), which is disclosed, and the decision rule did not change.</p>
+<h3>Why stop at 4 decisions when the target was 10?</h3>
+<p>Keep was already unreachable by the third decision, and at 0-4 the council's ceiling was 6/10, which only meant hold and extend to n=20. If the arms were equal, 6 straight wins has probability 1/64, about 1.6%. Stopping after seeing results is still a deviation from the pre-registration, it is recorded as one, and the ledger's tally tool still says incomplete.</p>
+<h3>Was the winning arm cheaper than the council?</h3>
+<p>No. The critique pass took 234 to 448 seconds per decision against 56.4 to 95.5 for the council. On the first decision, the only round with a council token count, it used 131,676 tokens against the council's 13,076.</p>
+<h3>Does this show LLM councils don&#x27;t work?</h3>
+<p>No. n=4 is not a statistical claim about councils in general. All four decisions were one person's infrastructure decisions, both arms used the same model grade, and the council ran at default depth and quick on later runs. Why the critique pass did better was not tested.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./personas-vs-model-families-multi-agent-council-diversity.html">Do Multiple Personas on One LLM Give Real Diversity, or Do You Need Different Model Families?</a></li>
+<li><a href="./an-empty-prompt-is-not-a-blind-review.html">An Empty Prompt Is Not a Blind Review</a></li>
+<li><a href="./cross-family-llm-audit-shared-blind-spots.html">Cross-Vendor Audit: What It Caught in My Own Model&#x27;s Writing, and What It Got Wrong</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=council-retired-after-blind-ab">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
