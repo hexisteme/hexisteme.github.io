@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes — hexisteme notes</title>
+<meta name="description" content="My Claude Code effort was pinned to xhigh. On 20 of my own bug-fix commits, medium and low-then-high cost 64% and 61% as much with 1 and 0 paired losses.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/claude-reasoning-effort-ab-on-20-bug-fixes.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes">
+<meta property="og:description" content="My Claude Code effort was pinned to xhigh. On 20 of my own bug-fix commits, medium and low-then-high cost 64% and 61% as much with 1 and 0 paired losses.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/claude-reasoning-effort-ab-on-20-bug-fixes.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/claude-reasoning-effort-ab-on-20-bug-fixes.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes">
+<meta name="twitter:description" content="My Claude Code effort was pinned to xhigh. On 20 of my own bug-fix commits, medium and low-then-high cost 64% and 61% as much with 1 and 0 paired losses.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/claude-reasoning-effort-ab-on-20-bug-fixes.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes", "datePublished": "2026-11-13", "dateModified": "2026-11-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A paired self-test of Claude Code reasoning effort levels (xhigh, medium, low with a high retry) on 20 real bug-fix commits, with a pre-written falsifier, its statistical power limits, and the configuration change it led to.", "image": "https://hexisteme.github.io/notes/og/claude-reasoning-effort-ab-on-20-bug-fixes.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How did lower reasoning effort compare with xhigh on the 20 bug fixes?", "acceptedAnswer": {"@type": "Answer", "text": "xhigh passed 19/20 for $28.45. Medium passed 18/20 for $18.22, which is 64% of xhigh's cost. Low with one retry at high on failure passed 19/20 for $17.44, or 61%. Median time was 93 s, 49 s, and 35 s."}}, {"@type": "Question", "name": "Is 20 tasks enough to say lower effort is safe?", "acceptedAnswer": {"@type": "Answer", "text": "No. Codex calculated that even with zero failures, the one-sided 95% upper bound on the failure rate at 20 tasks is 13.9%, and 4.87% at 60 tasks. With 0 paired losses for low-then-high, its loss rate could still be up to 13.9%, and the bound for medium with 1 loss is 21.6%. I treat the result as exploratory: one repository, easy tasks, n=20."}}, {"@type": "Question", "name": "Why set subagents to medium instead of low when low-then-high was cheaper?", "acceptedAnswer": {"@type": "Answer", "text": "Low effort was safe in the test because a failed test triggered a retry at high. My subagents' outputs have no automatic verifier to trigger such a retry, and the test covered only bug fixes checked by tests, so extrapolating to research and exploration work is weak."}}, {"@type": "Question", "name": "Does CLAUDE_CODE_SUBAGENT_EFFORT apply to every subagent?", "acceptedAnswer": {"@type": "Answer", "text": "No. The order from highest to lowest is an effort field in the agent's frontmatter, then the effort passed on an individual call, then CLAUDE_CODE_SUBAGENT_EFFORT, then the session's inherited effort. A forked agent ignores the variable and takes the session's effort, and my custom agents that declare effort in frontmatter kept their values."}}, {"@type": "Question", "name": "What went wrong in the first usage audit?", "acceptedAnswer": {"@type": "Answer", "text": "The first count overstated tokens by 2.5x because streaming output lines sharing one message ID were each counted. Codex pointed it out, and the corrected audit deduplicates by message ID."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-13</p>
+<div class="note">My Claude Code settings pinned reasoning effort to xhigh for every model, so I ran 61 runs on 20 of my own test-backed bug-fix commits under xhigh, medium, and low-with-high-retry. Medium cost 64% of xhigh with 1 paired loss and low-then-high cost 61% with 0, so I lowered only subagents to medium and kept the main loop at xhigh.</div>
+
+<p>I pulled 30 days of my own Claude Code usage and checked which model and which reasoning effort level each message ran at. The model choices matched Anthropic's guidance. The effort levels did not. My main loop on Opus 5.5 ran at xhigh for 77% of messages and max for 23%, with medium at 0%. Subagent messages on Opus 5.5 were no better: xhigh 77%, max 14%, medium 8%.</p>
+
+<p>The cause was one block in my settings. A <code>modelSettings</code> entry pinned <code>effortLevel: xhigh</code> for every model entry alike, Opus and Sonnet included. That meant routing a subagent down to Sonnet changed the model but not the effort, so it still ran at xhigh. Anthropic's guidance points subagents toward low.</p>
+
+<h2 id="deviation-is-not-the-same-as-waste">Deviation is not the same as waste</h2>
+
+<p>The tempting conclusion was that I had been burning money for a month. I did not have evidence for that. Anthropic's published numbers come from a single-shot benchmark. My sessions are long and interactive, with a lot of back-and-forth, so the deviation from the guide was a fact and the waste was only a guess. I wrote the verdict down that way: model selection matches the guide, effort deviates heavily, and nothing yet shows the deviation costs me anything.</p>
+
+<p>Here are Anthropic's published numbers I was comparing against, from their page on optimizing for cost and intelligence, measured on SWE-bench Pro:</p>
+
+<ul><li>low effort, with failures rerun at high: about 97%, $0.17 per task</li><li>medium, with failures rerun at high: about 97%, $0.24 per task</li><li>high on everything: 95.3%, $0.29 per task</li></ul>
+
+<p>The same page attaches a precondition: these policies make sense when you have a way to check the output, such as tests or a verifier. The effort documentation also says the API default for Opus 5.5 is medium. So my setting was not just above the subagent guidance. It was above the default.</p>
+
+<h2 id="the-first-count-was-wrong-by-2-5x">The first count was wrong by 2.5x</h2>
+
+<p>Before any of this, my first pass at the audit overcounted tokens by 2.5x. The transcript logs write streaming output as several lines that share one message ID, and I had summed every line. Codex pointed it out. The fixed version deduplicates by message ID, and that is the version the percentages above come from.</p>
+
+<h2 id="designing-a-test-i-could-afford">Designing a test I could afford</h2>
+
+<p>I asked Codex and Gemini (through agy) for independent opinions on how to check whether lower effort would hurt me, then compared all three positions. We agreed on several constraints before anything ran.</p>
+
+<p>The first was statistical power. Codex worked out that 20 tasks cannot resolve a 5-point threshold: even if the cheaper policy failed zero tasks, the one-sided 95% upper bound on its failure rate would still be 13.9%. At 60 tasks that bound drops to 4.87%. So 20 tasks would be exploratory, and 60 would be the size for an actual decision.</p>
+
+<p>The second was where tasks would come from. I wanted real fixes from my own work, each with a test. Counting fix commits that came with tests, one repository had 61, another had 3, and the rest had 0 to 1. So any result would only speak for that one repository.</p>
+
+<p>The third was leakage. If the model can see the future git history, it can find the answer instead of writing it. Each task ran on a copy of the repository without the future history. Grading happened outside the run with a separate grader that checked the fixed tests, required zero skipped tests, compared the number of collected tests, and checked which paths were changed.</p>
+
+<p>There was one disagreement. agy recommended switching my main loop to medium immediately. Codex said a global switch should wait until after the test. I went with Codex: a reversible pilot, then a measurement, then a decision.</p>
+
+<p>Running Claude headless is something my own setup treats as an explicit opt-in, so the design waited for my approval before any of it ran.</p>
+
+<h2 id="the-design">The design</h2>
+
+<ul><li>Task selection: group the fix commits by cause, and keep only tasks where the reference fix passes and reverting it makes the regression test fail.</li><li>Three arms on Opus 5.5: A at xhigh (my current setting), B at medium, and C at low with one retry at high if the first attempt failed.</li><li>Each run was <code>claude -p --effort X --output-format json</code> with a fixed turn limit, in randomized order.</li><li>Metrics: paired success difference per task, and total cost including failed attempts (<code>total_cost_usd</code>), time, and turns.</li><li>Falsifier, written before the runs: if B or C loses at most 1 task in 20 against A in paired comparison, and its total cost is at most 70% of A's, lower subagent effort first as a pilot. Otherwise keep xhigh.</li></ul>
+
+<h2 id="results">Results</h2>
+
+<p>I ran it on November 11: 61 runs on 20 fix commits from that one repository. Twenty per arm, plus the one high-effort retry C needed.</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: Results" tabindex="0">
+<table>
+<thead><tr><th>Policy</th><th>Passed</th><th>Total cost (API-equivalent)</th><th>vs A</th><th>Median time</th><th>Output tokens</th></tr></thead>
+<tbody>
+<tr><td>A xhigh</td><td>19/20</td><td>$28.45</td><td>100%</td><td>93 s</td><td>337,735</td></tr>
+<tr><td>B medium</td><td>18/20</td><td>$18.22</td><td>64%</td><td>49 s</td><td>138,335</td></tr>
+<tr><td>C low, high on failure</td><td>19/20 (low first attempt 19/20, 1 retry)</td><td>$17.44</td><td>61%</td><td>35 s</td><td>115,432</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The paired comparison is the part that matters, because the pass totals hide which tasks moved.</p>
+
+<ul><li>A to C: 0 losses, 0 gains. The 95% upper bound on the loss rate is 13.9%.</li><li>A to B: 1 loss, 0 gains, with an upper bound of 21.6%. On the lost task, B's change made the target test pass but broke 2 other regression tests. A grader that checked only the target test would have scored that as a pass.</li></ul>
+
+<p>One task failed under all three policies. Its fixed signature test, <code>test_v2_known_vector_cross_repo</code>, required a byte convention that the commit title alone did not determine, so no policy had enough information to produce it. I counted that as a defect in the task, not in any arm. Since all three failed it, it does not affect the paired comparison.</p>
+
+<p>The integrity checks came back clean: 0 violations (protected files, conftest edits, skips, collected-test count), 0 changes to the original repository, and 0 leaks under the strict rule. During the runs a LEAK flag did fire, but it was a false positive on a path string inside the file being fixed.</p>
+
+<h2 id="what-i-changed-and-what-i-did-not">What I changed, and what I did not</h2>
+
+<p>Both B and C met the falsifier rule. Following what we had agreed, I lowered subagents first and left the main loop at xhigh. The change was one environment variable: <code>CLAUDE_CODE_SUBAGENT_EFFORT=medium</code>, with a backup of the previous settings.</p>
+
+<p>I chose medium, not low, even though C was the cheaper arm with no paired losses. C's result depends on a verifier: low effort is only safe there because a failed test triggers the retry at high. My subagents' outputs have no automatic verifier that would trigger a retry. The test also covered only bug fixes that tests can check, and a lot of my subagent work is research and exploration. Extrapolating from one to the other is weak.</p>
+
+<p>I then checked that the change took effect, comparing before and after in the same session with the same general-purpose agent on Sonnet 5.5. At 08:02 it ran at xhigh. At 08:41, after the change, it ran at medium.</p>
+
+<p>Checking that also showed me the precedence order, which turned out to matter. From highest to lowest: an <code>effort</code> field in the agent's frontmatter, then the effort passed on an individual call, then <code>CLAUDE_CODE_SUBAGENT_EFFORT</code>, then whatever the session inherits. A forked agent ignores the environment variable and takes the session's effort. My custom agents that declare effort in their frontmatter, some at high and some at medium, kept those values. So the environment variable only reaches subagents that set nothing themselves.</p>
+
+<h2 id="the-limits-of-this-result">The limits of this result</h2>
+
+<p>This is an exploratory result and I am treating it as one. It covers one repository, the tasks were easy (xhigh passed 19/20), and n is 20. Codex's power calculation applies directly: with zero paired losses for C, the loss rate could still be as high as 13.9%, which is well above the 5-point threshold I would want for a real decision. The test says lower effort did not visibly hurt on these tasks. It does not say lower effort is safe in general.</p>
+
+<p>The falsifier for the rollout is a 2-week check on November 25: if the rate at which my main Claude session has to redo subagent output goes up compared with before, I delete the environment variable line and revert. That check has not happened yet.</p>
+
+<p>Lowering the main loop is a separate test. When I run it, it will start with work that has a verifier, meaning code changes with tests, under the low-then-high retry policy, which is also the precondition Anthropic's page attaches to its own numbers.</p>
+
+<h2>FAQ</h2>
+<h3>How did lower reasoning effort compare with xhigh on the 20 bug fixes?</h3>
+<p>xhigh passed 19/20 for $28.45. Medium passed 18/20 for $18.22, which is 64% of xhigh's cost. Low with one retry at high on failure passed 19/20 for $17.44, or 61%. Median time was 93 s, 49 s, and 35 s.</p>
+<h3>Is 20 tasks enough to say lower effort is safe?</h3>
+<p>No. Codex calculated that even with zero failures, the one-sided 95% upper bound on the failure rate at 20 tasks is 13.9%, and 4.87% at 60 tasks. With 0 paired losses for low-then-high, its loss rate could still be up to 13.9%, and the bound for medium with 1 loss is 21.6%. I treat the result as exploratory: one repository, easy tasks, n=20.</p>
+<h3>Why set subagents to medium instead of low when low-then-high was cheaper?</h3>
+<p>Low effort was safe in the test because a failed test triggered a retry at high. My subagents' outputs have no automatic verifier to trigger such a retry, and the test covered only bug fixes checked by tests, so extrapolating to research and exploration work is weak.</p>
+<h3>Does CLAUDE_CODE_SUBAGENT_EFFORT apply to every subagent?</h3>
+<p>No. The order from highest to lowest is an effort field in the agent's frontmatter, then the effort passed on an individual call, then CLAUDE_CODE_SUBAGENT_EFFORT, then the session's inherited effort. A forked agent ignores the variable and takes the session's effort, and my custom agents that declare effort in frontmatter kept their values.</p>
+<h3>What went wrong in the first usage audit?</h3>
+<p>The first count overstated tokens by 2.5x because streaming output lines sharing one message ID were each counted. Codex pointed it out, and the corrected audit deduplicates by message ID.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./the-proxy-i-added-to-measure-tokens-tripled-them.html">The Proxy I Added to Measure Tokens Tripled Them</a></li>
+<li><a href="./measure-unit-price-before-you-ration.html">The Quota Said 100% Used. Actual Demand Was 13%.</a></li>
+<li><a href="./multi-agent-wall-time-token-tradeoff.html">My AI Agent Pipeline Cut Wall Time and Used More Tokens</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=claude-reasoning-effort-ab-on-20-bug-fixes">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
