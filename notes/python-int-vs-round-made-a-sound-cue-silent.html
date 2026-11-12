@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Python int() Versus round() Made a Sound Cue Measure Silent, and My Mixer Boosted It 12 dB — hexisteme notes</title>
+<meta name="description" content="My audibility check sliced audio at int(t*sr) while cues were placed at round(t*sr); a 0.14 s shutter measured -120 dB and got the +12 dB cap.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/python-int-vs-round-made-a-sound-cue-silent.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python int() Versus round() Made a Sound Cue Measure Silent, and My Mixer Boosted It 12 dB">
+<meta property="og:description" content="My audibility check sliced audio at int(t*sr) while cues were placed at round(t*sr); a 0.14 s shutter measured -120 dB and got the +12 dB cap.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/python-int-vs-round-made-a-sound-cue-silent.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/python-int-vs-round-made-a-sound-cue-silent.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Python int() Versus round() Made a Sound Cue Measure Silent, and My Mixer Boosted It 12 dB">
+<meta name="twitter:description" content="My audibility check sliced audio at int(t*sr) while cues were placed at round(t*sr); a 0.14 s shutter measured -120 dB and got the +12 dB cap.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/python-int-vs-round-made-a-sound-cue-silent.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Python int() Versus round() Made a Sound Cue Measure Silent, and My Mixer Boosted It 12 dB", "datePublished": "2026-11-13", "dateModified": "2026-11-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "An off-by-one-sample mismatch between int() and round() in a video's sound-effect audibility check, and related defects where measurement and placement used different positions, times or assets.", "image": "https://hexisteme.github.io/notes/og/python-int-vs-round-made-a-sound-cue-silent.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did int() versus round() matter for a sound cue?", "acceptedAnswer": {"@type": "Answer", "text": "The mixer placed each cue at round(tsr) but the audibility slicer started at int(tsr), so the first slice began one sample before the asset. The record says that slice measured as empty, at -120 dB. A 0.14 s camera shutter had only one slice, so the whole cue read as inaudible and was lifted to the +12 dB cap."}}, {"@type": "Question", "name": "How was the off-by-one fixed and tested?", "acceptedAnswer": {"@type": "Answer", "text": "Both the slicer and the placement now use round. One test puts an event 0.6 of a sample past a boundary and asserts the first slice starts at round(t*sr). A second test compares the lift for an on-sample and a between-sample placement and requires them to differ by less than 0.1 dB; putting int back makes it fail."}}, {"@type": "Question", "name": "What other measurement-versus-placement mismatches were found?", "acceptedAnswer": {"@type": "Answer", "text": "Reaction cues were recorded as a synthetic click, so loudness, sync and rights records looked at a sound that was not in the mix. A Codex review then found audibility measured at the 0.1 ms event time while the cue was placed at a millisecond-rounded time, up to 24 samples apart; measurement now uses the actual placement times."}}, {"@type": "Question", "name": "How did an audibility floor conflict with layer levels?", "acceptedAnswer": {"@type": "Answer", "text": "A bulb ding under loud narration needed -5.2 dB to be heard, outside the layer's plus or minus 2 dB target. Placement now records lift_db, capped at the layer above's target minus 3 dB, and the hierarchy check accepts the recorded lift only for reaction cues and only up to that ceiling."}}, {"@type": "Question", "name": "Did the final review's fixes change the audio?", "acceptedAnswer": {"@type": "Answer", "text": "No, not from the final review's fixes. After reassembly the SHA hashes of the final video and the sound effect stem were identical before and after those fixes. The earlier slice bug had over-lifted cues to the +12 dB cap; in the final mix only two cues were lifted, the stamp slam by +0.64 dB and the bulb ding by +2.77 dB, and the suite was 1086 passed. My own watch-through review was still pending."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Python int() Versus round() Made a Sound Cue Measure Silent, and My Mixer Boosted It 12 dB</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-13</p>
+<div class="note">My audibility measurement started its slices at int(t<em>sr) while the mixer placed cues at round(t</em>sr), so a 0.14 s camera shutter measured -120 dB and was lifted to the +12 dB cap. The same assembly had two more sound defects, one where the measurement looked at a different sound than the mix and one where an audibility floor clashed with the layer target, and a Codex review found cues measured up to 24 samples from where they were placed.</div>
+
+<p>The final assembly of a short explainer video failed once on a sound check. The check was <code>sfx_hierarchy</code>, which asks whether every sound effect sits at the level its layer is supposed to have. Two reaction cues, a camera shutter and a stamp slam, had been pushed up by +12 dB, which is the maximum boost my mixer allows. Nothing about those two sounds needed that. The cause was one line in the audibility measurement: it computed the start sample with <code>int(t·sr)</code>, while the code that placed the cue in the mix computed it with <code>round(t·sr)</code>.</p>
+
+<p>When I traced it, there were three defects in the pipeline, and a later Codex review found more of the same kind. They share one shape. The place where the pipeline put a sound and the place where it measured that sound were not the same place, sometimes by one sample, sometimes by a different file entirely. This is the record of those defects and the tests that now pin them.</p>
+
+<h2 id="what-the-audibility-check-does">What the audibility check does</h2>
+
+<p>Each reaction cue in these videos is a short sound effect tied to an on-screen event. A check measures whether that cue is audible over the music and under the narration, in a phone-speaker frequency band. The margin function is short:</p>
+
+<pre><code>def audible_margin_db(fx: float, mu: float, vo: float) -&gt; float:
+    return min(fx - mu - SOUND_OVER_MUSIC_DB, fx - vo - SOUND_UNDER_VOICE_DB)</code></pre>
+
+<p>A margin of zero or more means the cue is heard. If it is not heard, the mixer lifts it, up to a cap.</p>
+
+<p>The measurement used to average the first 0.4 s after the event. According to the function's docstring, that average read short sounds low, because it averaged in the silence after them, and it read sounds that swell late (a whoosh, steam) low as well. So the measurement was changed to cut the cue into overlapping slices of <code>SOUND_SLICE_S</code> and measure each slice. Slices only cover the length of the cue's own asset, because anything past that is another event's sound.</p>
+
+<p>The window measurement returns a fixed floor for an empty range:</p>
+
+<pre><code>def phone_window_db(x: np.ndarray, a: int, b: int) -&gt; float:
+    from . import audio
+    seg = x[a:b].mean(axis=1) if x.ndim == 2 else x[a:b]
+    if len(seg) == 0:
+        return -120.0
+    band = audio.phone_band(seg)
+    return float(20.0 * np.log10(np.sqrt((band ** 2).mean()) + 1e-9))</code></pre>
+
+<h2 id="defect-1-int-for-the-slice-round-for-the-placement">Defect 1: int() for the slice, round() for the placement</h2>
+
+<p>The placement code put a cue at <code>round(t·sr)</code>. The slicer started at <code>int(t·sr)</code>. <code>int()</code> drops the fractional part and <code>round()</code> goes to the nearest sample, so whenever an event time fell more than half a sample past a sample boundary, the two disagreed by one. The first slice then started one sample before the asset.</p>
+
+<p>The record states the result: that first slice measured as empty, at −120 dB. I have not re-derived from the slicing arithmetic why a one-sample shift produced an empty window instead of a slightly shorter one, so I will report what was observed and not a mechanism.</p>
+
+<p>For long cues this was one bad slice among several. For the camera shutter, which is 0.14 s long, there was only one slice. The whole cue therefore measured −120 dB, the mixer concluded it was inaudible, and it lifted the cue all the way to the +12 dB cap. The stamp slam was over-amplified by +12 dB in the same way.</p>
+
+<p>The fix was to use <code>round</code> in both places. This is the slicer after the fix (docstring and an internal comment omitted):</p>
+
+<pre><code>def sound_slices(t_s: float, dur_s: float, asset_s: float | None, sr: int) -&gt; list[tuple[int, int]]:
+    span = min(float(dur_s), float(asset_s)) if asset_s else float(dur_s)
+    a0, total, k = round(float(t_s) * sr), max(1, int(span * sr)), max(1, int(SOUND_SLICE_S * sr))
+    if total &lt;= k:
+        return [(a0, a0 + total)]
+    return [(a0 + i, a0 + i + k) for i in range(0, total - k + 1, max(1, k // 2))]</code></pre>
+
+<p>The <code>total &lt;= k</code> branch is the single-slice case the shutter fell into. The regression test puts an event 0.6 of a sample past a boundary and asserts that the first slice starts where the placement would put the cue:</p>
+
+<pre><code>def test_sound_slices_start_on_the_sample_the_cue_is_placed_at():
+    sr = 48000
+    t = 0.5 + 0.6 / sr
+    assert reactions.sound_slices(t, 0.14, 0.14, sr)[0][0] == round(t * sr)</code></pre>
+
+<p>A second test, <code>test_short_reaction_cue_is_not_lifted_by_a_slice_before_its_first_sample</code>, checks the consequence instead of the index. I come back to it below, because the first version of it was too weak.</p>
+
+<h2 id="defect-2-the-check-measured-a-different-sound">Defect 2: the check measured a different sound</h2>
+
+<p><code>shotfilm.cue_asset_id</code> wrote every cue of kind <code>reaction</code> as a <code>cue_reaction_*</code> synthetic click. The real mix used the catalog sound for each reaction, and the mix itself was fine. But loudness measurement, sync measurement and the rights record were all looking at the synthetic click, a sound that was not in the mix.</p>
+
+<p>The fix maps a reaction cue to its catalog <code>asset_id</code>. The test is <code>test_reaction_cue_asset_is_its_catalog_sound_not_a_synth_click</code>.</p>
+
+<h2 id="defect-3-an-audibility-floor-against-a-layer-target">Defect 3: an audibility floor against a layer target</h2>
+
+<p>The third failure was a rule conflict. The audibility floor said a reaction cue must be heard. The layer rule said each sound effect layer must sit within ±2 dB of its target. A light-bulb ding sat under a loud stretch of narration and needed to be at −5.2 dB to be heard, which the layer rule would not allow.</p>
+
+<p>The fix makes the boost explicit. Placement records a <code>lift_db</code> for each cue. The lift has a ceiling of the layer above's target minus 3 dB (transition −5, ui −11, and for peak, target +2). The hierarchy check accepts a level raised by the recorded lift, but only up to that ceiling. If a cue would need more than the ceiling to be heard, the <code>reaction_sfx_masked</code> check reports it.</p>
+
+<p>Two tests pin this: <code>test_reaction_lift_is_recorded_and_stops_at_the_layer_ceiling</code> and <code>test_sfx_hierarchy_allows_a_recorded_audibility_lift_up_to_the_ceiling</code>. A music-floor test also had its music changed to −12 dB relative to speech, which is the range of the real mix. After these three fixes the full suite was 1083 passed.</p>
+
+<p>(The same assembly also failed a separate visual craft check with 7 hard findings, such as stacked decoration dots and a camera move still accelerating at a cut. Those were fixed in the episode's script and are not part of this story.)</p>
+
+<h2 id="the-codex-review-found-the-same-shape-again">The Codex review found the same shape again</h2>
+
+<p>Before upload I gave the whole thing to Codex for a read-only final review. I adopted its findings, and the remaining items it checked needed no change. The ones that matter here were about sound:</p>
+
+<ul><li>Any cue could claim a <code>lift_db</code> exemption, not only reactions. Now the lift counts only for items with kind <code>reaction</code>, and the timeline and loudness measurement carry <code>kind</code> and <code>reaction_id</code> through. Test: <code>test_sfx_hierarchy_ignores_a_lift_on_a_non_reaction_cue</code>.</li><li>Audibility was measured at the event time, which had 0.1 ms resolution. The compile step placed the cue at <code>at_s</code> rounded to the millisecond. The two could be up to 24 samples apart. <code>measure_reaction_audibility(placed=)</code> now measures at the actual placement times from the assembly report. The mix did not change.</li><li>Placement times were recorded rounded to 0.1 ms, which showed up as 25600 against 25598 samples. Reaction <code>t_s</code> is now recorded to 1 µs. The final sound effect stem was already placed from the exact time, so this changed the record and the offset measurement, not the mix.</li><li>The short-cue test from defect 1 still passed with the lift removed.</li></ul>
+
+<p>The 24-sample case is defect 1 again at a larger scale: the measurement was taken at one time and the sound was placed at another. Its test builds a 24-sample burst and an event time that does not land on it:</p>
+
+<pre><code>def test_audibility_is_measured_where_the_cue_was_placed_not_at_the_unrounded_event_time():
+    sr = 48000
+    n = sr
+    sfx = np.zeros((n, 2))
+    burst = np.random.default_rng(7).normal(0, 0.5, 24)
+    sfx[24000:24024] = np.stack([burst] * 2, axis=1)
+    quiet = np.zeros((n, 2))
+    evs = [{&quot;id&quot;: &quot;E1&quot;, &quot;sfx&quot;: &quot;camera_shutter&quot;, &quot;t_s&quot;: 0.50049, &quot;dur_s&quot;: 0.1, &quot;shot_id&quot;: &quot;A&quot;}]
+    placed = [{&quot;reaction_id&quot;: &quot;E1&quot;, &quot;asset_id&quot;: &quot;camera_shutter&quot;, &quot;t_s&quot;: 0.5}]
+    stems = {&quot;sfx&quot;: sfx, &quot;music&quot;: quiet, &quot;voice&quot;: quiet}
+    assert {x[&quot;code&quot;] for x in reactions.measure_reaction_audibility(evs, stems, sr, lengths={&quot;camera_shutter&quot;: 0.1})[&quot;hard&quot;]} == {&quot;reaction_sfx_masked&quot;}
+    assert reactions.measure_reaction_audibility(evs, stems, sr, lengths={&quot;camera_shutter&quot;: 0.1}, placed=placed)[&quot;hard&quot;] == []</code></pre>
+
+<p>Measured at the event time, the cue is reported as masked. Measured at the placement, it is not.</p>
+
+<h2 id="making-the-weak-test-able-to-fail">Making the weak test able to fail</h2>
+
+<p>The last finding was the one I would most likely have missed myself. The consequence test for defect 1 compared lifts, but in its setup no lift was needed at all, so it could not tell a correct slicer from a broken one.</p>
+
+<p>The strengthened test raises part of the narration by ×1.3 so that a real lift is needed but stays under the ceiling, between 0.5 dB and 2.5 dB. It then places the same cue on a sample and 0.6 of a sample past one, and asserts the two lifts differ by less than 0.1 dB:</p>
+
+<pre><code>    room = qc.lift_ceiling_db(&quot;transition&quot;) - audio.SFX_LAYER_DB[&quot;transition&quot;]
+    on_sample, between = lift_at(0.5), lift_at(0.5 + 0.6 / SR)
+    assert 0.5 &lt; on_sample &lt; room - 0.5
+    assert abs(between - on_sample) &lt; 0.1</code></pre>
+
+<p>If the slicer is off by a sample, the between-sample placement climbs to the ceiling and the second assertion fails. I checked that directly by putting <code>int</code> back: the test failed. That mutation check is the evidence the test now guards the bug and not just the happy path.</p>
+
+<p>After the review fixes the suite was 1086 passed.</p>
+
+<h2 id="confirming-the-mix-did-not-move">Confirming the mix did not move</h2>
+
+<p>The fixes from that final Codex review were to measurement and records, and I wanted proof that they had not changed the mix. I reassembled the video through the final render, shot assembly, craft check, script and final reaction measurement. The SHA hashes of the final video file and the sound effect stem were identical before and after.</p>
+
+<p>On that reassembly the reaction measurement passed with 28 events. Loudness was −14.0 LUFS and −1.65 dBTP. All 15 reaction cues carried their <code>kind</code>. Only two cues were lifted: the stamp slam by +0.64 dB and the bulb ding by +2.77 dB, both under the −5 dB ceiling. The stamp slam had been at +12 dB when the slicer was wrong.</p>
+
+<h2 id="what-is-still-open">What is still open</h2>
+
+<p>Every automated gate passed except one, <code>human_review</code>, which is my own watch-through of the finished cut. That is still ahead of the private upload and scheduling, and no gate result here says anything about whether the video is good to watch.</p>
+
+<p>The other open item is the one I flagged above. The record says the one-sample-early slice was empty and read −120 dB; it does not explain why a slice shifted by one sample came out empty rather than nearly full. The fix and the tests do not depend on that answer, but I have not confirmed the mechanism.</p>
+
+<p>The habit I am taking from this is narrow: when a measurement reports on a sound, check that it computes position, time and asset the same way the code that placed the sound did. Three of the defects in this one assembly were exactly that mismatch.</p>
+
+<h2>FAQ</h2>
+<h3>Why did int() versus round() matter for a sound cue?</h3>
+<p>The mixer placed each cue at round(t<em>sr) but the audibility slicer started at int(t</em>sr), so the first slice began one sample before the asset. The record says that slice measured as empty, at -120 dB. A 0.14 s camera shutter had only one slice, so the whole cue read as inaudible and was lifted to the +12 dB cap.</p>
+<h3>How was the off-by-one fixed and tested?</h3>
+<p>Both the slicer and the placement now use round. One test puts an event 0.6 of a sample past a boundary and asserts the first slice starts at round(t*sr). A second test compares the lift for an on-sample and a between-sample placement and requires them to differ by less than 0.1 dB; putting int back makes it fail.</p>
+<h3>What other measurement-versus-placement mismatches were found?</h3>
+<p>Reaction cues were recorded as a synthetic click, so loudness, sync and rights records looked at a sound that was not in the mix. A Codex review then found audibility measured at the 0.1 ms event time while the cue was placed at a millisecond-rounded time, up to 24 samples apart; measurement now uses the actual placement times.</p>
+<h3>How did an audibility floor conflict with layer levels?</h3>
+<p>A bulb ding under loud narration needed -5.2 dB to be heard, outside the layer's plus or minus 2 dB target. Placement now records lift_db, capped at the layer above's target minus 3 dB, and the hierarchy check accepts the recorded lift only for reaction cues and only up to that ceiling.</p>
+<h3>Did the final review&#x27;s fixes change the audio?</h3>
+<p>No, not from the final review's fixes. After reassembly the SHA hashes of the final video and the sound effect stem were identical before and after those fixes. The earlier slice bug had over-lifted cues to the +12 dB cap; in the final mix only two cues were lifted, the stamp slam by +0.64 dB and the bulb ding by +2.77 dB, and the suite was 1086 passed. My own watch-through review was still pending.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./validate-what-you-ship-not-what-you-load.html">Your validator must measure what you ship, not what you loaded</a></li>
+<li><a href="./measuring-uppercase-when-render-draws-mixed-case.html">My Caption Width Guard Passed Every Test. It Was Measuring Text the Renderer Never Drew.</a></li>
+<li><a href="./a-pair-is-matched-by-grid-not-by-count.html">Same Video File, Same Threshold, Three Answers: Caption Safe-Zone Frames Are Matched by Grid, Not by Count</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=python-int-vs-round-made-a-sound-cue-silent">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
