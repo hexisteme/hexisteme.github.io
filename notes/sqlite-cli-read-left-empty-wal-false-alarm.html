@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Reading a SQLite Database With the macOS CLI Left an Empty WAL File and Tripped My Freshness Alarm — hexisteme notes</title>
+<meta name="description" content="My freshness check called a SQLite source unavailable because a -wal file existed, and a plain read with the macOS sqlite3 CLI leaves an empty one.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/sqlite-cli-read-left-empty-wal-false-alarm.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Reading a SQLite Database With the macOS CLI Left an Empty WAL File and Tripped My Freshness Alarm">
+<meta property="og:description" content="My freshness check called a SQLite source unavailable because a -wal file existed, and a plain read with the macOS sqlite3 CLI leaves an empty one.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/sqlite-cli-read-left-empty-wal-false-alarm.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/sqlite-cli-read-left-empty-wal-false-alarm.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Reading a SQLite Database With the macOS CLI Left an Empty WAL File and Tripped My Freshness Alarm">
+<meta name="twitter:description" content="My freshness check called a SQLite source unavailable because a -wal file existed, and a plain read with the macOS sqlite3 CLI leaves an empty one.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/sqlite-cli-read-left-empty-wal-false-alarm.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Reading a SQLite Database With the macOS CLI Left an Empty WAL File and Tripped My Freshness Alarm", "datePublished": "2026-11-13", "dateModified": "2026-11-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A false DB_UNAVAILABLE alarm from a SQLite freshness check that keyed on the existence of a -wal file, after a read with the macOS sqlite3 CLI left an empty one, and the size-based fix with a regression test on each side.", "image": "https://hexisteme.github.io/notes/og/sqlite-cli-read-left-empty-wal-false-alarm.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why did a read-only check report my SQLite database as unavailable?", "acceptedAnswer": {"@type": "Answer", "text": "The check opens the database with an immutable=1 URI so it never creates or changes sidecar files, and it refused to read whenever a -wal file existed, because an immutable read can return stale values when the WAL holds frames. A read with the macOS /usr/bin/sqlite3 CLI left a 0-byte -wal file, which was enough to trip the existence rule."}}, {"@type": "Question", "name": "Does reading a database with the macOS sqlite3 CLI create files?", "acceptedAnswer": {"@type": "Answer", "text": "On my machine, with my WAL-mode database, a read through /usr/bin/sqlite3 left a 0-byte -wal file and a -shm file. I reproduced it on 2026-11-06 at 07:35. I did not look into why the CLI does this or check it against SQLite's documentation."}}, {"@type": "Question", "name": "What changed in the check?", "acceptedAnswer": {"@type": "Answer", "text": "It now looks at the size of the -wal file instead of its existence. A missing or 0-byte file lets the immutable read go ahead; a file larger than 0 bytes still returns DB_UNAVAILABLE with the reason active WAL present, because frames in the WAL are the case where an immutable read could be stale."}}, {"@type": "Question", "name": "How is the fix tested?", "acceptedAnswer": {"@type": "Answer", "text": "One regression test puts an empty -wal and a zeroed 32768-byte -shm beside a small database and expects FRESH with the directory unchanged; it failed before the fix. A second test writes bytes into the -wal and expects DB_UNAVAILABLE, so the rule cannot quietly relax to never blocking. The suite passed with 147 tests."}}, {"@type": "Question", "name": "What is still unresolved?", "acceptedAnswer": {"@type": "Answer", "text": "I do not know what opened the database on 2026-11-02, so the CLI read is one confirmed way to produce the empty file, not a confirmed cause of that alarm. The alert's flag file has no automatic clearing path; I deleted it by hand on 2026-11-06."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Reading a SQLite Database With the macOS CLI Left an Empty WAL File and Tripped My Freshness Alarm</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-13</p>
+<div class="note">A freshness check refused to read my SQLite telemetry database whenever a <code>-wal</code> file existed, and a plain read with the macOS <code>/usr/bin/sqlite3</code> CLI leaves a 0-byte <code>-wal</code> and a <code>-shm</code>. It raised <code>DB_UNAVAILABLE</code> while the archive kept growing; what opened the database that day is still unconfirmed. The check now blocks only when the <code>-wal</code> file is larger than 0 bytes, because a WAL with frames would still make an <code>immutable=1</code> read return stale values.</div>
+
+<p>On 2026-11-02 at 09:00:48, the scheduled job in my agent telemetry pipeline raised <code>F3-SOURCE-DB_UNAVAILABLE</code> with the reason <code>active WAL present</code>. My first question was whether the raw archive had been lost. It had not. The next 7 ticks of the job all exited with rc=0, and the archive count rose monotonically from 10231 to 10346 over that stretch. The source database was fine. The check that read it had made a decision from the wrong evidence.</p>
+
+<h2 id="what-the-check-was-doing">What the check was doing</h2>
+
+<p>The pipeline keeps a SQLite database of agent sessions, and a freshness check reads the newest <code>ended_at</code> from it to decide whether the data is current. The check is meant to be a passive observer. Its rejection message says so directly: "read-only observer will not create or mutate SQLite sidecars". To keep that promise it opens the database with an <code>immutable=1</code> URI, so the read does not create a <code>-wal</code> or <code>-shm</code> file of its own.</p>
+
+<p>That choice has a cost the code accepts on purpose. An immutable read does not pick up frames that are still sitting in the write-ahead log, so when the WAL holds frames, the value it returns can be stale. The check therefore refused to read whenever a <code>-wal</code> file sat beside the database, and reported <code>DB_UNAVAILABLE</code> instead of a freshness verdict.</p>
+
+<p>The refusal was keyed to the file's existence. Any <code>-wal</code> file, of any size, meant "unavailable".</p>
+
+<h2 id="the-reproduction">The reproduction</h2>
+
+<p>On 2026-11-06 at 07:35 I reproduced the condition. Reading the database with the macOS system CLI, <code>/usr/bin/sqlite3</code>, and doing nothing but reading, left a 0-byte <code>-wal</code> file and a <code>-shm</code> file next to it. That is enough to trip a rule that only asks whether the file exists.</p>
+
+<p>I have not looked into why the CLI leaves those files behind after a read, and I am not going to explain SQLite internals I did not check. What I can say is narrower: on this machine, with this database, a read through that binary leaves an empty <code>-wal</code> file, and my check treated an empty file the same way it treated a log full of frames.</p>
+
+<p>This is not the first time a read of mine tripped this check. In <a href="https://hexisteme.github.io/notes/fromisoformat-fix-unmasked-a-rigged-stale-alarm.html">Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire</a>, a direct query I typed during an investigation, through Python's <code>sqlite3</code> with a <code>mode=ro</code> URI, left the same pair of sidecar files and produced the same <code>DB_UNAVAILABLE (active WAL present)</code>. That time I changed the caller: I deleted the files by hand and switched my direct queries to <code>immutable=1</code>. The rule stayed as it was. This time the trigger was a different client, the system CLI, and fixing my own habits again would only have covered the next client I happened to think of. So this time the rule changed.</p>
+
+<h2 id="what-i-could-not-pin-down">What I could not pin down</h2>
+
+<p>I do not know what opened the database on 2026-11-02. The reproduction shows one way an empty <code>-wal</code> file appears, not that a CLI read is what happened that morning. The record is also short on the recovery: after the weekly build at 09:30, the check was normal again from the next tick. I did not confirm what that build did to the sidecar files.</p>
+
+<h2 id="the-fix-size-not-existence">The fix: size, not existence</h2>
+
+<p>The new rule looks at how many bytes are in the <code>-wal</code> file. A 0-byte file means there are no frames to apply, so this check now lets an empty WAL through. Only a file larger than 0 bytes still blocks the read. This is the relevant part of <code>_read_ended_at</code> after the change:</p>
+
+<pre><code>        try:
+            wal_bytes = Path(str(path) + &quot;-wal&quot;).stat().st_size
+        except FileNotFoundError:
+            wal_bytes = 0
+        if wal_bytes &gt; 0:
+            return None, &quot;active WAL present; read-only observer will not create or mutate SQLite sidecars&quot;
+        uri = path.as_uri() + &quot;?mode=ro&amp;immutable=1&quot;</code></pre>
+
+<p>A missing file and an empty file now take the same path. A WAL that still holds frames keeps the old behaviour, because reading past it with <code>immutable=1</code> is exactly the case where the answer could be stale. I wanted to drop the false alarm without giving up the reason the alarm existed.</p>
+
+<h2 id="two-tests-one-for-each-side-of-the-line">Two tests, one for each side of the line</h2>
+
+<p>The first regression test builds a small database, puts an empty <code>-wal</code> and a zeroed <code>-shm</code> of 32768 bytes beside it, and expects a <code>FRESH</code> verdict. It also snapshots the directory before the call and asserts the snapshot is unchanged afterwards, so the observer still does not create or modify any files while it reads. I confirmed this test failed before the fix.</p>
+
+<pre><code>def test_zero_byte_wal_left_by_cli_read_is_readable(tmp_path):
+    home = _home(tmp_path)
+    db = _make_db(tmp_path / &quot;wal.db&quot;, [&quot;2026-10-08T12:00:00Z&quot;])
+    Path(str(db) + &quot;-wal&quot;).write_bytes(b&quot;&quot;)
+    Path(str(db) + &quot;-shm&quot;).write_bytes(b&quot;\0&quot; * 32768)
+    before = _tree_state(tmp_path)
+    assert _freshness(db, home)[&quot;status&quot;] == &quot;FRESH&quot;
+    assert _tree_state(tmp_path) == before</code></pre>
+
+<p>The second test pins the other side. A <code>-wal</code> file with some bytes in it must still produce <code>DB_UNAVAILABLE</code>, with the same reason text as before. Without it, a later change could relax the rule to "never block" and the first test would still pass.</p>
+
+<pre><code>def test_nonempty_wal_stays_unavailable(tmp_path):
+    home = _home(tmp_path)
+    db = _make_db(tmp_path / &quot;wal.db&quot;, [&quot;2026-10-08T12:00:00Z&quot;])
+    Path(str(db) + &quot;-wal&quot;).write_bytes(b&quot;frame&quot;)
+    report = _freshness(db, home)
+    assert report[&quot;status&quot;] == &quot;DB_UNAVAILABLE&quot;
+    assert &quot;active WAL present&quot; in report[&quot;reason&quot;]</code></pre>
+
+<p>The full suite passed with 147 tests, and the shared telemetry environment check passed. I also ran a CLI query against a copy of the production database and then ran the check against that copy. It produced no alert output.</p>
+
+<h2 id="the-next-weekly-report">The next weekly report</h2>
+
+<p>The weekly report generated after the fix shows the check reading the source normally. Its ingest health section reports source freshness as <code>FRESH</code>, with <code>source_data_age_seconds=1923.098247</code> and the newest <code>ended_at</code> at <code>2026-11-09T00:00:03.108000Z</code>. The latest ingest log line in the same report is <code>2026-11-09 09:00:34 rc=0 source_readable=4636 archive=10443 prev_archive=10428</code>, and the F3 line reads normal. That is a single report after the fix, so it tells me the fix did not break the normal path. It does not tell me the check has stopped producing false alarms in general.</p>
+
+<h2 id="what-is-still-open">What is still open</h2>
+
+<ul><li>I still do not know what opened the database on 2026-11-02. If it was something other than a CLI read, there may be another way to produce an empty <code>-wal</code> that I have not seen yet.</li><li>The alert writes a flag file. I deleted it by hand on 2026-11-06. Nothing clears that flag automatically when the condition goes away, so a false alarm stays raised until a person removes it. That path still does not exist.</li><li>The size test assumes that a <code>-wal</code> file with 0 bytes holds nothing an immutable read would miss. I relied on that, and on the reproduction on this machine. I did not check it against SQLite's documentation.</li><li>A non-empty WAL still blocks the read. If a writer leaves frames in the log for a long stretch, the check will report <code>DB_UNAVAILABLE</code> for that whole stretch, and the record does not show whether that happens in practice.</li></ul>
+
+<h2>FAQ</h2>
+<h3>Why did a read-only check report my SQLite database as unavailable?</h3>
+<p>The check opens the database with an immutable=1 URI so it never creates or changes sidecar files, and it refused to read whenever a -wal file existed, because an immutable read can return stale values when the WAL holds frames. A read with the macOS /usr/bin/sqlite3 CLI left a 0-byte -wal file, which was enough to trip the existence rule.</p>
+<h3>Does reading a database with the macOS sqlite3 CLI create files?</h3>
+<p>On my machine, with my WAL-mode database, a read through /usr/bin/sqlite3 left a 0-byte -wal file and a -shm file. I reproduced it on 2026-11-06 at 07:35. I did not look into why the CLI does this or check it against SQLite's documentation.</p>
+<h3>What changed in the check?</h3>
+<p>It now looks at the size of the -wal file instead of its existence. A missing or 0-byte file lets the immutable read go ahead; a file larger than 0 bytes still returns DB_UNAVAILABLE with the reason active WAL present, because frames in the WAL are the case where an immutable read could be stale.</p>
+<h3>How is the fix tested?</h3>
+<p>One regression test puts an empty -wal and a zeroed 32768-byte -shm beside a small database and expects FRESH with the directory unchanged; it failed before the fix. A second test writes bytes into the -wal and expects DB_UNAVAILABLE, so the rule cannot quietly relax to never blocking. The suite passed with 147 tests.</p>
+<h3>What is still unresolved?</h3>
+<p>I do not know what opened the database on 2026-11-02, so the CLI read is one confirmed way to produce the empty file, not a confirmed cause of that alarm. The alert's flag file has no automatic clearing path; I deleted it by hand on 2026-11-06.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./fromisoformat-fix-unmasked-a-rigged-stale-alarm.html">Fixing a Python fromisoformat Error Unmasked a Stale Alarm That Had to Fire</a></li>
+<li><a href="./verification-tools-dont-report-their-blind-spots.html">Your verification tool reports what it saw, never where it didn&#x27;t look</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=sqlite-cli-read-left-empty-wal-false-alarm">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
