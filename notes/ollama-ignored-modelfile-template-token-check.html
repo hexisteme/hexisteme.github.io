@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It. — hexisteme notes</title>
+<meta name="description" content="I removed a paragraph from an Ollama Modelfile TEMPLATE; a pre-registered prompt_tokens check showed 10/10 runs still carried it, so the run was voided.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/ollama-ignored-modelfile-template-token-check.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It.">
+<meta property="og:description" content="I removed a paragraph from an Ollama Modelfile TEMPLATE; a pre-registered prompt_tokens check showed 10/10 runs still carried it, so the run was voided.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/ollama-ignored-modelfile-template-token-check.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/ollama-ignored-modelfile-template-token-check.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-13">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It.">
+<meta name="twitter:description" content="I removed a paragraph from an Ollama Modelfile TEMPLATE; a pre-registered prompt_tokens check showed 10/10 runs still carried it, so the run was voided.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/ollama-ignored-modelfile-template-token-check.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It.", "datePublished": "2026-11-13", "dateModified": "2026-11-13", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "How a pre-registered prompt token check caught an Ollama Modelfile TEMPLATE change that never reached the prompt, and what the probe showed about changing reasoning effort from the request side.", "image": "https://hexisteme.github.io/notes/og/ollama-ignored-modelfile-template-token-check.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How did you know the Modelfile TEMPLATE change did not reach the prompt?", "acceptedAnswer": {"@type": "Answer", "text": "The pre-registration required usage.prompt_tokens minus body tokens to be about 14 on all 10 tasks (the baseline's 52 minus the 38-token paragraph). The run measured 52 on 10/10, so it was declared invalid and given no verdict."}}, {"@type": "Question", "name": "Was there other evidence besides the token count?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. With the same seed and decoding, outputs were byte-identical to the baseline on 10/10 tasks, including completion token counts of 7,965 and 859 on the two passing tasks. That is independent evidence the server received the same prompt as the baseline."}}, {"@type": "Question", "name": "Why didn't the script's template check catch it?", "acceptedAnswer": {"@type": "Answer", "text": "The script compared the registered template against the expected bytes, and the registered template was correct: its blob was 201 B against the baseline's 410 B. It did not check whether the server used that template to build the prompt."}}, {"@type": "Question", "name": "What is the cause?", "acceptedAnswer": {"@type": "Answer", "text": "The GGUF's embedded jinja chat template inserts the paragraph through reasoning_effort|default('xhigh'). Ollama 0.32.14 renders this model's /v1 requests through a path other than the Modelfile TEMPLATE, presumably the embedded jinja template; which component does the rendering was not confirmed."}}, {"@type": "Question", "name": "How can reasoning effort be changed instead?", "acceptedAnswer": {"@type": "Answer", "text": "A probe with a short message measured prompt_tokens 61 at baseline, 23 with top-level /v1 reasoning_effort medium, 49 with low, and 61 with chat_template_kwargs, which was ignored. The retry uses top-level reasoning_effort medium and had not run as of November 12."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-13</p>
+<div class="note">I removed a reasoning-effort paragraph from an Ollama Modelfile TEMPLATE for a local Qwen3.8 27B GGUF, but a pre-registered prompt_tokens check showed the overhead still at 52 on 10/10 tasks instead of about 14, and outputs were byte-identical to the baseline, so the run was voided. A daytime probe showed the top-level /v1 reasoning_effort field does change the prompt; the retry has not run yet.</div>
+
+<p>On November 8 an overnight run on my local Qwen3.8 27B GGUF finished, and before looking at the score I checked one number per task: how many prompt tokens the server reported beyond the tokens of the message body. The pre-registration said that number should be about 14 on all 10 tasks. It was 52 on all 10. By the rule I had written two days earlier, the run was invalid and got no verdict.</p>
+
+<p>The variable I was testing was a prompt change made through the Modelfile <code>TEMPLATE</code>. The template change was real: the new model had a different template blob. The prompt the server built did not change. This note is about how that was caught, what the cause appears to be, and what I am doing differently for the retry, which has not run yet.</p>
+
+<h2 id="the-setup">The setup</h2>
+
+<p>The experiment sits inside a small benchmark I run on this Mac with Ollama: the same 10 build-fix tasks, the same decoding (temperature 0.6, top_p 0.95, max_tokens 12,288, fixed seed), and a pass threshold fixed in advance. Applicable patches at 5/10 or more support the hypothesis, under 5/10 rejects it, and no adjustment after the fact.</p>
+
+<p>In the baseline run, 8/10 tasks ended with <code>finish_length</code>: the model ran out of budget before producing an edit. The next step, pre-registered on November 6, had two parts. First, save the raw reasoning text for the two shortest failing tasks and classify it. Second, pick exactly one variable from that classification and rerun the same 10 tasks overnight.</p>
+
+<p>The classifier is a function called <code>classify_reasoning</code> with fixed thresholds. In the last 25% of the reasoning (minimum 2,000 characters), if any line of 40+ characters repeats 5 or more times, or the zlib compression ratio is under 0.15, it is <code>loop</code>. Otherwise, if the reasoning contains a <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; SEARCH</code> marker, it is <code>drafting</code>. Otherwise <code>progress</code>. The rule for the variable: any <code>loop</code> means try a presence penalty of 1.5; anything else means try <code>no_xhigh</code>.</p>
+
+<h2 id="what-no_xhigh-meant">What <code>no_xhigh</code> meant</h2>
+
+<p>The GGUF ships a chat template that inserts an extra paragraph into the system prompt about reasoning effort, at the <code>xhigh</code> level. Before the run I confirmed that this paragraph really was in the baseline prompts. On all 10 baseline tasks, <code>usage.prompt_tokens</code> minus the message body tokens came out to 52. Tokenizing the first task with candidate renderings and comparing: renderings that included the xhigh paragraph were off by −1 to +3, renderings without it by −35 to −39. The paragraph is 38 tokens. Whether it made the model think longer, I did not know.</p>
+
+<p><code>no_xhigh</code> was the plan to remove exactly that paragraph and nothing else. I built it as a second Ollama model: same weights blob, same stop tokens, same context size, and a Modelfile <code>TEMPLATE</code> equal to the baseline template minus the paragraph. The run script checked that the new template was byte-identical to "baseline template minus paragraph" before starting.</p>
+
+<h2 id="the-validity-condition-written-before-the-run">The validity condition, written before the run</h2>
+
+<p>On the same day I ran a control on a different model family, qwen3:4b. Applying the same template there, the prompt token count stayed the same as the original model's. My note at the time was that Ollama seems to treat templates differently per model family, so the <code>no_xhigh</code> run needed its own check that the paragraph was really gone.</p>
+
+<p>That check went into the pre-registration as a validity condition:</p>
+
+<ul><li>All 10 tasks should show <code>usage.prompt_tokens</code> minus body tokens ≈ 14 (the baseline's 52 minus 38).</li><li>If it is near 52, the paragraph did not come out. The run is void, no verdict, and the cause is recorded.</li></ul>
+
+<p>It is a cheap check. The server already returns <code>prompt_tokens</code>, and the body token count comes from the same tokenizer. It also checks the thing the experiment is about, the prompt the model actually saw, and not the configuration I believed I had sent.</p>
+
+<h2 id="the-run">The run</h2>
+
+<p>The first attempt started at 00:49:02 on November 7 and stopped itself at 00:51. The start guard passed with 22GB free on the internal disk, but loading the 27B model pushed swap from 8 to 13.4GB and free space fell to 16GB, below the 20 GB safety line, so the script aborted. Zero generations were written. I added disk re-measurement after model load and before phase two, and kept the configuration, tasks and thresholds unchanged.</p>
+
+<p>The second attempt ran from 01:42:16 to 10:14:42 on November 8. The diagnosis part was valid:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: The run" tabindex="0">
+<table>
+<thead><tr><th>task</th><th>class</th><th>reasoning chars</th><th>tail chars</th><th>max same-line repeats</th><th>tail zlib ratio</th><th>finish</th><th>completion tokens</th><th>wall s</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>progress</td><td>46,417</td><td>11,604</td><td>3</td><td>0.347</td><td>length</td><td>12,288</td><td>2,270</td></tr>
+<tr><td>B</td><td>progress</td><td>45,405</td><td>11,351</td><td>3</td><td>0.302</td><td>length</td><td>12,288</td><td>2,305</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Both were far from the loop thresholds and had no SEARCH markers. The reasoning was not repeating; it kept going and was cut off at the 12,288 budget. So the rule picked <code>no_xhigh</code>.</p>
+
+<p>The experiment part failed validity. Prompt overhead was 52 on 10/10 tasks, the same as the baseline.</p>
+
+<h2 id="a-second-independent-signal">A second, independent signal</h2>
+
+<p>Same seed, same decoding, and the outputs were byte-identical to the baseline on 10/10 tasks. The two tasks that passed even had the same completion token counts, 7,965 and 859. That is independent evidence that the server received the same prompt as in the baseline. It also means the numbers the run produced (applicable 2/10, pass@1 2/10, <code>finish_length:edit_no_blocks</code> 8/10) are a replay of the baseline and say nothing about <code>no_xhigh</code>.</p>
+
+<p>If I had looked only at the score, I would have seen "no change from removing the paragraph" and could easily have written that the effort paragraph does not matter. The token check said the variable was never applied.</p>
+
+<h2 id="what-the-registration-check-missed">What the registration check missed</h2>
+
+<p>The model registration was different. The new model used the same weights blob as the baseline, but its template blob was 201 B against the baseline's 410 B. My script compared that registered template against the expected bytes, and it passed, because the registered template was correct. What it did not check was whether the server used that template to build the prompt. The token count on the actual requests is what caught it.</p>
+
+<p>The qwen3:4b control two days earlier, where changing the template left the prompt tokens unchanged, was an early sign of the same thing. I recorded it and used it to justify the validity check, but I did not follow it further at the time.</p>
+
+<h2 id="the-cause-as-far-as-i-confirmed-it">The cause, as far as I confirmed it</h2>
+
+<p>From reading the static files: the jinja <code>tokenizer.chat_template</code> embedded in the GGUF inserts the paragraph into the system message through <code>reasoning_effort|default('xhigh')</code>. With <code>medium</code> there is no paragraph; with <code>low</code> there is a shorter one.</p>
+
+<p>Removing the paragraph from the Modelfile <code>TEMPLATE</code> did not change the server's prompt. So Ollama 0.32.14 renders this model's /v1 requests (its <code>model_family</code> is <code>qwen35</code>) through some path other than the Modelfile <code>TEMPLATE</code>. My guess is that it uses the embedded jinja template. I did not confirm which component does the rendering.</p>
+
+<p>If that is right, editing the template is the wrong lever. The effort level has to change on the request side: either <code>chat_template_kwargs: {"reasoning_effort": "medium"}</code> or the OpenAI-compatible <code>reasoning_effort</code> field. Whether Ollama 0.32 forwarded either one to the template was also unknown, so the next step was a probe and not another overnight run.</p>
+
+<h2 id="the-daytime-probe">The daytime probe</h2>
+
+<p>At 10:41 on November 8 I sent the same short message several ways and read the server's <code>prompt_tokens</code> each time:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 2: The daytime probe" tabindex="0">
+<table>
+<thead><tr><th>request</th><th>prompt_tokens</th></tr></thead>
+<tbody>
+<tr><td>baseline, no effort field</td><td>61</td></tr>
+<tr><td><code>/v1</code>, top-level <code>reasoning_effort: medium</code></td><td>23</td></tr>
+<tr><td><code>/v1</code>, top-level <code>reasoning_effort: low</code></td><td>49</td></tr>
+<tr><td><code>chat_template_kwargs</code> with <code>reasoning_effort</code></td><td>61</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Medium dropped 38 tokens: the 37-token paragraph plus 1 separator. Low dropped 12, recorded as 37 minus 25, which fits the shorter paragraph that <code>low</code> inserts. <code>chat_template_kwargs</code> changed nothing, so on this setup it is ignored. The native <code>/api/chat</code> with <code>think</code> behaved the same as the top-level field.</p>
+
+<p>So the working lever is the top-level <code>reasoning_effort</code> on the <code>/v1</code> request. Adding <code>reasoning_effort: medium</code> there is a valid implementation of <code>no_xhigh</code>, the same variable the rule picked, not a new one.</p>
+
+<h2 id="the-retry-pre-registered-the-same-day">The retry, pre-registered the same day</h2>
+
+<p>The retry runs the same 10 tasks with the same model, blob, template and parameters as the baseline. The only difference is <code>RunConfig.reasoning_effort = "medium"</code>, which enters the config hash and the request only when set, so the baseline's hash does not move. Because invalid runs stay in the generation cache and a rerun with the same config hash would read only the cache, the retry had to be a new configuration anyway.</p>
+
+<p>Two checks are built in this time:</p>
+
+<ul><li>After loading the model, the script reruns the same probe and refuses to start unless the top-level medium request is effective.</li><li>Validity is the same token condition, tightened: all 10 tasks at ≈ 14 ±3. If any one task is near 52, the run is void. The count of outputs byte-identical to the baseline is reported as a second signal.</li></ul>
+
+<p>The thresholds stay where they were: 5/10 applicable patches to support, under 5/10 to reject. If it is rejected and <code>finish_length</code> is still the majority, the write-up stops at "removing the effort paragraph did not get the reasoning inside the budget", and the next candidates (<code>think: false</code>, <code>low</code>) get their own pre-registration.</p>
+
+<h2 id="what-i-take-from-it">What I take from it</h2>
+
+<p>For any experiment that changes the prompt, I now confirm the change with the server's <code>prompt_tokens</code> on the real requests. A check on the configuration I registered can pass while the prompt the model sees stays exactly the same, and that is what happened here.</p>
+
+<p>What is still open: as of November 12 the retry has not run, so I have no result on whether removing the paragraph changes anything. I have not confirmed which component inside Ollama renders this model's prompt, only that the Modelfile <code>TEMPLATE</code> was not used on this path. And the qwen3:4b control suggests this is not limited to one model, but I have checked it on only those two.</p>
+
+<h2>FAQ</h2>
+<h3>How did you know the Modelfile TEMPLATE change did not reach the prompt?</h3>
+<p>The pre-registration required usage.prompt_tokens minus body tokens to be about 14 on all 10 tasks (the baseline's 52 minus the 38-token paragraph). The run measured 52 on 10/10, so it was declared invalid and given no verdict.</p>
+<h3>Was there other evidence besides the token count?</h3>
+<p>Yes. With the same seed and decoding, outputs were byte-identical to the baseline on 10/10 tasks, including completion token counts of 7,965 and 859 on the two passing tasks. That is independent evidence the server received the same prompt as the baseline.</p>
+<h3>Why didn&#x27;t the script&#x27;s template check catch it?</h3>
+<p>The script compared the registered template against the expected bytes, and the registered template was correct: its blob was 201 B against the baseline's 410 B. It did not check whether the server used that template to build the prompt.</p>
+<h3>What is the cause?</h3>
+<p>The GGUF's embedded jinja chat template inserts the paragraph through reasoning_effort|default('xhigh'). Ollama 0.32.14 renders this model's /v1 requests through a path other than the Modelfile TEMPLATE, presumably the embedded jinja template; which component does the rendering was not confirmed.</p>
+<h3>How can reasoning effort be changed instead?</h3>
+<p>A probe with a short message measured prompt_tokens 61 at baseline, 23 with top-level /v1 reasoning_effort medium, 49 with low, and 61 with chat_template_kwargs, which was ignored. The retry uses top-level reasoning_effort medium and had not run as of November 12.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./same-bytes-20-percent-fewer-tokens.html">Same Bytes, 20% Fewer Tokens: Token Counts Are Model-Scoped</a></li>
+<li><a href="./a-measurement-that-never-ran-became-a-verdict.html">A Measurement That Never Ran Became a Verdict: A Second Automated Chrome Answered for the First</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=ollama-ignored-modelfile-template-token-check">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
