@@ -24,7 +24,7 @@
 <body>
 <p class="back"><a href="../">← 오늘의 피냐루</a></p>
 <h1>개인정보처리방침</h1>
-<p class="meta">최종 수정일: 2026-11-07 · Effective: 2026-11-07</p>
+<p class="meta">최종 수정일: 2026-11-16 · Effective: 2026-11-16</p>
 
 
 <p>
@@ -72,8 +72,13 @@
       <td>기기에 저장 · 서버 전송 없음</td>
     </tr>
     <tr>
+      <td>먼저 건네기 기록(그날 건넨 말의 종류와 시각, 날씨 맞춤이면 그날 날씨 종류, 고를 때 본 상황 — 평일·주말, 시간대, 이번 주 표정 도장 중 웃는 도장의 대략 구간, 이어 쓴 날 수 —, 말 종류마다 그 뒤 일기를 쓴 횟수와 안 쓴 횟수, [이런 말은 그만 볼래요]를 누른 말 종류, 이번 주 주간 화면을 연 날)</td>
+      <td>일기 홈에서 피냐루가 먼저 건넬 말 고르기</td>
+      <td>기기 설정에 저장 · 서버 전송 없음 · 앱 설정에서 끌 수 있음 · 모든 로컬 데이터를 지우면 함께 지움</td>
+    </tr>
+    <tr>
       <td>날씨 지역(사용자가 고른 도시)</td>
-      <td>오늘 날씨로 장면·카드 고르기, 일기 날씨 도장</td>
+      <td>오늘 날씨로 장면·카드 고르기, 일기 날씨 도장, 먼저 건네기 날씨 맞춤</td>
       <td>기기에 저장 · 날씨를 물을 때만 3.2항대로 Apple에 대략 좌표 전송</td>
     </tr>
     <tr>
@@ -141,7 +146,7 @@
 <h2>4. 데이터 보관 및 삭제</h2>
 <p>
   본 앱이 저장하는 데이터는 사용자의 기기에만 있습니다(기기 백업에 들어가는 일기장은 2-2항). 일기는 「…」 메뉴의 [이 일기 지우기]로 하나씩 지울 수 있고,
-  앱 설정 → 데이터에서 프로필 또는 모든 로컬 데이터(일기·사진·열지 못해 옮겨 둔 일기장·오늘 안내 기록·날씨 지역 포함)를 지울 수 있습니다.
+  앱 설정 → 데이터에서 프로필 또는 모든 로컬 데이터(일기·사진·열지 못해 옮겨 둔 일기장·오늘 안내 기록·먼저 건네기 기록·날씨 지역 포함)를 지울 수 있습니다.
   앱을 삭제하면 기기에 저장된 데이터도 함께 삭제됩니다. 이전 버전(피냐루 디카)의 테스트 빌드에서 찍은 사진이 기기에 남아 있으면 [모든 로컬 데이터 지우기] 때 함께 지웁니다.
 </p>
 
@@ -179,6 +184,12 @@
   Pages stay until you delete them (… menu → "Delete This Page"), use "Delete all local data" in Settings, or delete the app. Retaking a photo deletes the earlier photo and its expression record.
 </p>
 <p>
+  <strong>Finyaru's suggestions.</strong> To pick the one-line suggestion on the diary home, the app keeps only on your device: the kind of suggestion shown each day and when (with the weather type for weather suggestions),
+  the situation it was picked for (weekday or weekend, time of day, a rough band of how many of this week's expression stamps were smiles, and how many days in a row you wrote),
+  how often each kind was followed by a page or not, the kinds you turned off with "No more like this", and the day you opened Week in Review this week.
+  It is never sent anywhere. You can turn suggestions off in Settings, and "Delete all local data" removes this record.
+</p>
+<p>
   <strong>Face reading.</strong> Face reading measures the positions and proportions of the eyes, brows, nose, mouth and jawline of one face you choose
   (face geometry, Apple Vision), only after you tap "Agree and analyze" or "Agree and turn on camera". Each consent covers that one reading; the app asks again next time,
   including for diary photos. Those measurements and readings are kept only in app memory while the reading is on screen and are discarded when you close it,
@@ -194,7 +205,7 @@
 </p>
 <p>
   <strong>Today screen.</strong> Your birth data, the cards shown in the last 7 days, and the days you tapped "I tried it" and on which suggestion are stored only on your device.
-  If you pick a weather city, only that city's coordinates rounded to one decimal place are sent to Apple WeatherKit when the app asks for the weather (for the Today scene and the diary weather stamp), and Apple's weather attribution (logo and link) is downloaded from Apple; no diary, face or birth data goes with these requests;
+  If you pick a weather city, only that city's coordinates rounded to one decimal place are sent to Apple WeatherKit when the app asks for the weather (for the Today scene, the diary weather stamp and weather suggestions), and Apple's weather attribution (logo and link) is downloaded from Apple; no diary, face or birth data goes with these requests;
   your device location is never used.
   Operator: hexisteme (independent developer). Contact: hexisteme@gmail.com
 </p>
@@ -215,6 +226,10 @@
   ページは、ご自身で消す(「…」メニュー →「このページを削除」)、設定の「ローカルデータをすべて削除」を押す、アプリを削除するまで保存します。撮り直すと前の写真と表情の記録を消します。
 </p>
 <p>
+  <strong>フィニャルからのひとこと。</strong>日記ホームでフィニャルから話しかける一言を選ぶために、端末の中だけに次を保存します: その日にかけた言葉の種類と時刻(天気に合わせた言葉ならその日の天気の種類)、選んだときの状況(平日・週末、時間帯、今週の表情スタンプのうち笑顔のスタンプのおおよその区分、続けて書いた日数)、言葉の種類ごとにそのあと日記を書いた回数と書かなかった回数、「この言葉はもう表示しない」を押した種類、今週「今週のふりかえり」を開いた日。
+  どこにも送りません。設定でオフにでき、「ローカルデータをすべて削除」でこの記録も消えます。
+</p>
+<p>
   <strong>人相。</strong>人相を見るときは、選んだ顔ひとつの目・眉・鼻・口・輪郭の位置と比率を測ります(Apple Vision)。測るのは同意画面で「同意して分析する」または「同意してカメラをオン」を押したあとだけで、同意はその1回にだけ使い、日記の写真で見るときも毎回確認します。測った値と読みは表示中のアプリのメモリにだけ置き、画面を閉じる、別の写真を選ぶ、アプリが終了すると破棄します。共有・保存するカードには読みの文章だけが入ります。
 </p>
 <p>
@@ -224,7 +239,7 @@
 </p>
 <p>
   <strong>「今日」の画面。</strong>生年月日、直近7日に表示したカード、「やってみました」を押した日とその提案は端末の中だけに保存します。
-  天気の地域を選んだ場合だけ、その都市の座標を小数第1位までに丸めて、天気を問い合わせるとき(「今日」の場面と日記の天気スタンプ)に Apple WeatherKit に送り、Apple の天気の出典表示(ロゴとリンク)も Apple から取得します。これらの通信に日記・顔・誕生日の情報は含まれません。端末の現在地は使いません。
+  天気の地域を選んだ場合だけ、その都市の座標を小数第1位までに丸めて、天気を問い合わせるとき(「今日」の場面、日記の天気スタンプ、天気に合わせたひとこと)に Apple WeatherKit に送り、Apple の天気の出典表示(ロゴとリンク)も Apple から取得します。これらの通信に日記・顔・誕生日の情報は含まれません。端末の現在地は使いません。
   運営者: hexisteme(個人開発者) お問い合わせ: hexisteme@gmail.com
 </p>
 
