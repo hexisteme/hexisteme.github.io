@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>A Local MoE Model on an 8 GB GPU Researched for an Hour and Never Wrote the Report — hexisteme notes</title>
+<meta name="description" content="&quot;A pre-registered retest: a local MoE model on an 8 GB RTX 2070 Super made 64 tool calls, hit its 60-minute limit and never wrote the report.&quot;">
+<link rel="canonical" href="https://hexisteme.github.io/notes/local-moe-on-8gb-gpu-never-wrote-the-report.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A Local MoE Model on an 8 GB GPU Researched for an Hour and Never Wrote the Report">
+<meta property="og:description" content="&quot;A pre-registered retest: a local MoE model on an 8 GB RTX 2070 Super made 64 tool calls, hit its 60-minute limit and never wrote the report.&quot;">
+<meta property="og:url" content="https://hexisteme.github.io/notes/local-moe-on-8gb-gpu-never-wrote-the-report.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/local-moe-on-8gb-gpu-never-wrote-the-report.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-23">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A Local MoE Model on an 8 GB GPU Researched for an Hour and Never Wrote the Report">
+<meta name="twitter:description" content="&quot;A pre-registered retest: a local MoE model on an 8 GB RTX 2070 Super made 64 tool calls, hit its 60-minute limit and never wrote the report.&quot;">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/local-moe-on-8gb-gpu-never-wrote-the-report.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A Local MoE Model on an 8 GB GPU Researched for an Hour and Never Wrote the Report", "datePublished": "2026-11-23", "dateModified": "2026-11-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A pre-registered retest of a local MoE model as an unattended research-and-report agent on an 8 GB GPU, and how its failure differed from an earlier gpt-oss:20b attempt.", "image": "https://hexisteme.github.io/notes/og/local-moe-on-8gb-gpu-never-wrote-the-report.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Did the local MoE model fabricate anything?", "acceptedAnswer": {"@type": "Answer", "text": "Not measurable. The fabrication metric samples five claims from the report and checks each against its original, but no report file was written and the loop ended the run on its deadline check with an empty final field, so there was no final answer either. I recorded the sample as 0/0 and did not count it as 0 fabrications. The run also contained no false success sentence."}}, {"@type": "Question", "name": "Why did it run out of time?", "acceptedAnswer": {"@type": "Answer", "text": "Prefill took 2,721 of 3,769 seconds, 72% of the run. Each step reprocessed 40K to 53K tokens of context almost from scratch, reusing only 4,824 tokens, and the engine log showed the conversation cache was skipped with 226 MiB of RAM available. Context trimming also made it re-read the same files, the ledger 4 times."}}, {"@type": "Question", "name": "How was this different from the gpt-oss:20b failure?", "acceptedAnswer": {"@type": "Answer", "text": "gpt-oss:20b stopped after 3 minutes 3 seconds in the same loop and answered that it had saved the report without calling write_report. The Strata model made 64 tool calls until the loop's deadline check ended the run at 3,768.7 seconds, wrote no report and wrote no false success sentence. Both failed the same reopen condition."}}, {"@type": "Question", "name": "Why did Strata pick a model that did not fit in RAM?", "acceptedAnswer": {"@type": "Answer", "text": "strata launch --plan counted 48 GB of RAM plus 8 GB of VRAM as 56 GB and recommended IQ3_XXS, while Strata's docs say that with 48 GB only Q2_0 and IQ2_XS may fit. The spec said to use the plan's recommendation, so it ran in low-memory mode, reading experts from SSD."}}, {"@type": "Question", "name": "What would reopen the question?", "acceptedAnswer": {"@type": "Answer", "text": "A machine with 64 GB+ of RAM, or a plan that does not use low-memory mode, such as IQ2_XS or Q2_0 fitting in RAM, passing on the same prompt and loop with completion, at least 2 candidates and 0/5 fabrications. An IQ2_XS run would go in an auxiliary column only."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>A Local MoE Model on an 8 GB GPU Researched for an Hour and Never Wrote the Report</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-23</p>
+<div class="note">I reran a pre-registered test of whether a local MoE model (Qwen3.8-Flash-Next IQ3_XXS via Strata, RTX 2070 Super 8 GB, 48 GB RAM) could replace a cloud model for an unattended biweekly scan. It made 64 tool calls, passed its 60-minute deadline (the loop checks it before each model step, so the run ended at 3,768.7 seconds) and never wrote the report, because low memory forced it to reprocess 40K to 53K tokens of context at every step.</div>
+
+<p>On November 14 I gave a local model 60 minutes to do a job that a cloud model had finished in 5 minutes 21 seconds. It used the whole hour. It made 64 tool calls, read pages about Claude Code releases, the MCP registry, plugin marketplaces and Agent SDK billing, and never called the one tool that saves the report. The loop checks its deadline only when it is about to ask the model for the next step, so the step already in progress when 60 minutes passed still ran its last two tool calls, and the run ended at 3,768.7 seconds. The loop then recorded <code>stopped: deadline</code> with an empty <code>final</code> field. There was no final answer from the model at all.</p>
+
+<p>The model was Qwen3.8-Flash-Next in IQ3_XXS quantization, served by Strata on my Windows GPU PC: an RTX 2070 Super with 8 GB of VRAM and 48 GB of RAM. This was a pre-registered retest, and the result did not reopen the question. What I want on record is how the failure differed from the previous local attempt, why it ran out of time, and how I scored a fabrication metric for a report that does not exist.</p>
+
+<h2 id="the-job-and-the-october-30-baseline">The job and the October 30 baseline</h2>
+
+<p>Every two weeks an unattended scan runs: the agent does web research and writes a report with required sections and a list of candidates. agy (Gemini) runs it today. The question is whether a local model on hardware I already own could take it over.</p>
+
+<p>On October 30 I ran the first comparison with the same prompt. agy (gemini-3.8-flash-high) passed in 5 minutes 21 seconds: 8,851 bytes, every required section, 5 of 6 URLs valid (0.83), 4 candidates, and 0/5 fabrications in a five-claim sample checked against originals (4 confirmed, 1 that could not be confirmed). One of its URLs returned 404, so agy needs source checks too.</p>
+
+<p>gpt-oss:20b on the same GPU failed every configuration:</p>
+
+<ul><li>Through the Codex harness it stopped after 4 minutes 3 seconds with no report file and 0 tool calls. Its answer described the ledger as "0/0/0" when the ledger held 67 entries (25 adopted, 19 undecided, 18 rejected, 5 n/a).</li><li>Through a thin tool loop I wrote for a fairer test (web_search, fetch_url, read_file, list_dir, write_report) it failed in 3 minutes 3 seconds. It answered that it had saved the report without ever calling <code>write_report</code>. It made 9 tool calls, 3 of them errors.</li><li>A post-hoc variant that pushed it back up to 2 times when it finished without a report produced a 517-byte file. It stated the ledger as 31 adopted, 12 rejected, 0 undecided. The ledger was larger than the loop's 15,000-character tool-result limit, so the model received truncated content, ignored the truncation marker, and wrote the numbers as fact.</li></ul>
+
+<p>My verdict then was that the common failure was cutting the research short and stating work that was not done and numbers that were not seen. I judged that kind of quiet false success the most dangerous outcome for an unattended job, and not something a guard could patch. I also wrote a reopen condition: a bigger model, or a new-generation 20B to 30B model, passing on the same prompt and the same loop with completion, at least 2 candidates and 0/5 fabrications.</p>
+
+<h2 id="setting-up-the-retest">Setting up the retest</h2>
+
+<p>Strata serves a new-generation MoE model, so I opened the question again under a locked spec. The spec fixed the metrics and the reopen condition from October 30, and it forbade a few things in advance: rerunning with a changed prompt, nudge count or step limit and calling that the verdict (changes go in a separate auxiliary column), replacing the fabrication check with a declared sample, and writing a download failure or a memory shortage as "underperformed". If the model could not run, the result would say it could not run.</p>
+
+<p>Before installing, I checked the install script's SHA256 against the release's SHA256SUMS.txt on both machines and read the whole script (12,124 bytes). It downloads a control package and checks it against a SHA256 value, unpacks it, uses the unpacked terminal to verify a signed update feed, and adds a PATH entry. I skipped the PATH change with <code>STRATA_NO_PATH=1</code>. It writes no services, scheduled tasks or startup entries, and the install took 19 seconds.</p>
+
+<p><code>strata launch --plan</code> then recommended a model. It picked Qwen3.8-Flash-Next IQ3_XXS with 128K context, about 77.9 GB to download, and explained the choice as 48 GB of RAM plus 8 GB of VRAM = 56 GB, with 5 GB kept for Windows and the system. Strata's own docs disagree with that pick: they say that with 48 GB only Q2_0 and IQ2_XS may fit, and the IQ3_XXS experts need 43 GB plus 10 GB. The plan added the VRAM to reach its tier. My spec said "use the plan's recommendation", so I downloaded IQ3_XXS and kept the rule that a memory failure would be recorded as unable to run.</p>
+
+<p>It did start. The engine log said "low-memory mode": the experts did not fit in 48 GB of RAM, so Strata read them from SSD. The docs describe that configuration as much slower. The model download took about 1 hour 10 minutes, and 2 hours 14 minutes including preparation. A smoke test with one tool in an OpenAI-compatible <code>/v1/chat/completions</code> request returned a valid tool call.</p>
+
+<p>The pre-registered run used the loop script unchanged, with only <code>--base-url</code> and <code>--model</code> set, 80 steps maximum, a 60-minute deadline and 0 report nudges, the same defaults as the October 30 loop. The prompt was a copy of the October 30 prompt with two lines changed, both of them the report's save path.</p>
+
+<h2 id="what-the-hour-produced">What the hour produced</h2>
+
+<div class="table-scroll" role="region" aria-label="Table 1: What the hour produced" tabindex="0">
+<table>
+<thead><tr><th>Metric</th><th>agy, October 30</th><th>gpt-oss:20b loop, October 30</th><th>Strata IQ3_XXS, November 14</th></tr></thead>
+<tbody>
+<tr><td>Completion</td><td>Pass, 5 min 21 s, 8,851 B</td><td>Fail, 3 min 3 s, "saved" without <code>write_report</code></td><td>Fail, 60-minute limit (3,768.7 s), <code>write_report</code> 0, no report</td></tr>
+<tr><td>URLs valid</td><td>5/6 (0.83)</td><td>n/a</td><td>n/a (no report)</td></tr>
+<tr><td>Fabrication (5-claim sample)</td><td>0/5</td><td>false save report</td><td>not measurable, no claims to sample</td></tr>
+<tr><td>Candidates</td><td>4</td><td>0</td><td>0</td></tr>
+<tr><td>Tool calls</td><td>normal</td><td>9 (3 errors)</td><td>64 (2 errors)</td></tr>
+<tr><td>Model responses</td><td>—</td><td>10</td><td>36</td></tr>
+<tr><td>Time per step</td><td>—</td><td>about 20–35 s</td><td>average 105 s</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The 64 tool calls broke down as fetch_url 30, read_file 15, list_dir 10 and web_search 9, and the model used parallel calls. The 2 errors were a directory listing outside the allowed scope and a listing of the output folder before it existed. This was real research over a full hour. It did not stop early and it did not claim a report it had not written.</p>
+
+<h2 id="why-it-ran-out-of-time">Why it ran out of time</h2>
+
+<p>Most of the hour went into reading the same context again. Over the run, prefill took 2,721 of 3,769 seconds, 72% of the total. At every step the context was 40K to 53K tokens, and almost all of it was processed from the start: only 4,824 tokens were reused. The engine log explains the missing reuse with a line saying <code>conversation cache: skip parking (physical RAM admission … 226 MiB available)</code>. With about 0.2 GB of RAM free, the engine could not hold the conversation cache.</p>
+
+<p>Measured throughput was decode 25.3 tok/s (26,579 tokens in 1,049 s) and prefill 320 tok/s (871,455 tokens in 2,721 s). The single-shot smoke test had been slower still, at decode 15.3 and prefill 10.6.</p>
+
+<p>The second cost was repetition. When the context hit its limit, the loop's trimming step (<code>_trim_context</code>) dropped earlier tool results, and the model went back and read the same files again: the adoption ledger 4 times plus its backup 2 times, the list of earlier scan reports 4 times, one earlier report 4 times, and one skill file 3 times. Each re-read added more context to reprocess at the same slow prefill rate.</p>
+
+<p>I did not test whether the model would have written a good report with more time. The run was pre-registered at 60 minutes, and no variant run happened: the whole session had a 4-hour limit, starting at 09:36, and the loop ended at 13:00.</p>
+
+<h2 id="scoring-a-report-that-does-not-exist">Scoring a report that does not exist</h2>
+
+<p>The fabrication metric is a five-claim sample from the report, each claim checked against its original location. This run produced no report file, and the loop ended the run on its deadline check with an empty <code>final</code> field, so there was no final answer either. There was nothing to sample.</p>
+
+<p>I recorded the sample as 0/0 and the metric as not measurable. I did not count it as 0 fabrications. The reopen condition requires 0/5, and a 0 in that column would read like a pass on the one metric gpt-oss had failed worst. Separately, I recorded that the run contained no false success sentence. That is an observation about the output this run did produce, not a fabrication score, and it does not tell me whether anything else the model read or said was accurate.</p>
+
+<p>The spec rule about memory mattered here too. The model did run, so the verdict is "underperformed, it ran" and not "unable to run". The stated cause is speed that comes from memory pressure more than anything about the model's honesty.</p>
+
+<h2 id="same-verdict-different-failure">Same verdict, different failure</h2>
+
+<p>The reopen condition (completion, at least 2 candidates, 0/5 fabrications) is not met: completion failed and there were 0 candidates. On this PC, with 8 GB of VRAM and 48 GB of RAM, Strata's IQ3_XXS cannot replace the 60-minute unattended scan.</p>
+
+<p>The failure is a different kind from October 30. gpt-oss:20b cut the research short and wrote success it had not achieved. The Strata model did the research at length, wrote no report, and wrote no false success sentence. Both fail the same pre-registered bar, so the verdict does not change. What changes is what would have to improve: for gpt-oss the problem I recorded was false success, and for this model the problem I recorded was speed.</p>
+
+<h2 id="reopen-condition-and-cleanup">Reopen condition and cleanup</h2>
+
+<p>The new reopen condition: a machine with 64 GB+ of RAM, or a plan that does not use low-memory mode (a size such as IQ2_XS or Q2_0 that fits in RAM so the conversation cache holds), passing on the same prompt and the same loop with completion, at least 2 candidates and 0/5 fabrications. One auxiliary run is a candidate: the same loop with only <code>--model</code> changed to IQ2_XS. If I run it, it goes in an auxiliary column and does not replace the pre-registered verdict.</p>
+
+<p>Restoring the PC was part of the spec. I stopped the Strata server; VRAM read 400 MiB against 372 MiB before the test. I closed the temporary tunnel, restarted the scheduled jobs I had stopped (Ollama, ComfyUI and a job worker), confirmed the existing tunnels answered, and the PC's test suite passed 63 tests. No Strata scheduled task, startup entry or PATH change remained.</p>
+
+<p>What remained was disk. Strata's data folder held 113.7 GB, including the 76.7 GB model and the packed expert files for low-memory mode, and the system drive's free space had gone from 145.1 GB to 45.2 GB. Deleting it was my decision, and I deleted all of it. Free space afterward was 160.2 GB.</p>
+
+<h2 id="what-is-still-open">What is still open</h2>
+
+<p>This is one run of one quantization on one machine. The model never reached the writing step, so the run says nothing about the quality of the report it would have written. The IQ2_XS run that would separate "this model is slow here" from "this model fits here and is still too slow" was not done. The next thing to check is that auxiliary run, or the same pre-registered run on a machine with enough RAM to keep the conversation cache.</p>
+
+<h2>FAQ</h2>
+<h3>Did the local MoE model fabricate anything?</h3>
+<p>Not measurable. The fabrication metric samples five claims from the report and checks each against its original, but no report file was written and the loop ended the run on its deadline check with an empty final field, so there was no final answer either. I recorded the sample as 0/0 and did not count it as 0 fabrications. The run also contained no false success sentence.</p>
+<h3>Why did it run out of time?</h3>
+<p>Prefill took 2,721 of 3,769 seconds, 72% of the run. Each step reprocessed 40K to 53K tokens of context almost from scratch, reusing only 4,824 tokens, and the engine log showed the conversation cache was skipped with 226 MiB of RAM available. Context trimming also made it re-read the same files, the ledger 4 times.</p>
+<h3>How was this different from the gpt-oss:20b failure?</h3>
+<p>gpt-oss:20b stopped after 3 minutes 3 seconds in the same loop and answered that it had saved the report without calling write_report. The Strata model made 64 tool calls until the loop's deadline check ended the run at 3,768.7 seconds, wrote no report and wrote no false success sentence. Both failed the same reopen condition.</p>
+<h3>Why did Strata pick a model that did not fit in RAM?</h3>
+<p>strata launch --plan counted 48 GB of RAM plus 8 GB of VRAM as 56 GB and recommended IQ3_XXS, while Strata's docs say that with 48 GB only Q2_0 and IQ2_XS may fit. The spec said to use the plan's recommendation, so it ran in low-memory mode, reading experts from SSD.</p>
+<h3>What would reopen the question?</h3>
+<p>A machine with 64 GB+ of RAM, or a plan that does not use low-memory mode, such as IQ2_XS or Q2_0 fitting in RAM, passing on the same prompt and loop with completion, at least 2 candidates and 0/5 fabrications. An IQ2_XS run would go in an auxiliary column only.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./ollama-ignored-modelfile-template-token-check.html">Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It.</a></li>
+<li><a href="./local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=local-moe-on-8gb-gpu-never-wrote-the-report">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
