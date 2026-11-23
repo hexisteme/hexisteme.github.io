@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>I Mined 515 of My Own Commits for LLM Eval Tasks. 59 Reproduced and 25 Got In. — hexisteme notes</title>
+<meta name="description" content="A daily job processed 515 of my own commits for LLM eval tasks; 59 reproduced as fail-to-pass, 25 passed curation; the freeze stayed my call.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/mining-my-commits-for-llm-eval-tasks.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="I Mined 515 of My Own Commits for LLM Eval Tasks. 59 Reproduced and 25 Got In.">
+<meta property="og:description" content="A daily job processed 515 of my own commits for LLM eval tasks; 59 reproduced as fail-to-pass, 25 passed curation; the freeze stayed my call.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/mining-my-commits-for-llm-eval-tasks.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/mining-my-commits-for-llm-eval-tasks.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-23">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="I Mined 515 of My Own Commits for LLM Eval Tasks. 59 Reproduced and 25 Got In.">
+<meta name="twitter:description" content="A daily job processed 515 of my own commits for LLM eval tasks; 59 reproduced as fail-to-pass, 25 passed curation; the freeze stayed my call.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/mining-my-commits-for-llm-eval-tasks.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "I Mined 515 of My Own Commits for LLM Eval Tasks. 59 Reproduced and 25 Got In.", "datePublished": "2026-11-23", "dateModified": "2026-11-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Running a daily unattended job that harvests fail-to-pass LLM eval tasks from your own commit history, and keeping version freezes manual.", "image": "https://hexisteme.github.io/notes/og/mining-my-commits-for-llm-eval-tasks.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How many of my commits became LLM eval tasks?", "acceptedAnswer": {"@type": "Answer", "text": "In the first scheduled run, 515 commits were processed. 59 reproduced as fail-to-pass tasks and 25 of those were accepted by curation. 268 of the 515 had no changed tests, and 79 used an unsupported test runner."}}, {"@type": "Question", "name": "Why does the job skip instead of retrying when the environment is broken?", "acceptedAnswer": {"@type": "Answer", "text": "In the scheduled job, each stage skips SHAs that stage has already judged (curate can still pick up an f2p that harvest reproduced earlier but curate never judged), and the spec forbade erasing failures with --recheck, so environment-caused failures would stay on record. If the data volume is not mounted, Postgres is down, or the internal disk has under 20 GB free, the job calls no stage (rc 3); if a conflicting process holds the lock it also calls no stage (rc 6). It catches up the next day, and a stall of 48 h or more in harvest_last_ok raises an alert."}}, {"@type": "Question", "name": "Why pin the Python interpreter in the launchd job?", "acceptedAnswer": {"@type": "Answer", "text": "For repositories without a virtualenv, choose_interpreter records sys.executable as the grading interpreter. launchd's default python3 on this machine is 3.9.6 while my manual runs used 3.13, so the job pins the 3.13 framework Python. In the first run, 24 of 25 new accepted tasks matched the env_id of earlier tasks with the same interpreter, and the remaining one was confirmed with env_probe."}}, {"@type": "Question", "name": "What checks ran around the v0.4 freeze?", "acceptedAnswer": {"@type": "Answer", "text": "Before the freeze: a database backup, a regrade of the 25 new tasks with reference answers graded 3 times (25/25 passed, 0 demoted), and a mock freeze on a copy of the database. Then the real freeze with rc 0, followed by an oracle dry run on the 96 dev tasks where gold passed 96/96 and empty answers passed 0/96."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>I Mined 515 of My Own Commits for LLM Eval Tasks. 59 Reproduced and 25 Got In.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-23</p>
+<div class="note">The first scheduled run of a daily job that mines my own commits for LLM eval tasks processed 515 commits: 268 changed no tests, 59 reproduced as fail-to-pass, and 25 passed curation. The job stops at curation; I chose when to pin v0.4 and had my main Claude session run the regrade and freeze, which took the bank from 111 to 136 tasks.</div>
+
+<p>On November 17 at 04:30, launchd started a job on my Mac that I had set up the day before. It finished at 06:25. In that window it processed 515 commits from my own repositories, found 59 that reproduced as fail-to-pass tasks, and accepted 25 of them as candidates for the task bank I use to evaluate local LLMs. Later that morning I decided to pin a new version and had my main Claude session run the regrade and the freeze, and the bank went from 111 tasks in v0.3 to 136 in v0.4.</p>
+
+<p>This note is about two things: what the funnel from commit to task actually looks like, and where I drew the line between what runs unattended and what I still do by hand.</p>
+
+<h2 id="what-the-bank-is-made-of">What the bank is made of</h2>
+
+<p>Each task comes from a commit in my own history where a test that fails before the change passes after it. I call that fail-to-pass, f2p for short. A model gets the state before the commit, and the tests decide whether its change does the job.</p>
+
+<p>Until November 16 I ran the pipeline by hand, and 484 commits had piled up that nothing had looked at yet. The job I wrote runs three existing stages every day at 04:30:</p>
+
+<ul><li><code>attribute</code> produces a snapshot of commit SHAs to consider. On November 16 it took 156 s over 2,470 events.</li><li><code>harvest</code> tries to reproduce each SHA it has not seen as an f2p task and records a category for it.</li><li><code>curate</code> judges each new f2p and records either <code>accepted</code> or the reason it was turned down.</li></ul>
+
+<p>The job is a wrapper script, a plist and an alert. The spec I wrote for it ruled out changing the harvest or task bank logic, adding retries or incremental attribution, and putting regrade, freeze or input revision into the job.</p>
+
+<h2 id="the-funnel-from-one-scheduled-run">The funnel from one scheduled run</h2>
+
+<p>The attribute snapshot resolved 1,973 SHAs. Harvest skipped 1,458 of them and ran on 515. The 1,458 matches the number of harvest rows that already existed before the run, and harvest does not look at a SHA it has already judged. After the run, the count of resolved SHAs missing from the harvest log was 0.</p>
+
+<p>The 515 is larger than the 484 backlog because new commits from November 16 and 17 were added to the snapshot before the run.</p>
+
+<p>Here is where the 515 went:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: The funnel from one scheduled run" tabindex="0">
+<table>
+<thead><tr><th>harvest category</th><th>count</th></tr></thead>
+<tbody>
+<tr><td>no_changed_tests</td><td>268</td></tr>
+<tr><td>unsupported_runner</td><td>79</td></tr>
+<tr><td>before_collection_error</td><td>59</td></tr>
+<tr><td>reproducible_f2p</td><td>59</td></tr>
+<tr><td>after_fails</td><td>24</td></tr>
+<tr><td>before_errors_only</td><td>10</td></tr>
+<tr><td>after_collection_error</td><td>7</td></tr>
+<tr><td>env_unavailable</td><td>6</td></tr>
+<tr><td>weak_verifier</td><td>3</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>More than half of the commits, 268 of 515, did not change any tests, so they never got as far as a reproduction attempt in this run. Another 79 used a test runner the harvester does not support. Only 59 landed in <code>reproducible_f2p</code>. The other categories are failures at different points before or after the change, and the table is the full record I have of them; I did not break them down further.</p>
+
+<p>Curate then ran on exactly those 59 new f2p tasks (it also skipped 204). The outcomes:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 2: The funnel from one scheduled run" tabindex="0">
+<table>
+<thead><tr><th>curate outcome</th><th>count</th></tr></thead>
+<tbody>
+<tr><td>accepted</td><td>25</td></tr>
+<tr><td>gold_creates_files</td><td>11</td></tr>
+<tr><td>input_oversize</td><td>9</td></tr>
+<tr><td>too_many_source_files</td><td>9</td></tr>
+<tr><td>no_source_change</td><td>4</td></tr>
+<tr><td>gold_failed</td><td>1</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>So a commit had to survive two filters. Harvest asks whether the history contains a test that flips from failing to passing. Curate asks whether that flip makes a usable task: not too large an input, not too many source files, a reference change that does not need any source file missing from the starting state, an actual source change. 25 of 59 survived both.</p>
+
+<p>If you plan to mine your own history for eval tasks, the useful thing for me was seeing this distribution in one table. Most of my commits were not tasks.</p>
+
+<h2 id="failures-that-come-from-the-machine-not-the-commit">Failures that come from the machine, not the commit</h2>
+
+<p>The most important design constraint came from how the scheduled job uses the existing pipeline: the skip applies per stage. Harvest does not revisit a SHA it has already judged, and curate does not revisit a SHA it has already judged, though curate reads the whole harvest log, so an f2p that harvest reproduced in an earlier run but curate never judged can still be picked up by a later run. If the job runs while the environment is broken, the commits that fail because of the environment keep that failure on record. Curate does have an explicit <code>--recheck</code> path, and the spec forbade using it, deleting harvest rows, or editing curation records to erase those failures.</p>
+
+<p>So the wrapper checks preconditions before calling any stage:</p>
+
+<ul><li>If the external volume holding the data is not mounted, Postgres is not running, or the internal disk has less than 20 GB free, it calls no stage and exits with rc 3.</li><li>If the lock is held or a conflicting process is running (an eval run, a nightly baseline experiment, or another harvest, curate, regrade or freeze), it calls no stage and exits with rc 6.</li></ul>
+
+<p>Neither case raises an alert. The job skips and catches up the next day. What does raise a one-line alert at the start of my next session is <code>harvest_last_ok</code> going 48 h or more without an update.</p>
+
+<p>A stage failure alerts with rc 1. A run that completes but looks environment-shaped alerts with rc 8: environment categories at 5 or more and at 20 % or more of the run, or any curate reason from <code>curation_error</code>, <code>env_unidentified</code> or <code>base_unpreparable</code>.</p>
+
+<p>I set those thresholds from existing data before the first run. Across the cumulative harvest log, 31 of 1,458 rows were environment failures (2.1 %), and the November 4 run had 1 out of 93. Against that, 20 % is an outlier. The curate environment reasons had 0 occurrences in 293 curation rows when I checked on November 16, so a single one alerts. The spec forbade changing either threshold or the list of environment categories after seeing the first run's results without a recorded amendment.</p>
+
+<p>The first run came in at 6 of 515 environment failures, all <code>env_unavailable</code>, which is 1.2 %, and 0 curate environment reasons. No alert.</p>
+
+<h2 id="the-interpreter-that-launchd-would-have-picked">The interpreter that launchd would have picked</h2>
+
+<p>One decision came from reading the code rather than from the spec template. For a repository without a virtualenv, <code>choose_interpreter</code> records <code>sys.executable</code> as the interpreter that grades the task. My manual runs used Python 3.13. The python3 that launchd picks by default on this machine is 3.9.6. For repositories without their own virtualenv, a scheduled job left at the default would have graded new tasks under a different interpreter from the one my manual runs had used.</p>
+
+<p>The job pins the 3.13 framework Python in the plist. It also sets PATH explicitly, because the sandboxed tests inherit PATH as is (<code>sandbox_env</code>).</p>
+
+<p>The acceptance check for this was to compare the env_id of each newly accepted task with the env_id of earlier accepted tasks that used the same interpreter. 24 of the 25 matched. The remaining one came from a repository with its own virtualenv that had no earlier accepted task, so there was nothing to compare against. My main Claude session ran <code>taskbank.env_probe</code> again from an interactive shell with the same interpreter, and the id matched.</p>
+
+<p>The spec also said a manual <code>launchctl kickstart</code> does not count as the scheduled run. The launchd record showed runs = 1 and last exit code 0, with no kickstart.</p>
+
+<p>The run took about 1 h 55 m. My estimate from the November 4 run (93 SHAs in about 15 minutes for harvest, 5 curations in about 29 minutes) had been 3 to 4 hours for the first run and about 20 minutes per day after that. I did not confirm why the first run was faster than estimated, and the daily figure is still an estimate.</p>
+
+<h2 id="the-freeze-stays-with-me">The freeze stays with me</h2>
+
+<p>On November 16 I decided the job's scope myself: daily at 04:30, attribute plus harvest plus curate, with pinning a version left to a person. The daily job only produces accepted candidates. Turning candidates into a fixed version is a separate step, and on November 17 I told my main Claude session to run the v0.4 regrade and freeze. It did this:</p>
+
+<ul><li>Backed up the database before freezing and checked its integrity.</li><li>Ran <code>regrade</code> from 08:21 to 08:33: the 25 accepted tasks not yet in a version had their reference answers graded 3 times, and the empty-diff rejection was checked again. 25 of 25 passed and 0 were demoted.</li><li>Ran a mock freeze on a copy of the production database: 136 tasks, dev 96, frozen 40, 0 excluded. The copy was deleted, and the real freeze later matched these numbers.</li><li>Ran <code>freeze --version v0.4</code>: rc 0, integrity ok.</li><li>Ran an oracle dry run on the 96 dev tasks. The gold answers passed 96/96. Empty answers passed 0/96, all of them as <code>edit_no_blocks</code>. The frozen split was not run, not even with the oracle, following the precedent from v0.1.</li></ul>
+
+<p>The result is v0.4 with 136 tasks: dev 96 and frozen 40 (29.4 %), in 43 task groups, with 0 excluded. All 111 tasks from v0.3 are in it. The 25 new ones split dev 18 and frozen 7, where 6 of the frozen ones are a single task group from one repository and 1 comes from another.</p>
+
+<p>Two warnings went into the freeze record. The largest dev task group has 40 tasks from one repository, and the next has 20. The frozen cap is max(2, 40 × 25 %) = 10, so the new frozen group of 6 is under it. And because new tasks were inserted into the case ordering, "the first N of v0.4 dev" may differ from the first N of v0.3. My existing baseline comparisons use the first 10 of v0.2 dev, which are fixed to v0.2, so they are not affected.</p>
+
+<h2 id="what-i-still-don-t-know">What I still don't know</h2>
+
+<p>This is one scheduled run. The daily cost of about 20 minutes has not been measured yet, and the stall alert has not had a chance to fire.</p>
+
+<p>The 6 commits that failed as <code>env_unavailable</code> stay recorded that way. Re-harvesting environment failures was explicitly out of scope, so those SHAs will not be looked at again unless I build that.</p>
+
+<p>And the shape of the bank follows the shape of my history. 268 of the 515 commits changed no tests, and in this run none of them became tasks. The largest dev task group alone holds 40 of the 96 dev tasks, all from one repository. Whether that skew matters for the comparisons I run on this bank is something I have not checked.</p>
+
+<h2>FAQ</h2>
+<h3>How many of my commits became LLM eval tasks?</h3>
+<p>In the first scheduled run, 515 commits were processed. 59 reproduced as fail-to-pass tasks and 25 of those were accepted by curation. 268 of the 515 had no changed tests, and 79 used an unsupported test runner.</p>
+<h3>Why does the job skip instead of retrying when the environment is broken?</h3>
+<p>In the scheduled job, each stage skips SHAs that stage has already judged (curate can still pick up an f2p that harvest reproduced earlier but curate never judged), and the spec forbade erasing failures with --recheck, so environment-caused failures would stay on record. If the data volume is not mounted, Postgres is down, or the internal disk has under 20 GB free, the job calls no stage (rc 3); if a conflicting process holds the lock it also calls no stage (rc 6). It catches up the next day, and a stall of 48 h or more in harvest_last_ok raises an alert.</p>
+<h3>Why pin the Python interpreter in the launchd job?</h3>
+<p>For repositories without a virtualenv, choose_interpreter records sys.executable as the grading interpreter. launchd's default python3 on this machine is 3.9.6 while my manual runs used 3.13, so the job pins the 3.13 framework Python. In the first run, 24 of 25 new accepted tasks matched the env_id of earlier tasks with the same interpreter, and the remaining one was confirmed with env_probe.</p>
+<h3>What checks ran around the v0.4 freeze?</h3>
+<p>Before the freeze: a database backup, a regrade of the 25 new tasks with reference answers graded 3 times (25/25 passed, 0 demoted), and a mock freeze on a copy of the database. Then the real freeze with rc 0, followed by an oracle dry run on the 96 dev tasks where gold passed 96/96 and empty answers passed 0/96.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./claude-reasoning-effort-ab-on-20-bug-fixes.html">I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes</a></li>
+<li><a href="./green-tests-prove-behavior-not-reachability.html">Your Tests Were Green Because the Gate Was Never Wired In</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=mining-my-commits-for-llm-eval-tasks">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
