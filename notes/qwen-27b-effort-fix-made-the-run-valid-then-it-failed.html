@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Removing a Hidden Effort Prompt Made My Local Qwen 27B Run Valid. It Still Missed the Bar. — hexisteme notes</title>
+<meta name="description" content="A retry with top-level reasoning_effort medium fixed my local Qwen 27B prompt on 10/10 tasks, then scored 4/10 applicable patches and was rejected.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/qwen-27b-effort-fix-made-the-run-valid-then-it-failed.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Removing a Hidden Effort Prompt Made My Local Qwen 27B Run Valid. It Still Missed the Bar.">
+<meta property="og:description" content="A retry with top-level reasoning_effort medium fixed my local Qwen 27B prompt on 10/10 tasks, then scored 4/10 applicable patches and was rejected.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/qwen-27b-effort-fix-made-the-run-valid-then-it-failed.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/qwen-27b-effort-fix-made-the-run-valid-then-it-failed.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-23">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Removing a Hidden Effort Prompt Made My Local Qwen 27B Run Valid. It Still Missed the Bar.">
+<meta name="twitter:description" content="A retry with top-level reasoning_effort medium fixed my local Qwen 27B prompt on 10/10 tasks, then scored 4/10 applicable patches and was rejected.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/qwen-27b-effort-fix-made-the-run-valid-then-it-failed.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Removing a Hidden Effort Prompt Made My Local Qwen 27B Run Valid. It Still Missed the Bar.", "datePublished": "2026-11-23", "dateModified": "2026-11-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "A pre-registered retry of a local Qwen 27B build-fix experiment, where fixing how a reasoning-effort paragraph was removed made the run valid and the valid run was then rejected.", "image": "https://hexisteme.github.io/notes/og/qwen-27b-effort-fix-made-the-run-valid-then-it-failed.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How did you confirm the reasoning-effort paragraph was actually removed this time?", "acceptedAnswer": {"@type": "Answer", "text": "The pre-registration required the prompt overhead, usage.prompt_tokens minus the message body tokens, to be about 14 (±3) on all 10 tasks instead of the baseline's 52. It was 14 on 10/10 tasks, and 0 of the 6 non-empty outputs were byte-identical to the baseline. The 4 empty outputs were 0 characters in both runs, so I did not count them as evidence."}}, {"@type": "Question", "name": "Why was the run rejected when pass@1 went from 2/10 to 4/10?", "acceptedAnswer": {"@type": "Answer", "text": "The pre-registered verdict was on applicable patches, with 5/10 or more to support and under 5/10 to reject. The run had 4/10 applicable. pass@1 and finish_length were reported only. It is also a single run at seed 0 and temperature 0.6, so I do not use the change from 2 to 4 as an effect size."}}, {"@type": "Question", "name": "Were the failing tasks stuck in a reasoning loop?", "acceptedAnswer": {"@type": "Answer", "text": "No. All 6 failures were classified as progress by the same classify_reasoning thresholds as the earlier diagnosis: maximum same-line repeat 1 to 2, tail zlib ratio 0.28 to 0.34, and 0 SEARCH markers. The 5 tasks that still hit the 12,288-token budget had 40 to 45k characters of reasoning."}}, {"@type": "Question", "name": "Why not just raise the output token budget?", "acceptedAnswer": {"@type": "Answer", "text": "With a registered context of 49,152 tokens and a longest input of 36,425, about 12.7k is the most I could give all 10 tasks after overhead, and the budget was already 12,288. A larger context might not fit its KV memory in 24 GB. I did not measure that."}}, {"@type": "Question", "name": "What did you decide after the rejection?", "acceptedAnswer": {"@type": "Answer", "text": "I stopped the 27B experiments on this Mac. Moving them to a Mac Studio is the plan, dated 12-15; it has not happened yet in this record. The low-effort run and the no-think probe were not done here; the remaining variables get new pre-registrations on the larger machine."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Removing a Hidden Effort Prompt Made My Local Qwen 27B Run Valid. It Still Missed the Bar.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-23</p>
+<div class="note">A retry of my local Qwen3.8 27B effort experiment sent <code>reasoning_effort: medium</code> as a top-level request field, and the pre-registered overhead check came out at 14 on 10/10 tasks, so the run was valid. It then produced 4/10 applicable patches against a threshold of 5/10 and was rejected; I stopped the 27B experiments on this Mac.</div>
+
+<p>On November 16 an overnight run on my local Qwen3.8 27B finished at 09:12:16. The pre-registration put one check ahead of the score: the prompt overhead, <code>usage.prompt_tokens</code> minus the tokens of the message body, per task. The pre-registration said it had to be about 14 on all 10 tasks. It was 14 on 10/10. The run was valid. The verdict was a rejection: 4/10 applicable patches against a threshold of 5/10.</p>
+
+<p>This is the follow-up to an earlier run that never got a verdict at all. That one tried to remove a reasoning-effort paragraph from the prompt by editing the Ollama Modelfile <code>TEMPLATE</code>. The registered template changed, but the server's prompt did not: the overhead stayed at 52 on 10/10 tasks, the outputs were byte-identical to the baseline, and the pre-registered token check voided the run. This note is about the retry, where the variable finally reached the model, and about why I count a clean rejection as more useful than the void before it.</p>
+
+<h2 id="what-the-retry-changed">What the retry changed</h2>
+
+<p>Reading the static files, the jinja chat template embedded in the GGUF inserts the paragraph through <code>reasoning_effort|default('xhigh')</code>. With <code>medium</code> there is no paragraph. My guess is that Ollama renders this model's prompt with that embedded template, but I did not confirm which component does the rendering. What the earlier run did show is that the Modelfile <code>TEMPLATE</code> was not the path used for this model, so the lever had to be on the request side.</p>
+
+<p>A daytime probe on November 8 settled which request field worked. I sent the same short message several ways and read the server's <code>prompt_tokens</code>:</p>
+
+<div class="table-scroll" role="region" aria-label="Table 1: What the retry changed" tabindex="0">
+<table>
+<thead><tr><th>request</th><th>prompt_tokens</th></tr></thead>
+<tbody>
+<tr><td>baseline, no effort field</td><td>61</td></tr>
+<tr><td><code>/v1</code>, top-level <code>reasoning_effort: medium</code></td><td>23</td></tr>
+<tr><td><code>/v1</code>, top-level <code>reasoning_effort: low</code></td><td>49</td></tr>
+<tr><td><code>chat_template_kwargs</code> with <code>reasoning_effort</code></td><td>61</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Medium dropped 38 tokens (the 37-token paragraph plus 1 separator). <code>chat_template_kwargs</code> was ignored. The native <code>/api/chat</code> with <code>think</code> behaved like the top-level field.</p>
+
+<p>So the retry was the same experiment as the void run, implemented through the field that worked. Same model, same weights blob, same template and parameters as the baseline, same 10 build-fix tasks, temperature 0.6, top_p 0.95, max_tokens 12,288, seed 0. The one difference was <code>RunConfig.reasoning_effort = "medium"</code>, which the harness adds to the config hash and to the request only when it is set, so the baseline's hash did not move. A new hash also meant the run could not read the baseline's generation cache.</p>
+
+<p>The run script repeated the probe right after loading the model and refused to start unless the top-level medium request was effective. On November 16 at 00:34 that probe gave medium 61→23, low 61→49, and <code>chat_template_kwargs</code> ignored, the same as the daytime probe. The run itself went from 03:40:14 to 09:12:16, 5 h 32 m, against 6 h 28 m for the baseline.</p>
+
+<h2 id="validity-first">Validity first</h2>
+
+<p>The pre-registration, written on November 8 before any result, fixed the order: check validity, then judge.</p>
+
+<ul><li>Prompt overhead on every task should be ≈ 14 (the baseline's 52 minus 38, ±3). If any task is near 52, the run is void and gets no verdict.</li><li>As a second signal, report how many outputs are byte-identical to the baseline.</li></ul>
+
+<p>The result was overhead 14 on 10/10 tasks and zero tasks near 52. For the second signal, 0 of the 6 non-empty outputs matched the baseline byte for byte. Four outputs were empty in both runs, 0 characters each, so they are identical by construction, and I did not count them as evidence either way.</p>
+
+<p>In the void run, the byte-identical outputs were independent evidence that the server saw the old prompt; the token overhead was what decided validity. Here the same check points the other way: the outputs changed, which is what should happen when the prompt changes under a fixed seed.</p>
+
+<h2 id="the-verdict-in-the-pre-registered-wording">The verdict, in the pre-registered wording</h2>
+
+<p>The threshold was the same one my earlier baseline runs used, with no adjustment after the fact: 5/10 or more applicable patches supports the hypothesis, under 5/10 rejects it. "Applicable" means the generated diff got through <code>git apply</code> and reached the tests.</p>
+
+<ul><li>Applicable: 4/10. Rejected.</li><li>Reported only, not judged: pass@1 4/10 (baseline 2/10). All 4 applied patches passed.</li><li>Reported only: <code>finish_length</code> 5/10 (baseline 8/10).</li></ul>
+
+<p>The number that looks like progress, pass@1 going from 2/10 to 4/10, is not the number I committed to judging on, and I am not going to use it as an effect size. This is a single run at seed 0 and temperature 0.6. When the prompt changes, the whole sampling path changes, so task-by-task flips carry sampling luck. A doubling from 2 to 4 out of 10 on one seed does not tell me how big the effect of removing the paragraph is.</p>
+
+<h2 id="what-happened-per-task">What happened per task</h2>
+
+<p>Removing the paragraph did shorten the reasoning on tasks the model could finish. On one task, completion tokens went from 7,965 to 3,310 and the reasoning from 22.5k to 8.6k characters. Of the 8 tasks that ran out of budget in the baseline, 3 now finished inside it: 2 passed and 1 named the wrong file. A task that was already short in the baseline stayed about the same.</p>
+
+<p>The other half did not move. 5 of 10 tasks still hit the 12,288-token budget, with 40 to 45k characters of reasoning, the same range as in the baseline. The distribution split in two: tasks that finished used roughly 3 to 23k characters of reasoning, and tasks that did not went all the way to the cap.</p>
+
+<p>The two format failures were different from each other:</p>
+
+<ul><li>One task finished its reasoning, started writing the edit, and was cut off by the budget mid-output: 1,188 characters with an unpaired block.</li><li>One finished within budget but named a file that was not in the input as the edit target.</li></ul>
+
+<p>I ran the six failures through the same <code>classify_reasoning</code> function and thresholds as the earlier diagnosis. All 6 came out <code>progress</code>: the maximum same-line repeat was 1 to 2, the tail zlib ratio 0.28 to 0.34, and there were 0 SEARCH markers inside the reasoning. None of the six was a loop. Only 5 of them hit the token limit, and one of those 5 had already finished reasoning and was cut off while writing the output. The sixth finished inside the budget and failed on the file it named.</p>
+
+<h2 id="all-four-tasks-from-one-repository-failed">All four tasks from one repository failed</h2>
+
+<p>Pass counts by repository were 2/3, 2/3, and 0/4. All 4 tasks from one of my repositories failed, each running out of budget at 40 to 43k characters of reasoning.</p>
+
+<p>I cannot say whether that is the repository or the input length. The three longest inputs in the set, 22 to 36k tokens, are all in that repository. One of its tasks had a short 12.6k input and still failed. With 10 tasks, those two explanations are not separable, and I am not picking one.</p>
+
+<h2 id="why-i-did-not-just-raise-the-budget">Why I did not just raise the budget</h2>
+
+<p>The obvious next move would be more output tokens. On this Mac that is blocked by arithmetic. The registered context is 49,152 tokens. The longest input in the set is 36,425. After the prompt overhead, about 12.7k is the most I could give to all 10 tasks, and the current budget is already 12,288. Giving more means a larger context, and the KV cache for that might not fit in 24 GB of memory. I did not measure that; it is the reason I did not try.</p>
+
+<p>The run also ran close to the machine's limits as it was. Free disk fell to 22 GB at its lowest, swap peaked at 20.6 GB, free memory bottomed at 15 %, and the Ollama process peaked at 12.5 GB resident. I had asked three other agent sessions to pause their heavy work for the night and released them at 09:12.</p>
+
+<h2 id="the-decision">The decision</h2>
+
+<p>The run report listed three next options, and on November 16 at 09:45 I took the third:</p>
+
+<ul><li>Run <code>reasoning_effort: low</code> once under a new pre-registration (the probe had already shown low inserts a shorter paragraph).</li><li>Probe a no-think path, which my harness did not yet accept.</li><li>Stop the 27B experiments on this Mac and move them to a Mac Studio, dated 12-15 in my plan.</li></ul>
+
+<p>I chose to stop. The low run and the no-think probe are not happening here. The variables that remain (the thinking budget, the context size, <code>low</code>, no-think) are cheaper to test on a machine with more memory, and they will each get a new pre-registration there.</p>
+
+<h2 id="valid-and-better-are-separate-questions">Valid and better are separate questions</h2>
+
+<p>The fix in this retry was a fix to the measurement. It made the prompt the model saw match the experiment I had written down, and the overhead check confirmed that on every task. That is all it fixed. Whether removing the paragraph helps enough to clear the bar was a separate question, and the answer under my own threshold was no.</p>
+
+<p>The void run could not have told me that. It reported 2/10 applicable, which was a replay of the baseline, and a score with no variable behind it. If I had read that score without the token check, I could have concluded the paragraph makes no difference. The rejection now is narrower and I trust it more: with the paragraph gone, 4/10 tasks produced an applicable patch, half the tasks still ran out of budget while making progress, and that is below 5/10.</p>
+
+<p>What I have not established: whether the half that does not finish would finish with <code>low</code> or no-think, whether more budget would help them or the reasoning would simply grow, and whether the 0/4 repository is about the code or the input length. All of that waits for the larger machine and a new pre-registration.</p>
+
+<h2>FAQ</h2>
+<h3>How did you confirm the reasoning-effort paragraph was actually removed this time?</h3>
+<p>The pre-registration required the prompt overhead, usage.prompt_tokens minus the message body tokens, to be about 14 (±3) on all 10 tasks instead of the baseline's 52. It was 14 on 10/10 tasks, and 0 of the 6 non-empty outputs were byte-identical to the baseline. The 4 empty outputs were 0 characters in both runs, so I did not count them as evidence.</p>
+<h3>Why was the run rejected when pass@1 went from 2/10 to 4/10?</h3>
+<p>The pre-registered verdict was on applicable patches, with 5/10 or more to support and under 5/10 to reject. The run had 4/10 applicable. pass@1 and finish_length were reported only. It is also a single run at seed 0 and temperature 0.6, so I do not use the change from 2 to 4 as an effect size.</p>
+<h3>Were the failing tasks stuck in a reasoning loop?</h3>
+<p>No. All 6 failures were classified as progress by the same classify_reasoning thresholds as the earlier diagnosis: maximum same-line repeat 1 to 2, tail zlib ratio 0.28 to 0.34, and 0 SEARCH markers. The 5 tasks that still hit the 12,288-token budget had 40 to 45k characters of reasoning.</p>
+<h3>Why not just raise the output token budget?</h3>
+<p>With a registered context of 49,152 tokens and a longest input of 36,425, about 12.7k is the most I could give all 10 tasks after overhead, and the budget was already 12,288. A larger context might not fit its KV memory in 24 GB. I did not measure that.</p>
+<h3>What did you decide after the rejection?</h3>
+<p>I stopped the 27B experiments on this Mac. Moving them to a Mac Studio is the plan, dated 12-15; it has not happened yet in this record. The low-effort run and the no-think probe were not done here; the remaining variables get new pre-registrations on the larger machine.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./ollama-ignored-modelfile-template-token-check.html">Ollama Ignored My Modelfile TEMPLATE. A Pre-Registered Token Count Caught It.</a></li>
+<li><a href="./claude-reasoning-effort-ab-on-20-bug-fixes.html">I Tested Three Claude Reasoning Effort Policies on 20 of My Own Bug Fixes</a></li>
+<li><a href="./local-llm-oom-apfs-corruption-postmortem.html">The Guardrail Has to Be Code: How a Runaway Local LLM Corrupted APFS and Bricked a Mac Mini</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=qwen-27b-effort-fix-made-the-run-valid-then-it-failed">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
