@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-7043920969859832">
+<title>Readers Found Two Gaps in My AI Agent&#x27;s Review Rules. Undoing an Approval Now Needs Its Own Flag. — hexisteme notes</title>
+<meta name="description" content="Two reader comments showed my AI agent could undo my approvals and that contradicted data lost its counterpart. Here is the fix, and the gap it left.">
+<link rel="canonical" href="https://hexisteme.github.io/notes/undo-approval-got-its-own-flag.html">
+<meta name="robots" content="max-image-preview:large">
+<meta name="author" content="hexisteme">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Readers Found Two Gaps in My AI Agent&#x27;s Review Rules. Undoing an Approval Now Needs Its Own Flag.">
+<meta property="og:description" content="Two reader comments showed my AI agent could undo my approvals and that contradicted data lost its counterpart. Here is the fix, and the gap it left.">
+<meta property="og:url" content="https://hexisteme.github.io/notes/undo-approval-got-its-own-flag.html">
+<meta property="og:site_name" content="hexisteme notes">
+<meta property="og:image" content="https://hexisteme.github.io/notes/og/undo-approval-got-its-own-flag.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-23">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Readers Found Two Gaps in My AI Agent&#x27;s Review Rules. Undoing an Approval Now Needs Its Own Flag.">
+<meta name="twitter:description" content="Two reader comments showed my AI agent could undo my approvals and that contradicted data lost its counterpart. Here is the fix, and the gap it left.">
+<meta name="twitter:image" content="https://hexisteme.github.io/notes/og/undo-approval-got-its-own-flag.png">
+<style>
+body{font:16px/1.75 -apple-system,system-ui,sans-serif;max-width:780px;margin:0 auto;padding:28px 24px;color:#1a1a1a}
+a{color:#0969da}h1{font-size:26px;line-height:1.3;margin-bottom:6px}h2{font-size:19px;margin-top:36px;border-bottom:1px solid #e8e8e8;padding-bottom:5px}h3{font-size:16px;margin-top:24px}
+code{background:#f6f8fa;border-radius:4px;padding:1px 6px;font-size:13.5px;font-family:ui-monospace,monospace}
+pre{background:#f6f8fa;border-radius:8px;padding:16px;overflow-x:auto;font-size:13.5px;font-family:ui-monospace,monospace;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0}th,td{border:1px solid #e0e0e0;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}
+.note{background:#f0f7ff;border-left:3px solid #0969da;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.warn{background:#fff8e1;border-left:3px solid #f0a500;padding:12px 16px;margin:14px 0;border-radius:0 6px 6px 0}
+.meta{font-size:13px;color:#666}.foot{font-size:13px;color:#666;border-top:1px solid #e8e8e8;margin-top:40px;padding-top:14px}
+.cta{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:32px;padding-top:16px}
+.aside{font-size:14px;color:#444;margin-top:16px}.offer{font-size:14px;color:#444;border-top:1px solid #e8e8e8;margin-top:16px;padding-top:16px}.table-scroll{overflow-x:auto;margin:14px 0}.table-scroll>table{margin:0}.table-scroll:focus-visible{outline:2px solid #0969da;outline-offset:2px}body{overflow-wrap:break-word}</style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Readers Found Two Gaps in My AI Agent's Review Rules. Undoing an Approval Now Needs Its Own Flag.", "datePublished": "2026-11-23", "dateModified": "2026-11-23", "inLanguage": "en", "author": {"@type": "Person", "name": "hexisteme", "url": "https://hexisteme.github.io/"}, "about": "Separating the undo of a human approval from routine AI agent verdicts in a claim review store, and preserving what a contradicted datum was contradicted by without changing existing hashes.", "image": "https://hexisteme.github.io/notes/og/undo-approval-got-its-own-flag.png", "publisher": {"@type": "Organization", "name": "hexisteme", "url": "https://hexisteme.github.io/"}}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What was wrong with the earlier withdraw-but-not-approve rule?", "acceptedAnswer": {"@type": "Answer", "text": "The transition table allowed passed → withdrawn, and the only code gate was the terminal check, which treated every decision the same. A line in an agent-written review script that reversed one of my passes would be recorded with the same call and the same 8-character confirmation as a routine verdict on a pending claim."}}, {"@type": "Question", "name": "How is undoing an approval separated now?", "acceptedAnswer": {"@type": "Answer", "text": "passed → failed and passed → withdrawn, the only two transitions that leave passed, return TRANSITION_INVALID in the library without undo_approval=True. The CLI refuses them before the confirmation prompt without --undo-approval, and with the flag it shows the approval being undone and accepts only undo- followed by the first 8 characters of the claim's id; typing those 8 characters alone cancels. The flag on a pending claim is refused."}}, {"@type": "Question", "name": "Why is the conflicts key left out when it is empty?", "acceptedAnswer": {"@type": "Answer", "text": "datum_ref is a hash of the whole stored datum dict. Writing an empty conflicts key on every datum would change the refs of every new report, so the renderer writes it only when it is non-empty, following the existing pattern for basis and derivations."}}, {"@type": "Question", "name": "How was the change checked against real data?", "acceptedAnswer": {"@type": "Answer", "text": "Tests went from 1124 to 1135 passing. A read-only replay loaded all 119 claims with 0 errors, the same 5 claims got the contradiction note with the old wording, the premise datum_ref mismatch count was 0, and the data fingerprint was unchanged."}}, {"@type": "Question", "name": "What is still not fixed?", "acceptedAnswer": {"@type": "Answer", "text": "The reviewer field is only the OS login name, so an agent running under my login would record reviews under my name. Reviewer authentication and retroactive enrichment of the 5 already-contradicted claims were left out of scope."}}]}
+</script>
+<script data-goatcounter="https://hexisteme.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<h1>Readers Found Two Gaps in My AI Agent&#x27;s Review Rules. Undoing an Approval Now Needs Its Own Flag.</h1>
+<p class="meta"><a href="../">← hexisteme</a> · <a href="./">notes</a> · 2026-11-23</p>
+<div class="note">Two reader comments on my earlier note exposed that my AI agent could undo my approvals through the same path as a routine withdrawal, and that contradicted data kept the flag but lost its counterpart. Undoing a pass now needs <code>undo_approval=True</code> or <code>--undo-approval</code> plus a distinct confirmation, and contradicted data keeps a <code>conflicts</code> field; the reviewer is still only the OS login name.</div>
+
+<p>Two readers left comments on my earlier note about letting an AI agent withdraw evidence claims but not approve them. In my replies I admitted two gaps in my research tool. One was that the agent could still remove something I had approved, through the same path it used for withdrawals. The other was that a datum flagged as contradicted kept the flag but lost the value it was contradicted by. On November 18 I decided to fix both. This note covers what changed, how I checked it against the real store, and the gap the comments pointed at that I left open.</p>
+
+<h2 id="where-the-earlier-rule-stopped">Where the earlier rule stopped</h2>
+
+<p>The earlier note set up a split for a batch of pending claims. The agent was delegated withdrawals. Passing a claim, which adopts it as evidence, stayed with me. Nothing in that rule said the delegation was limited to pending claims. That split covers two acts: approving and withdrawing.</p>
+
+<p>One reader asked about reversibility and about who is on the hook for each decision. Answering that made me look at the transition table again, and it allowed passed → withdrawn. In my reply I wrote that an agent withdrawing a passed claim removes something I approved and stops it propagating, which is the expensive direction. The only code gate was the terminal check, and it treated every decision the same. A line in an agent-written review script that reversed one of my passes would be recorded with the same call and the same 8-character confirmation as a routine verdict on a pending claim.</p>
+
+<p>So there was a third act the split had not named: undoing an approval. It needed its own door.</p>
+
+<h2 id="the-first-gap-undoing-a-pass">The first gap: undoing a pass</h2>
+
+<p>The transition table has exactly two transitions that leave passed: passed → failed and passed → withdrawn. Both count as undoing an approval, so both got the same treatment.</p>
+
+<p>In the library, <code>record_assessment_review</code> now takes an explicit <code>undo_approval</code> argument. Recording failed or withdrawn on a passed claim without <code>undo_approval=True</code> returns TRANSITION_INVALID. With the flag, it is recorded. Passing the flag on a pending claim is refused too, because there is no approval to undo there. Transitions out of pending behave as before.</p>
+
+<p>In the CLI, <code>assess review</code> on a passed claim without <code>--undo-approval</code> is refused before the confirmation prompt appears. With the flag, it first shows the approval being undone: who recorded it, when, and the reason. Then it accepts only the string <code>undo-</code> followed by the first 8 characters of the claim's id. Typing the 8 characters alone, which is what a normal review asks for, cancels. The flag on a pending claim is refused.</p>
+
+<p>A script built to answer the routine prompt cannot reverse a pass by accident, because the routine answer cancels. Existing tests that reversed a pass were allowed one edit, adding <code>undo_approval=True</code> at the call site; their expected codes and states stayed the same.</p>
+
+<h2 id="the-second-gap-the-counterpart-was-thrown-away">The second gap: the counterpart was thrown away</h2>
+
+<p>The other reader described a listing where three pages on one vendor's domain said free, free, and freemium. In my reply I explained that my tool would count those as one source, and that for conflicting values it does less than you might expect. The pipeline already flagged some data as contradicted, and a review note surfaced that flag with fixed wording saying the contradiction in meaning was unconfirmed. It never picked a value.</p>
+
+<p>Then I admitted the gap: the flag survived in the frozen input, and the value on the other side of the conflict did not. I could later show that a value was disputed, but not what it was disputed against.</p>
+
+<p>The fix adds a <code>conflicts</code> field to the datum:</p>
+
+<ul><li>For a value conflict, it keeps the values that differ from the representative one, each with its source URL.</li><li>For a conflict between claims, it keeps the counterpart group's sentence with its source URL.</li><li>When the counterpart came through the path that withholds excerpts, its title is kept in place of the sentence.</li></ul>
+
+<p>When the frozen premise of a claim carries <code>conflicts</code>, the PREMISE_CONTRADICTED review note now names the counterpart and drops the wording that says the counterpart was not preserved. Claims frozen before this change have no <code>conflicts</code>, so their note keeps the old wording.</p>
+
+<p>What the fix does not touch is the decision of what counts as contradicted. The detection conditions, <code>distinct_values</code> and <code>cross_conflict</code>, were explicitly off limits. The change records the counterpart and nothing else.</p>
+
+<h2 id="why-the-empty-case-writes-no-key">Why the empty case writes no key</h2>
+
+<p>The awkward detail was a hash. Each frozen claim premise refers to its datum by <code>datum_ref</code>, and <code>datum_ref</code> is a hash of the whole stored datum dict. If every datum got a <code>conflicts</code> key, even an empty one, every new report would produce different refs from the same data.</p>
+
+<p>So the renderer writes <code>conflicts</code> only when it is non-empty. A datum that is not contradicted stores exactly the same dict as before, and its ref does not move. This follows a pattern already in the code: candidate fields such as <code>basis</code> and <code>derivations</code> are also left out when they hold default values, to keep existing ids stable. One of the new tests, <code>test_no_conflicts_key_when_not_contradicted</code>, pins this.</p>
+
+<h2 id="checking-it-against-the-real-store">Checking it against the real store</h2>
+
+<p>Unit tests went from 1124 to 1135 passing. The new tests include <code>test_undo_approval_cli_needs_distinct_confirmation</code> for the cancel-on-routine-answer case and <code>test_claim_conflicts_do_not_store_withheld_excerpt</code> for the path that withholds excerpts.</p>
+
+<p>Then I replayed the change over the existing data, read-only. The replay was not allowed to write to the stored data or record a real review. The log:</p>
+
+<pre><code>K 119 loaded, load errors 0
+review history REVIEW_INVALID 0
+PREMISE_CONTRADICTED 5 — same as the 11-08 list: True, old wording kept: True
+stored reports 317, reports with a conflicts key 0
+claim↔report binding: report found 66, not found 53, premise datum_ref mismatch 0
+stored data fingerprint unchanged (read-only): True
+1.0s</code></pre>
+
+<p>K is what my tool calls a claim. All 119 loaded without errors. The same 5 claims as in the November 8 replay got the contradiction note, with the old wording, which is what should happen when none of them carries <code>conflicts</code> yet. None of the 317 stored reports has the new key, because none was produced after the change.</p>
+
+<p>The 53 "not found" needed a second look. For those claims the stored report's digest did not match, so the replay could not pair them with a report file. The datum_ref re-check inside <code>load_inputs</code> passed for all 119. I did not trace why those 53 digests differ; the replay only shows that it is not a datum_ref mismatch.</p>
+
+<p>One more line went into the counsel module's docs. Counsel results are not frozen yet. Once they are, withdrawing a pending claim will break any counsel that cited it, and the delegation rule for withdrawals has to be decided again at that point.</p>
+
+<h2 id="what-the-comments-did-not-fix">What the comments did not fix</h2>
+
+<p>Two things stayed out of scope on purpose.</p>
+
+<p>The first is retroactive enrichment. The 5 claims that already carry the contradiction note were frozen without their counterparts, and they still do not have them. Only reports produced after the change will name what a datum was contradicted by.</p>
+
+<p>The second is the one I care more about. In my reply on revision binding, I wrote that claim files are immutable and the id is a hash of the content, so a review already attaches to one revision, and that the reviewer field is only the OS login name, so the "who" half is the weaker one. This change did not touch that. Undoing a pass now needs a flag and a distinct confirmation string, and the CLI shows whose approval is being undone. But the name it shows is whatever OS login ran the command. An agent running under my login would record reviews under my name, approvals and undo records alike. Reviewer authentication and signing were listed as anti-goals for this change, to keep it small.</p>
+
+<p>So the separate flag guards against a mistake. A script that answers the routine prompt can no longer reverse a pass by answering it. It does not tell me who reversed a pass when the reversal was deliberate. Next I want to decide whether the reviewer field should carry anything an agent session cannot produce, or whether the terminal refusal from the earlier note is the only line I can actually defend.</p>
+
+<h2>FAQ</h2>
+<h3>What was wrong with the earlier withdraw-but-not-approve rule?</h3>
+<p>The transition table allowed passed → withdrawn, and the only code gate was the terminal check, which treated every decision the same. A line in an agent-written review script that reversed one of my passes would be recorded with the same call and the same 8-character confirmation as a routine verdict on a pending claim.</p>
+<h3>How is undoing an approval separated now?</h3>
+<p>passed → failed and passed → withdrawn, the only two transitions that leave passed, return TRANSITION_INVALID in the library without undo_approval=True. The CLI refuses them before the confirmation prompt without --undo-approval, and with the flag it shows the approval being undone and accepts only undo- followed by the first 8 characters of the claim's id; typing those 8 characters alone cancels. The flag on a pending claim is refused.</p>
+<h3>Why is the conflicts key left out when it is empty?</h3>
+<p>datum_ref is a hash of the whole stored datum dict. Writing an empty conflicts key on every datum would change the refs of every new report, so the renderer writes it only when it is non-empty, following the existing pattern for basis and derivations.</p>
+<h3>How was the change checked against real data?</h3>
+<p>Tests went from 1124 to 1135 passing. A read-only replay loaded all 119 claims with 0 errors, the same 5 claims got the contradiction note with the old wording, the premise datum_ref mismatch count was 0, and the data fingerprint was unchanged.</p>
+<h3>What is still not fixed?</h3>
+<p>The reviewer field is only the OS login name, so an agent running under my login would record reviews under my name. Reviewer authentication and retroactive enrichment of the 5 already-contradicted claims were left out of scope.</p>
+
+<h2>Related notes</h2>
+<ul>
+<li><a href="./ai-agent-can-withdraw-but-not-approve.html">My AI Agent Can Withdraw a Claim but Not Approve One</a></li>
+<li><a href="./when-two-ai-reviewers-disagree.html">When Two AI Reviewers Disagree, Read What They Both Rejected</a></li>
+<li><a href="./challenge-triggered-reverification.html">Your AI Agent Folds When You Push Back: Measured Sycophancy and a Challenge-Triggered Verification Gate</a></li>
+</ul>
+
+<div class="cta"><strong>Fixed your problem?</strong> Good — that's the whole point of this page. Every note on this site is free to read. I write one of these up whenever I hit a failure worth recording: agent-fleet operations, harness bugs, and the measurement that proved the fix. <strong><a href="https://hexisteme.beehiiv.com/?modal=signup&amp;utm_campaign=notes-engineering&amp;utm_content=undo-approval-got-its-own-flag">The email list for these notes</a></strong> — no issue has gone out yet, so you would be on it before the first one.</div>
+
+<div class="foot"><a href="../">← hexisteme</a> · <a href="./">notes</a> · <a href="/about/">about</a> · <a href="/editorial-policy/">editorial policy</a> · <a href="/privacy-policy/">privacy</a> · <a href="/contact/">contact</a> · CC-BY 4.0</div>
+</body>
+</html>
